@@ -8,6 +8,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.RadioButton
 import android.widget.TextView
+import android.widget.Toast
 
 /**
  * IME の設定・管理をまとめた画面。
@@ -51,6 +52,21 @@ class SettingsActivity : Activity() {
         engineOnDevice.isChecked = onDeviceOnly
         engineAuto.setOnClickListener { Prefs.setConvertEngine(this, Prefs.ENGINE_AUTO) }
         engineOnDevice.setOnClickListener { Prefs.setConvertEngine(this, Prefs.ENGINE_ONDEVICE) }
+
+        // 拡張辞書。入っていなければ取得、入っていれば更新確認のボタンになる。
+        findViewById<Button>(R.id.btn_dict_action).setOnClickListener { runDictionaryUpdate() }
+        findViewById<Button>(R.id.btn_dict_remove).setOnClickListener {
+            if (DictionaryUpdater.removeExtension(this)) {
+                Toast.makeText(this, R.string.dict_removed, Toast.LENGTH_LONG).show()
+            }
+            refresh()
+        }
+        findViewById<CheckBox>(R.id.check_dict_auto).apply {
+            isChecked = Prefs.isDictAutoUpdate(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on ->
+                Prefs.setDictAutoUpdate(this@SettingsActivity, on)
+            }
+        }
 
         // 速書き調査用のログ（既定オフ）。入力内容は出さない。
         val debug = findViewById<CheckBox>(R.id.debug_strokes)
@@ -112,8 +128,46 @@ class SettingsActivity : Activity() {
         refresh()
     }
 
+    /**
+     * 拡張辞書の取得・更新。
+     * 進捗はボタンのラベルに出す（別ダイアログを重ねない）。
+     */
+    private fun runDictionaryUpdate() {
+        val button = findViewById<Button>(R.id.btn_dict_action)
+        button.isEnabled = false
+        DictionaryUpdater.checkAndUpdate(this, autoDownload = true) { p ->
+            if (isFinishing || isDestroyed) return@checkAndUpdate
+            when (p) {
+                is DictionaryUpdater.Progress.Done,
+                is DictionaryUpdater.Progress.Failed,
+                DictionaryUpdater.Progress.UpToDate,
+                -> {
+                    DictionaryStatus.toast(this, p)
+                    button.isEnabled = true
+                    refresh()
+                }
+
+                else -> button.text = DictionaryStatus.message(this, p)
+            }
+        }
+    }
+
     private fun refresh() {
         store.reloadIfChanged()
+
+        // 拡張辞書の状態。入っていれば版を出し、無ければコア辞書である旨を出す。
+        val version = DictionaryUpdater.installedVersion(this)
+        val hasExt = version > 0
+        findViewById<TextView>(R.id.text_dict_state).text = if (hasExt) {
+            getString(R.string.dict_state_ext, version)
+        } else {
+            getString(R.string.dict_state_core)
+        }
+        findViewById<Button>(R.id.btn_dict_action).setText(
+            if (hasExt) R.string.dict_btn_check else R.string.dict_btn_download,
+        )
+        findViewById<Button>(R.id.btn_dict_remove).isEnabled = hasExt
+
         // どのビルドが端末に入っているか（古い APK が残っていないかの確認用）
         findViewById<TextView>(R.id.text_build).text = BuildInfo.label(this)
         prediction.reloadIfChanged()

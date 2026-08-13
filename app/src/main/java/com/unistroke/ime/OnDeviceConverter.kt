@@ -456,5 +456,19 @@ class OnDeviceConverter private constructor(private val dic: OnDeviceDictionary)
                 }
             }
         }
+
+        /**
+         * 次の [get] で辞書を開き直させる。
+         *
+         * 拡張辞書を入れ替えた／消したときに呼ぶ。既に配られたインスタンスは
+         * 古い mmap を掴んだまま動き続けるが、rename 前の inode は生きているので
+         * 壊れない（次に IME が開かれた時点で新しい辞書に入れ替わる）。
+         */
+        fun reset() {
+            synchronized(this) {
+                instance = null
+                loadFailed = false
+            }
+        }
     }
 }

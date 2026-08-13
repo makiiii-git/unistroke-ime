@@ -102,6 +102,65 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
+            android:text="@string/dict_title"
+            android:textColor="@color/app_text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/dict_body"
+            android:textColor="@color/app_text"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/text_dict_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:fontFamily="monospace"
+            android:textColor="@color/app_text"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/btn_dict_action"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/dict_btn_download" />
+
+        <Button
+            android:id="@+id/btn_dict_remove"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/dict_btn_remove" />
+
+        <CheckBox
+            android:id="@+id/check_dict_auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="48dp"
+            android:text="@string/dict_auto_update"
+            android:textColor="@color/app_text"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/dict_auto_update_note"
+            android:textColor="@color/app_text"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
             android:text="@string/engine_title"
             android:textColor="@color/app_text"
             android:textSize="18sp"

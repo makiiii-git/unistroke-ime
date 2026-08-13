@@ -43,6 +43,37 @@
     <string name="net_convert_off">オフ ― 通信しない（既定）</string>
     <string name="net_convert_on">オン ― 読みを送って変換精度を上げる</string>
 
+    <!-- 拡張辞書の取得（任意・セットアップで案内する） -->
+    <string name="dict_prompt_title">拡張辞書を入れますか？</string>
+    <string name="dict_prompt_body">この IME には<b>約 8 万語のコア辞書が最初から入っています</b>。何もしなくても、オフラインのまま日本語を書けます。\n\nより語彙の広い<b>拡張辞書（約 22 万語 / 約 6.7 MB）</b>を追加すると、固有名詞や専門語の変換が当たりやすくなります。\n\nこれは<b>辞書ファイルを 1 つ受け取るだけ</b>の操作です。あなたが入力した内容が送られることはありません（「ネット変換」とは別の機能です）。\n\nWi-Fi での実行をおすすめします。あとから設定画面でも入れられます。</string>
+    <string name="dict_prompt_yes">ダウンロードする</string>
+    <string name="dict_prompt_later">あとで</string>
+
+    <string name="dict_title">拡張辞書</string>
+    <string name="dict_body">コア辞書（約 8 万語）は本体に内蔵されているので、拡張辞書が無くてもオフラインで変換できます。拡張辞書（約 22 万語）を入れると、固有名詞や専門語に強くなります。\n\n辞書ファイルを受け取るだけで、入力内容は送信しません。受け取ったファイルはハッシュ（SHA-256）を照合し、辞書として開けることを確かめてから差し替えます。壊れていた場合は捨てて、今の辞書のまま動き続けます。</string>
+    <string name="dict_state_core">現在: コア辞書（約 8 万語・内蔵）</string>
+    <string name="dict_state_ext">現在: 拡張辞書 v%1$d（約 22 万語）</string>
+    <string name="dict_btn_download">拡張辞書をダウンロード</string>
+    <string name="dict_btn_check">更新を確認</string>
+    <string name="dict_btn_remove">拡張辞書を削除してコアに戻す</string>
+    <string name="dict_auto_update">更新を自動で確認する</string>
+    <string name="dict_auto_update_note">オンにしても定期的な通信はしません。アプリを開いたときに、前回の確認から 7 日以上経っていれば確認するだけです。</string>
+
+    <string name="dict_checking">確認しています…</string>
+    <string name="dict_downloading">ダウンロード中 %1$d%%（%2$.1f / %3$.1f MB）</string>
+    <string name="dict_verifying">検証しています…</string>
+    <string name="dict_up_to_date">最新です</string>
+    <string name="dict_done">拡張辞書 v%1$d を入れました（約 %2$,d 語）</string>
+    <string name="dict_removed">拡張辞書を削除しました。コア辞書で動きます</string>
+
+    <string name="dict_fail_network">通信できませんでした。電波の良い場所で試してください</string>
+    <string name="dict_fail_manifest">配布情報を読めませんでした。時間をおいて試してください</string>
+    <string name="dict_fail_incompatible">この辞書はアプリのバージョンに合いません。アプリを更新してください</string>
+    <string name="dict_fail_size">ダウンロードが途中で切れました</string>
+    <string name="dict_fail_checksum">ファイルが壊れていたため取り込みませんでした</string>
+    <string name="dict_fail_broken">辞書として読めなかったため取り込みませんでした</string>
+    <string name="dict_fail_storage">保存できませんでした。空き容量を確認してください</string>
+
     <!-- 変換エンジンの選択 -->
     <string name="engine_title">変換エンジン</string>
     <string name="engine_body">「自動」は、ネット変換が有効なときだけオンラインの変換を使い、圏外・通信失敗・タイムアウトのときは自動で端末内エンジンへ切り替えます。\n\n「端末内のみ」を選ぶと、ネット変換が有効でも一切通信せず、常に内蔵辞書だけで変換します。\n\nネット変換がオフのときは、どちらを選んでも端末内エンジンだけが動きます。端末内エンジンで作った候補には、候補バーの右端に「端末内」と表示されます。</string>

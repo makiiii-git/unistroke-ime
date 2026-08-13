@@ -276,6 +276,13 @@ class OnDeviceDictionary private constructor(private val buf: ByteBuffer) {
         fun hasValidExtension(context: Context): Boolean =
             mapFromFile(extFile(context)) != null
 
+        /**
+         * このファイルが辞書として開けるか。
+         * ダウンロード直後、本番の位置へ移す前の検証に使う
+         * （ハッシュが合っていても、こちらが読める形式とは限らないため）。
+         */
+        fun isReadableDictionary(file: File): Boolean = mapFromFile(file) != null
+
         private fun mapFromFile(file: File): OnDeviceDictionary? = runCatching {
             if (!file.exists() || file.length() < HEADER_BYTES) return@runCatching null
             FileInputStream(file).use { input ->

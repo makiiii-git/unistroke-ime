@@ -24,6 +24,18 @@ object Prefs {
     /** 速書きの調査用ログ（既定オフ）。 */
     const val KEY_DEBUG_STROKES = "debug_strokes"
 
+    /** 入っている拡張辞書の版。0 / 未設定なら拡張辞書なし。 */
+    const val KEY_DICT_VERSION = "dict_version"
+
+    /** 拡張辞書の更新を自動で確認するか（既定オフ）。 */
+    const val KEY_DICT_AUTO_UPDATE = "dict_auto_update"
+
+    /** 最後に更新を確認した時刻。頻繁な問い合わせを抑えるために持つ。 */
+    const val KEY_DICT_LAST_CHECK = "dict_last_check"
+
+    /** 拡張辞書の取得をセットアップで一度案内したか。 */
+    const val KEY_DICT_PROMPTED = "dict_prompted"
+
     /** 大画面でパネルを寄せた側（[SIDE_LEFT] / [SIDE_RIGHT]）。未設定なら利き手側。 */
     const val KEY_PANEL_SIDE = "panel_side"
 
@@ -98,6 +110,19 @@ object Prefs {
 
     fun wasNetworkConvertAsked(context: Context): Boolean =
         of(context).getBoolean(KEY_NET_CONVERT_ASKED, false)
+
+    /**
+     * 拡張辞書の更新を自動で確認するか。既定は false。
+     *
+     * 有効でも定期的な通信は起こさない。アプリを開いたときに、前回から十分
+     * 時間が経っていれば便乗して確認するだけ（[DictionaryUpdater.shouldAutoCheck]）。
+     */
+    fun isDictAutoUpdate(context: Context): Boolean =
+        of(context).getBoolean(KEY_DICT_AUTO_UPDATE, false)
+
+    fun setDictAutoUpdate(context: Context, enabled: Boolean) {
+        of(context).edit().putBoolean(KEY_DICT_AUTO_UPDATE, enabled).apply()
+    }
 
     /**
      * 変換エンジンの選択。既定は [ENGINE_AUTO]（オンライン優先・失敗したら端末内）。
