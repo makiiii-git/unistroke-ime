@@ -87,15 +87,46 @@ keytool -genkeypair -v -keystore release.jks -alias unistroke \
         -keyalg RSA -keysize 4096 -validity 10000
 ```
 
-対話的にパスワードと氏名等を聞かれます。作ったら設定ファイルを用意します。
+対話的にパスワードと氏名等を聞かれます。次に署名情報をビルドへ渡します。
+**方法は3つあり、先に見つかったものが使われます。**
+
+**方法 A: macOS キーチェーン（推奨・平文をディスクに残さない）**
+
+```bash
+security add-generic-password -a "$USER" -s unistroke-keystore -w   # 対話でパスワード入力
+```
+
+以後はこれでビルドします。
+
+```bash
+export UNISTROKE_STORE_FILE=release.jks
+export UNISTROKE_KEY_ALIAS=unistroke
+export UNISTROKE_STORE_PASSWORD=$(security find-generic-password -a "$USER" -s unistroke-keystore -w)
+export UNISTROKE_KEY_PASSWORD="$UNISTROKE_STORE_PASSWORD"
+./gradlew assembleRelease
+```
+
+**方法 B: Gradle プロパティ（CI 向け）**
+
+シークレットを `ORG_GRADLE_PROJECT_unistrokeStorePassword` などの環境変数として
+注入するか、`-PunistrokeStorePassword=…` で渡します。
+`~/.gradle/gradle.properties`（リポジトリ外）に書く手もあります。
+
+**方法 C: keystore.properties（手軽だが平文）**
 
 ```bash
 cp keystore.properties.example keystore.properties
 # エディタで storePassword / keyPassword を記入
-./gradlew assembleRelease
 ```
 
-`keystore.properties` が無い環境でもビルドは通ります（未署名 APK になります）。
+いずれも設定しなくてもビルドは通ります（`app-release-unsigned.apk` になり、
+何が足りないかがビルドログに出ます）。署名されると出力名が `app-release.apk` に変わります。
+
+署名の確認:
+
+```bash
+apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+```
 
 > **鍵を失うとアップデートを配れなくなります。** 別の鍵で署名した APK は既存インストールに
 > 上書きできず、ユーザーは手動アンインストールを強いられます。`release.jks` と

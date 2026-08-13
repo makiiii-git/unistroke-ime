@@ -51,8 +51,46 @@ val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
 }
-val hasReleaseKey = keystorePropsFile.exists() &&
-    keystoreProps.getProperty("storeFile") != null
+
+/**
+ * 署名情報を 3 段で解決する。先に見つかったものを使う。
+ *
+ *   1. Gradle プロパティ … `-PunistrokeStorePassword=…`、環境変数
+ *      `ORG_GRADLE_PROJECT_unistrokeStorePassword`、`~/.gradle/gradle.properties`
+ *   2. 環境変数 `UNISTROKE_STORE_PASSWORD` など
+ *   3. `keystore.properties`（ローカル作業用のフォールバック）
+ *
+ * 平文をディスクに置きたくない場合は 1 か 2 を使う。CI では 1 が定石。
+ */
+fun signingValue(gradleProp: String, envVar: String, fileKey: String): String? =
+    (project.findProperty(gradleProp) as? String)?.takeIf { it.isNotBlank() }
+        ?: System.getenv(envVar)?.takeIf { it.isNotBlank() }
+        ?: keystoreProps.getProperty(fileKey)?.takeIf { it.isNotBlank() }
+
+val signStoreFile = signingValue("unistrokeStoreFile", "UNISTROKE_STORE_FILE", "storeFile")
+val signStorePassword = signingValue("unistrokeStorePassword", "UNISTROKE_STORE_PASSWORD", "storePassword")
+val signKeyAlias = signingValue("unistrokeKeyAlias", "UNISTROKE_KEY_ALIAS", "keyAlias")
+val signKeyPassword = signingValue("unistrokeKeyPassword", "UNISTROKE_KEY_PASSWORD", "keyPassword")
+
+// 4 つ揃っていて、かつ鍵ファイルが実在するときだけ署名する。
+// 一部だけ埋まっている状態で署名を試すと分かりにくいエラーになるので、
+// 何が足りないかをビルドログに出す（値そのものは絶対に出さない）。
+val signingParts = mapOf(
+    "storeFile" to signStoreFile,
+    "storePassword" to signStorePassword,
+    "keyAlias" to signKeyAlias,
+    "keyPassword" to signKeyPassword,
+)
+val missingSigningParts = signingParts.filterValues { it == null }.keys
+val signStoreExists = signStoreFile != null && rootProject.file(signStoreFile).exists()
+val hasReleaseKey = missingSigningParts.isEmpty() && signStoreExists
+
+if (!hasReleaseKey && missingSigningParts.size < signingParts.size) {
+    logger.warn(
+        "署名設定が不完全なため release は未署名になります。未設定: " +
+            missingSigningParts.joinToString(", ").ifEmpty { "(鍵ファイルが見つからない)" },
+    )
+}
 
 android {
     namespace = "com.unistroke.ime"
@@ -61,10 +99,10 @@ android {
     signingConfigs {
         if (hasReleaseKey) {
             create("release") {
-                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
-                storePassword = keystoreProps.getProperty("storePassword")
-                keyAlias = keystoreProps.getProperty("keyAlias")
-                keyPassword = keystoreProps.getProperty("keyPassword")
+                storeFile = rootProject.file(signStoreFile!!)
+                storePassword = signStorePassword
+                keyAlias = signKeyAlias
+                keyPassword = signKeyPassword
             }
         }
     }
