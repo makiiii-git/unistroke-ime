@@ -1,5 +1,7 @@
 package com.unistroke.ime
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -70,6 +72,15 @@ class UniStrokeView @JvmOverloads constructor(
         fun onOpenSettings()
 
         /**
+         * 大画面でパネルをドラッグして置き直した（指を離して位置が確定した）。
+         * 次に開いたときも同じ場所へ出せるよう、実装側で覚えておく。
+         *
+         * @param onLeft 画面の左端側へ寄せたか
+         * @param yRatio 上下位置。0 = いちばん上 / 1 = いちばん下
+         */
+        fun onPanelMoved(onLeft: Boolean, yRatio: Float) = Unit
+
+        /**
          * これから書かれる 1 ストロークについて、文脈から期待される文字の集合。
          * かなモードのローマ字文脈（子音 pending -> 母音 など）で使う。
          * 空集合ならバイアスをかけない。認識の直前に毎回問い合わせる。
@@ -100,7 +111,10 @@ class UniStrokeView @JvmOverloads constructor(
             }
         }
 
-    /** 画面が展開状態（Fold の内側など）か。パネルを利き手側へ寄せる。 */
+    /**
+     * 画面が展開状態（Fold の内側など）か。
+     * このときパネルは 1 画面ぶんの幅のまま端へ寄り、つまみで自由に動かせる。
+     */
     var expandedScreen: Boolean = false
         set(value) {
             if (field != value) {
@@ -115,6 +129,28 @@ class UniStrokeView @JvmOverloads constructor(
         set(value) {
             if (field != value) {
                 field = value
+                invalidate()
+            }
+        }
+
+    /**
+     * 展開時にパネルを画面の左端側へ置くか（既定は利き手側。IME が設定から与える）。
+     * ドラッグで動かすとこの値も変わる。
+     */
+    var panelOnLeft: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+
+    /** 展開時のパネル上下位置。0 = いちばん上 / 1 = いちばん下（既定）。 */
+    var panelYRatio: Float = 1f
+        set(value) {
+            val v = value.coerceIn(0f, 1f)
+            if (field != v) {
+                field = v
                 invalidate()
             }
         }
@@ -243,28 +279,43 @@ class UniStrokeView @JvmOverloads constructor(
      *
      * パネル本体（縦ボタン列＋手書きゾーン）と、候補バー表示中はその矩形を union する。
      * 候補バーはパネルより幅が広い場合があるので、外接矩形ではなく 2 矩形の和で持つ。
+     * 浮動時はつまみも足し、パネルの現在位置ぶん下へずらす。
      */
     fun fillTouchableRegion(region: Region) {
         if (width == 0 || height == 0) return
-        // 最新のジオメトリで計算する（候補バーの出入り直後でも取りこぼさない）
+        // 最新のジオメトリで計算する（候補バーの出入り・移動の直後でも取りこぼさない）
         relayout()
+        val dy = panelTop
         region.setEmpty()
-        region.op(
-            floor(layout.touchPanelLeft).toInt(),
-            floor(layout.touchPanelTop).toInt(),
-            ceil(layout.touchPanelRight).toInt(),
-            ceil(layout.touchPanelBottom).toInt(),
-            Region.Op.UNION,
+        addTouchRect(
+            region,
+            layout.touchPanelLeft, layout.touchPanelTop + dy,
+            layout.touchPanelRight, layout.touchPanelBottom + dy,
         )
         if (layout.hasBar) {
-            region.op(
-                floor(layout.touchBarLeft).toInt(),
-                floor(layout.touchBarTop).toInt(),
-                ceil(layout.touchBarRight).toInt(),
-                ceil(layout.touchBarBottom).toInt(),
-                Region.Op.UNION,
+            addTouchRect(
+                region,
+                layout.touchBarLeft, layout.touchBarTop + dy,
+                layout.touchBarRight, layout.touchBarBottom + dy,
             )
         }
+        if (floating && !gripRect.isEmpty) {
+            addTouchRect(
+                region,
+                gripRect.left, gripRect.top + dy,
+                gripRect.right, gripRect.bottom + dy,
+            )
+        }
+    }
+
+    private fun addTouchRect(region: Region, left: Float, top: Float, right: Float, bottom: Float) {
+        region.op(
+            floor(left).toInt(),
+            floor(top).toInt(),
+            ceil(right).toInt(),
+            ceil(bottom).toInt(),
+            Region.Op.UNION,
+        )
     }
 
     /** 見本オーバーレイでマークする、個人テンプレートを持つ文字。 */
@@ -303,6 +354,14 @@ class UniStrokeView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         color = context.getColor(R.color.pad_divider)
         strokeWidth = dp(1f)
+    }
+
+    /** 浮動パネルのつまみに引く横線。掴めることが分かればいいので細く。 */
+    private val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = context.getColor(R.color.pad_divider)
+        strokeWidth = dp(1.6f)
+        strokeCap = Paint.Cap.ROUND
     }
 
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -401,7 +460,7 @@ class UniStrokeView @JvmOverloads constructor(
 
     private enum class UiTarget {
         NONE, BTN_MODE, BTN_LEFT, BTN_RIGHT, BTN_SELECT, BTN_HELP,
-        CANDIDATES, SEG_PREV, SEG_NEXT, OVERLAY,
+        CANDIDATES, SEG_PREV, SEG_NEXT, OVERLAY, DRAG,
     }
 
     private var uiTarget = UiTarget.NONE
@@ -466,24 +525,115 @@ class UniStrokeView @JvmOverloads constructor(
 
     private val barInset: Float get() = if (segmentNav) segArrowWidth else dp(4f)
 
+    // -------------------------------------------------------------- 浮動パネル
+
+    /**
+     * つまみでパネルを動かせる状態か。展開レイアウトのときだけ。
+     *
+     * 1 画面のスマホでは IME は従来どおり画面下へドッキングし、
+     * ビューの高さもパネルの高さのまま（＝この機能は一切効かない）。
+     */
+    private val floating: Boolean get() = expandedScreen
+
+    /** つまみの高さ。パネルの外側（上）に出るので書き込みエリアは削らない。 */
+    private val gripHeight: Float get() = if (floating) dp(GRIP_H_DP) else 0f
+
+    /** パネル本体（候補バー込み）の高さ。浮動時はビューの高さと一致しない。 */
+    private val panelHeight: Float
+        get() = dp(HEIGHT_DP) + if (candidateBarVisible) candidateHeight else 0f
+
+    /** パネル上端が動ける範囲（0 のときは動かせない）。 */
+    private val panelYRange: Float get() = max(0f, height - panelHeight - gripHeight)
+
+    /** 浮動時のパネル幅。1 画面のスマホと同じ書き心地になる幅で頭打ちにする。 */
+    private val panelWidth: Float
+        get() = if (floating) min(width.toFloat(), dp(PANEL_MAX_WIDTH_DP)) else width.toFloat()
+
+    /**
+     * ビュー座標でのパネル上端。描画とタッチ判定はここを原点にした
+     * 「パネル座標」で行うので、パネルが動いても中の計算は一切変わらない。
+     */
+    private val panelTop: Float
+        get() = when {
+            !floating -> 0f
+            dragging -> dragTop
+            else -> gripHeight + panelYRange * panelYRatio
+        }
+
+    /** パネル左端。ドラッグ中は指に追従する。null = 展開していない（全幅）。 */
+    private val panelLeftPx: Float?
+        get() = when {
+            !floating -> null
+            dragging -> dragLeft
+            panelOnLeft -> 0f
+            else -> width - panelWidth
+        }
+
+    /** ドラッグ中（指で移動中、または離した後の吸い付きアニメ中）。 */
+    private var dragging = false
+    private var dragLeft = 0f
+    private var dragTop = 0f
+    private var dragStartX = 0f
+    private var dragStartY = 0f
+    private var dragBaseLeft = 0f
+    private var dragBaseTop = 0f
+
+    /** つまみの矩形（パネル座標。上端 0 の外側に出るので y は負）。 */
+    private val gripRect = RectF()
+
+    /** 指を離した後、端へ吸い付くまでのアニメ。 */
+    private var moveAnim: ValueAnimator? = null
+
     private fun relayout() {
         layout.update(
             viewWidth = width.toFloat(),
-            viewHeight = height.toFloat(),
+            panelHeight = panelHeight,
             candidateHeight = candidateHeight,
             candidateVisible = candidateBarVisible,
             columnWidth = columnWidth,
             panelMaxWidth = dp(PANEL_MAX_WIDTH_DP),
             expanded = expandedScreen,
             leftHanded = leftHanded,
+            floatLeft = panelLeftPx,
         )
+        layoutGrip()
+    }
+
+    /** つまみはパネル上辺の中央、パネルの外側に置く。 */
+    private fun layoutGrip() {
+        if (!floating) {
+            gripRect.setEmpty()
+            return
+        }
+        val w = min(dp(GRIP_W_DP), layout.panelRight - layout.panelLeft)
+        val cx = (layout.panelLeft + layout.panelRight) / 2f
+        gripRect.set(cx - w / 2f, -gripHeight, cx + w / 2f, 0f)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         // 入力窓の高さは固定。候補バーが出たぶんだけ上へ伸ばす。
-        val h = dp(HEIGHT_DP) + if (candidateBarVisible) candidateHeight else 0f
+        val panelH = panelHeight
+        // 浮動時だけはビュー（= IME ウィンドウ）を画面いっぱいに広げ、
+        // その中でパネルを動かす。パネル以外は透明でタッチも通すので、
+        // 見た目・操作感は「背後のアプリの上に小さなパネルが浮いている」まま。
+        val h = if (floating) {
+            max(panelH + gripHeight, availableHeight(heightMeasureSpec))
+        } else {
+            panelH
+        }
         setMeasuredDimension(width, h.toInt())
+    }
+
+    /** 浮動時に使ってよいビュー高さ。親が上限を言ってこない場合は画面の高さ。 */
+    private fun availableHeight(spec: Int): Float {
+        val size = MeasureSpec.getSize(spec).toFloat()
+        val screen = resources.displayMetrics.heightPixels.toFloat()
+        return when (MeasureSpec.getMode(spec)) {
+            MeasureSpec.EXACTLY -> size
+            MeasureSpec.AT_MOST -> if (size > 0f) min(size, screen) else screen
+            else -> screen
+        }
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -508,12 +658,17 @@ class UniStrokeView @JvmOverloads constructor(
     // ------------------------------------------------------------------ draw
 
     override fun onDraw(canvas: Canvas) {
-        val w = width.toFloat()
-        val h = height.toFloat()
-
         relayout()
         layoutButtons()
 
+        // 以降はパネル座標（パネル上端 = 0）で描く。浮動していてもいなくても同じ絵。
+        val save = canvas.save()
+        canvas.translate(0f, panelTop)
+        drawPanel(canvas, width.toFloat(), panelHeight)
+        canvas.restoreToCount(save)
+    }
+
+    private fun drawPanel(canvas: Canvas, w: Float, h: Float) {
         // 展開時はパネル以外を塗らない。背後のアプリがそのまま透けて見える。
         fillPaint.color = context.getColor(R.color.pad_bezel)
         if (layout.hasInactiveArea) {
@@ -524,6 +679,9 @@ class UniStrokeView @JvmOverloads constructor(
         } else {
             canvas.drawRect(0f, 0f, w, h, fillPaint)
         }
+
+        // つまみは見本オーバーレイ中も出す（位置を直せなくなると困る）
+        drawGrip(canvas)
 
         drawButtonColumn(canvas, h)
 
@@ -561,6 +719,27 @@ class UniStrokeView @JvmOverloads constructor(
         }
         if (!activePath.isEmpty) {
             canvas.drawPath(activePath, strokePaint)
+        }
+    }
+
+    /**
+     * 浮動パネルのつまみ。ここをドラッグするとパネルごと動かせる。
+     * パネルの上辺から生えたタブに見えるよう、下側の角だけ角丸を潰す。
+     */
+    private fun drawGrip(canvas: Canvas) {
+        if (!floating || gripRect.isEmpty) return
+        val r = dp(9f)
+        fillPaint.color = context.getColor(R.color.pad_status)
+        canvas.drawRoundRect(gripRect, r, r, fillPaint)
+        canvas.drawRect(gripRect.left, gripRect.bottom - r, gripRect.right, gripRect.bottom, fillPaint)
+
+        gripPaint.color = context.getColor(if (dragging) R.color.pad_ink else R.color.pad_divider)
+        val half = gripRect.width() * 0.16f
+        val cx = gripRect.centerX()
+        val cy = gripRect.centerY()
+        for (i in -1..1) {
+            val y = cy + i * dp(4.5f)
+            canvas.drawLine(cx - half, y, cx + half, y, gripPaint)
         }
     }
 
@@ -892,8 +1071,13 @@ class UniStrokeView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // 吸い付きアニメの途中で触られたら、その場で移動を確定させてから処理する
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) moveAnim?.end()
+
         val x = event.x
-        val y = event.y
+        // 浮動時はパネルが上下に動く。以降の判定はすべてパネル座標で行うので、
+        // ボタン・ゾーン・候補バーの当たり判定はパネルの位置によらず不変。
+        val y = event.y - panelTop
         when (event.actionMasked) {
             // 2 本目以降の指。手書き中なら「そこでペンを上げた」ものとして即座に確定する。
             // 速書きで前のストロークを離す前に次を触ってしまっても、
@@ -911,6 +1095,12 @@ class UniStrokeView @JvmOverloads constructor(
                 downY = y
                 downTime = SystemClock.uptimeMillis()
                 uiTarget = UiTarget.NONE
+
+                // つまみはパネルの外（上）にあるので、いちばん先に判定する
+                if (floating && gripRect.contains(x, y)) {
+                    beginDrag(event)
+                    return true
+                }
 
                 // 候補バーは入力窓の外・上側なので最初に判定する
                 if (candidateBarVisible && y < candidateBottom &&
@@ -982,10 +1172,14 @@ class UniStrokeView @JvmOverloads constructor(
 
             MotionEvent.ACTION_MOVE -> {
                 when (uiTarget) {
+                    UiTarget.DRAG -> {
+                        dragTo(event)
+                        return true
+                    }
                     UiTarget.OVERLAY -> {
                         val maxScroll = max(
                             0f,
-                            overlayContentHeight - (height - contentTop) + dp(8f),
+                            overlayContentHeight - (panelHeight - contentTop) + dp(8f),
                         )
                         overlayScroll = (overlayScroll - (y - downY)).coerceIn(0f, maxScroll)
                         downY = y
@@ -1021,6 +1215,12 @@ class UniStrokeView @JvmOverloads constructor(
             MotionEvent.ACTION_UP -> {
                 stopRepeat()
                 when (uiTarget) {
+                    UiTarget.DRAG -> {
+                        dragTo(event)
+                        settlePanel()
+                        uiTarget = UiTarget.NONE
+                        return true
+                    }
                     UiTarget.BTN_MODE -> if (buttonRects[0].contains(x, y)) {
                         hideOverlay()
                         listener?.onModeToggle()
@@ -1082,6 +1282,8 @@ class UniStrokeView @JvmOverloads constructor(
 
             MotionEvent.ACTION_CANCEL -> {
                 stopRepeat()
+                // 途中で取り消されても宙ぶらりんにはせず、いまの位置で確定させる
+                if (uiTarget == UiTarget.DRAG) settlePanel()
                 uiTarget = UiTarget.NONE
                 setPressedTarget(UiTarget.NONE)
                 clearStroke()
@@ -1092,6 +1294,100 @@ class UniStrokeView @JvmOverloads constructor(
     }
 
     override fun performClick(): Boolean = super.performClick()
+
+    // ------------------------------------------------------------ パネル移動
+
+    /**
+     * つまみを掴んだ。以後の移動量はビュー座標の差分で追う
+     * （パネル座標は動かしている当人なので基準に使えない）。
+     */
+    private fun beginDrag(event: MotionEvent) {
+        // dragging を立てる前に、いまの静止位置を控える
+        val startTop = panelTop
+        val startLeft = layout.panelLeft
+        uiTarget = UiTarget.DRAG
+        dragging = true
+        dragLeft = startLeft
+        dragTop = startTop
+        dragBaseLeft = startLeft
+        dragBaseTop = startTop
+        dragStartX = event.x
+        dragStartY = event.y
+        cancelLongPresses()
+        clearStroke()
+        parent?.requestDisallowInterceptTouchEvent(true)
+        invalidate()
+    }
+
+    private fun dragTo(event: MotionEvent) {
+        if (!dragging) return
+        dragLeft = (dragBaseLeft + (event.x - dragStartX))
+            .coerceIn(0f, max(0f, width - panelWidth))
+        dragTop = (dragBaseTop + (event.y - dragStartY))
+            .coerceIn(gripHeight, gripHeight + panelYRange)
+        // 描画のたびに touchableRegion も計算し直されるので、
+        // 「見た目は動いたのにタッチだけ元の場所」にはならない。
+        invalidate()
+    }
+
+    /**
+     * 指を離した位置から、いちばん近い端へ吸い付かせる。
+     *
+     * 左右は必ずどちらかの端まで寄せる（中途半端な位置に置くと書ける幅が減るだけ）。
+     * 上下は端の近くでだけ吸い付き、真ん中で離せばそこに留まる。
+     * 背後のアプリの送信ボタンや URL 欄が隠れるときに、そこだけ避けて置けるようにするため。
+     */
+    private fun settlePanel() {
+        if (!dragging) return
+        val toLeft = dragLeft + panelWidth / 2f < width / 2f
+        val targetLeft = if (toLeft) 0f else width - panelWidth
+        val range = panelYRange
+        val raw = if (range <= 0f) 0f else (dragTop - gripHeight) / range
+        val ratio = when {
+            raw < SNAP_RATIO -> 0f
+            raw > 1f - SNAP_RATIO -> 1f
+            else -> raw.coerceIn(0f, 1f)
+        }
+        val targetTop = gripHeight + range * ratio
+        animatePanelTo(targetLeft, targetTop) {
+            panelOnLeft = toLeft
+            panelYRatio = ratio
+            dragging = false
+            // 位置が変わったら IME 側にも知らせて覚えてもらう。
+            // requestLayout で touchableRegion の再計算も確実に走らせる。
+            listener?.onPanelMoved(toLeft, ratio)
+            requestLayout()
+            invalidate()
+        }
+    }
+
+    private fun animatePanelTo(targetLeft: Float, targetTop: Float, onSettled: () -> Unit) {
+        val fromLeft = dragLeft
+        val fromTop = dragTop
+        if (abs(targetLeft - fromLeft) < 0.5f && abs(targetTop - fromTop) < 0.5f) {
+            onSettled()
+            return
+        }
+        moveAnim?.cancel()
+        moveAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = MOVE_ANIM_MS
+            addUpdateListener {
+                val t = it.animatedValue as Float
+                dragLeft = fromLeft + (targetLeft - fromLeft) * t
+                dragTop = fromTop + (targetTop - fromTop) * t
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    moveAnim = null
+                    dragLeft = targetLeft
+                    dragTop = targetTop
+                    onSettled()
+                }
+            })
+            start()
+        }
+    }
 
     private fun finishStroke() {
         tracking = false
@@ -1200,6 +1496,8 @@ class UniStrokeView @JvmOverloads constructor(
         helpLongPressFired = false
         selectLongPressFired = false
         strokeFade.cancel()
+        // 移動中に閉じられても、位置は確定させてから畳む
+        moveAnim?.end()
         super.onDetachedFromWindow()
     }
 
@@ -1229,6 +1527,19 @@ class UniStrokeView @JvmOverloads constructor(
 
         /** 展開時にパネルへ与える最大幅（1 画面のスマホと同じ書き心地にする）。 */
         private const val PANEL_MAX_WIDTH_DP = 420f
+
+        /** 浮動パネルのつまみ。パネルの外側に出るので書き込みエリアは削らない。 */
+        private const val GRIP_W_DP = 108f
+        private const val GRIP_H_DP = 22f
+
+        /**
+         * 上下方向で端へ吸い付く範囲（可動域に対する割合）。
+         * これより内側で離せば、その場に留まる（＝自由配置）。
+         */
+        private const val SNAP_RATIO = 0.12f
+
+        /** 離してから端へ吸い付くまでの時間。 */
+        private const val MOVE_ANIM_MS = 140L
 
         /**
          * 入力ビュー全体の高さ。上部バーは持たない。

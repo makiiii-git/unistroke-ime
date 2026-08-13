@@ -337,15 +337,23 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     }
 
     /**
-     * 利き手と画面の展開状態をビューへ渡す。
+     * 利き手と画面の展開状態、そして大画面でのパネル位置をビューへ渡す。
      * 展開判定は smallestScreenWidthDp。Fold の内側画面（sw600dp 以上）では効き、
      * 通常のスマホは横向きにしても sw が変わらないので効かない。
      */
     private fun applyLayoutPrefs() {
         val view = inputView ?: return
-        view.leftHanded = Prefs.isLeftHanded(this)
+        val leftHanded = Prefs.isLeftHanded(this)
+        view.leftHanded = leftHanded
         view.expandedScreen =
             resources.configuration.smallestScreenWidthDp >= EXPANDED_MIN_SW_DP
+        view.panelOnLeft = Prefs.panelOnLeft(this, leftHanded)
+        view.panelYRatio = Prefs.panelYRatio(this)
+    }
+
+    /** 大画面でパネルをドラッグして置き直した。次に開くときも同じ場所へ出す。 */
+    override fun onPanelMoved(onLeft: Boolean, yRatio: Float) {
+        Prefs.setPanelPosition(this, onLeft, yRatio)
     }
 
     /**
@@ -457,8 +465,12 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      * 展開レイアウトのときは「フローティング IME」として振る舞う。
      *
      * - contentTopInsets / visibleTopInsets をビュー高さにして、背後のアプリを縮めない
-     * - touchableRegion をパネル（＋候補バー）だけに限定して、
+     * - touchableRegion をパネル（＋候補バー＋つまみ）だけに限定して、
      *   パネル外のタッチを背後のアプリへ素通しする
+     *
+     * 展開時のビューは画面いっぱいの高さを持つ（その中でパネルが動く）ので、
+     * ここで渡す高さもそのまま画面の高さになる。塗るのもタッチを取るのも
+     * パネルの矩形だけなので、残りは背後のアプリがそのまま見えて操作もできる。
      *
      * 1 画面（通常のスマホ・Fold の外側）では既定のドッキング動作のままにする。
      */

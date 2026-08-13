@@ -77,6 +77,30 @@
 JDK 17 が必要です。`JAVA_HOME` が未設定の場合は `~/.gradle/gradle.properties` に
 `org.gradle.java.home` を書いてください（リポジトリ側には環境依存のパスを置いていません）。
 
+### リリース用の署名
+
+配布する APK には署名が必要です。鍵はリポジトリに置かないので、各自で作ります。
+
+```bash
+keytool -genkeypair -v -keystore release.jks -alias unistroke \
+        -keyalg RSA -keysize 4096 -validity 10000
+```
+
+対話的にパスワードと氏名等を聞かれます。作ったら設定ファイルを用意します。
+
+```bash
+cp keystore.properties.example keystore.properties
+# エディタで storePassword / keyPassword を記入
+./gradlew assembleRelease
+```
+
+`keystore.properties` が無い環境でもビルドは通ります（未署名 APK になります）。
+
+> **鍵を失うとアップデートを配れなくなります。** 別の鍵で署名した APK は既存インストールに
+> 上書きできず、ユーザーは手動アンインストールを強いられます。`release.jks` と
+> パスワードは必ずオフラインにバックアップしてください。
+> `*.jks` と `keystore.properties` は `.gitignore` 済みです。
+
 ### 辞書の再生成
 
 同梱済みなので通常は不要です。差し替えたい場合:

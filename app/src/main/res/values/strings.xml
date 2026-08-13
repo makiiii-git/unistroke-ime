@@ -67,7 +67,7 @@
     <string name="settings_activity_label">Uni-Stroke IME の設定</string>
     <string name="btn_settings">設定 / 学習データの管理</string>
     <string name="settings_hand_title">利き手</string>
-    <string name="settings_hand_body">左利きを選ぶと、縦ボタン列が右端に移り、英字ゾーンと数字ゾーンの左右も入れ替わる（数字が左 1/3、英字が右 2/3）。画面を折りたたまない大画面では、入力パネルを利き手側へ寄せて配置する。\n\n入力エリアの [?] を長押しすると、いつでもこの設定画面を開ける。</string>
+    <string name="settings_hand_body">左利きを選ぶと、縦ボタン列が右端に移り、英字ゾーンと数字ゾーンの左右も入れ替わる（数字が左 1/3、英字が右 2/3）。画面を折りたたまない大画面では、入力パネルを利き手側へ寄せて配置する。\n\n大画面では、パネル上辺のつまみをドラッグして置き場所を変えられる。左右はどちらかの端へ吸い付き、上下は端の近くで離せば隅にマグネット、真ん中で離せばその高さに留まる。背後の URL 欄や送信ボタンがパネルに隠れたときは、いったん上へ逃がせばよい。位置は次に開いたときも保たれる。\n\n入力エリアの [?] を長押しすると、いつでもこの設定画面を開ける。</string>
     <string name="settings_hand_right">右利き（ボタン列は左・英字ゾーンが左）</string>
     <string name="settings_hand_left">左利き（ボタン列は右・英字ゾーンが右）</string>
 

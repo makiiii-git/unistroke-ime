@@ -1,6 +1,7 @@
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Properties
 import java.util.TimeZone
 
 plugins {
@@ -36,9 +37,37 @@ fun sourceBuildStamp(): String {
     return fmt.format(Date(newest))
 }
 
+/**
+ * リリース署名の設定。
+ *
+ * 鍵とパスワードはリポジトリに置かない。プロジェクト直下の `keystore.properties`
+ * （.gitignore 済み）から読み、**ファイルが無ければ署名設定そのものを作らない**。
+ * これにより鍵を持たない環境（他のコントリビュータ・CI）でも
+ * `assembleDebug` と `assembleRelease` が通る（後者は未署名 APK になる）。
+ *
+ * 作り方は README の「リリース用の署名」を参照。
+ */
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+val hasReleaseKey = keystorePropsFile.exists() &&
+    keystoreProps.getProperty("storeFile") != null
+
 android {
     namespace = "com.unistroke.ime"
     compileSdk = 35
+
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.unistroke.ime"
@@ -66,6 +95,8 @@ android {
 
     buildTypes {
         release {
+            // 鍵が無い環境では null のまま = 未署名 APK。ビルド自体は通す。
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

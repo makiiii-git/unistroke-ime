@@ -8,7 +8,12 @@ import kotlin.math.min
  * - 1 画面（通常のスマホ）: パネルは IME 全幅を使う
  * - 展開（Fold の内側画面など）: パネルは 1 画面時と同じ幅のまま、
  *   利き手側へ寄せる。残りは入力を受け付けない非アクティブ領域。
+ *   ユーザーがドラッグで動かした場合は [update] の floatLeft で位置を指定する。
  * - 左利き: 縦ボタン列と英字/数字ゾーンの左右を入れ替える
+ *
+ * 縦方向は「パネル上端 = 0」の座標系で計算する。展開時にパネルを上下へ
+ * 動かすぶんのオフセットは [UniStrokeView] 側が canvas の平行移動と
+ * タッチ座標の補正で吸収するので、ここでは扱わない。
  *
  * Android 依存を持たない純粋な計算なので、そのままテストできる。
  */
@@ -17,7 +22,9 @@ class PanelLayout {
     // ---- 入力 ----
     var viewWidth = 0f
         private set
-    var viewHeight = 0f
+
+    /** パネル本体の高さ（候補バー込み）。ビュー自体の高さとは別物。 */
+    var panelHeight = 0f
         private set
 
     /** 候補バーの高さ（出ていないときは 0 として扱う）。 */
@@ -49,25 +56,35 @@ class PanelLayout {
     var leftHanded = false
         private set
 
+    /**
+     * @param floatLeft 展開時のパネル左端。null なら利き手側へ寄せた既定位置。
+     *                  ドラッグ中・移動後はビューが実際の位置を渡す。
+     */
     fun update(
         viewWidth: Float,
-        viewHeight: Float,
+        panelHeight: Float,
         candidateHeight: Float,
         candidateVisible: Boolean,
         columnWidth: Float,
         panelMaxWidth: Float,
         expanded: Boolean,
         leftHanded: Boolean,
+        floatLeft: Float? = null,
     ) {
         this.viewWidth = viewWidth
-        this.viewHeight = viewHeight
+        this.panelHeight = panelHeight
         this.expanded = expanded
         this.leftHanded = leftHanded
         contentTop = if (candidateVisible) candidateHeight else 0f
 
         // 展開時だけパネル幅を 1 画面ぶんに制限し、利き手側へ寄せる
         val panelW = if (expanded) min(viewWidth, panelMaxWidth) else viewWidth
-        panelLeft = if (expanded && !leftHanded) viewWidth - panelW else 0f
+        panelLeft = when {
+            !expanded -> 0f
+            floatLeft != null -> floatLeft.coerceIn(0f, viewWidth - panelW)
+            leftHanded -> 0f
+            else -> viewWidth - panelW
+        }
         panelRight = panelLeft + panelW
 
         if (leftHanded) {
@@ -105,7 +122,7 @@ class PanelLayout {
 
     /** 手書き入力を受け付ける領域か（非アクティブ領域の誤タッチを弾く）。 */
     fun isInPanel(x: Float, y: Float): Boolean =
-        y >= contentTop && x >= panelLeft && x <= panelRight
+        y >= contentTop && y <= panelHeight && x >= panelLeft && x <= panelRight
 
     /** 展開時にできる非アクティブ領域があるか。 */
     val hasInactiveArea: Boolean get() = panelLeft > 0f || panelRight < viewWidth
@@ -123,7 +140,7 @@ class PanelLayout {
     val touchPanelLeft: Float get() = panelLeft
     val touchPanelTop: Float get() = contentTop
     val touchPanelRight: Float get() = panelRight
-    val touchPanelBottom: Float get() = viewHeight
+    val touchPanelBottom: Float get() = panelHeight
 
     /** 候補バーの矩形（表示中のみ有効）。 */
     val touchBarLeft: Float get() = barLeft
@@ -136,10 +153,10 @@ class PanelLayout {
 
     /** 縦ボタン列の [index] 番目（全 [count] 個）の上端 / 下端。 */
     fun buttonTop(index: Int, count: Int): Float =
-        contentTop + (viewHeight - contentTop) * index / count
+        contentTop + (panelHeight - contentTop) * index / count
 
     fun buttonBottom(index: Int, count: Int): Float =
-        contentTop + (viewHeight - contentTop) * (index + 1) / count
+        contentTop + (panelHeight - contentTop) * (index + 1) / count
 
     /** X 座標がボタン列の上か。 */
     fun isInColumn(x: Float): Boolean = x >= columnLeft && x < columnRight

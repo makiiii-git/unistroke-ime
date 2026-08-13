@@ -24,8 +24,17 @@ object Prefs {
     /** 速書きの調査用ログ（既定オフ）。 */
     const val KEY_DEBUG_STROKES = "debug_strokes"
 
+    /** 大画面でパネルを寄せた側（[SIDE_LEFT] / [SIDE_RIGHT]）。未設定なら利き手側。 */
+    const val KEY_PANEL_SIDE = "panel_side"
+
+    /** 大画面でのパネル上下位置（0 = 最上 / 1 = 最下）。 */
+    const val KEY_PANEL_Y = "panel_y"
+
     const val HAND_RIGHT = "right"
     const val HAND_LEFT = "left"
+
+    const val SIDE_LEFT = "left"
+    const val SIDE_RIGHT = "right"
 
     /** オンライン優先。失敗・タイムアウト時は端末内へ落とす。 */
     const val ENGINE_AUTO = "auto"
@@ -42,6 +51,31 @@ object Prefs {
     fun setLeftHanded(context: Context, left: Boolean) {
         of(context).edit()
             .putString(KEY_HANDEDNESS, if (left) HAND_LEFT else HAND_RIGHT)
+            // 利き手を変えたら、大画面のパネルも新しい利き手側へ戻す。
+            // 以前ドラッグして置いた側に居座ると、設定を変えたのに効かないように見える。
+            .remove(KEY_PANEL_SIDE)
+            .apply()
+    }
+
+    /**
+     * 大画面でパネルを左端側へ置くか。
+     * ユーザーがドラッグで決めた側があればそれを、無ければ利き手側を使う。
+     */
+    fun panelOnLeft(context: Context, leftHanded: Boolean): Boolean =
+        when (of(context).getString(KEY_PANEL_SIDE, null)) {
+            SIDE_LEFT -> true
+            SIDE_RIGHT -> false
+            else -> leftHanded
+        }
+
+    /** 大画面でのパネル上下位置。既定は最下（＝従来と同じ画面下）。 */
+    fun panelYRatio(context: Context): Float =
+        of(context).getFloat(KEY_PANEL_Y, 1f).coerceIn(0f, 1f)
+
+    fun setPanelPosition(context: Context, onLeft: Boolean, yRatio: Float) {
+        of(context).edit()
+            .putString(KEY_PANEL_SIDE, if (onLeft) SIDE_LEFT else SIDE_RIGHT)
+            .putFloat(KEY_PANEL_Y, yRatio.coerceIn(0f, 1f))
             .apply()
     }
 
