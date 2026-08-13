@@ -14,7 +14,13 @@ import os
 import struct
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DIC_PATH = os.path.join(ROOT, "app", "src", "main", "assets", "ondevice.dic")
+
+# 既定は同梱するコア辞書。UNISTROKE_DIC を指すと別の辞書で検証できる
+# （コア / 拡張の語数を変えて品質を比べるときに使う）。
+DIC_PATH = os.environ.get(
+    "UNISTROKE_DIC",
+    os.path.join(ROOT, "app", "src", "main", "assets", "ondevice.dic"),
+)
 
 MAGIC = b"UNIDIC2\x00"
 HEADER_SIZE = 80

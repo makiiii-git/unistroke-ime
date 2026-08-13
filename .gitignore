@@ -29,3 +29,6 @@ __pycache__/
 .idea/
 *.iml
 .DS_Store
+
+# 配布用の生成物（拡張辞書など）。GitHub Releases に上げるのでリポジトリには入れない。
+dist/

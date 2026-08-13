@@ -38,9 +38,21 @@ def read(path):
 
 
 # 期待するレンジ。辞書を作り直しても大きくは動かないはず。
-MIN_WORDS, MAX_WORDS = 150_000, 300_000
-MIN_KEYS = 100_000
-MIN_BYTES, MAX_BYTES = 3 * 1024 * 1024, 8 * 1024 * 1024
+# 辞書は 2 層ある。
+#   コア辞書 … APK 同梱。インストール直後から使える（約 8 万語 / 2.5 MB）
+#   拡張辞書 … チュートリアルで取得（約 22 万語 / 6.7 MB）
+# 既定の検証対象は同梱するコア辞書。UNISTROKE_DIC で拡張辞書を指した場合は
+# そちらの閾値で見る（環境変数にファイル名 ext が含まれるかで判別する）。
+IS_EXT = "ext" in os.path.basename(M.DIC_PATH)
+
+if IS_EXT:
+    MIN_WORDS, MAX_WORDS = 150_000, 300_000
+    MIN_KEYS = 100_000
+    MIN_BYTES, MAX_BYTES = 3 * 1024 * 1024, 8 * 1024 * 1024
+else:
+    MIN_WORDS, MAX_WORDS = 60_000, 120_000
+    MIN_KEYS = 45_000
+    MIN_BYTES, MAX_BYTES = 1536 * 1024, 4 * 1024 * 1024
 
 
 def main() -> int:

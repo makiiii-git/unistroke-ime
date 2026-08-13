@@ -231,7 +231,17 @@ class OnDeviceDictionary private constructor(private val buf: ByteBuffer) {
     }
 
     companion object {
+        /** APK に同梱するコア辞書（約 8 万語）。インストール直後から使える。 */
         const val ASSET_NAME = "ondevice.dic"
+
+        /**
+         * チュートリアルで取得する拡張辞書（約 24 万語）を置く場所（filesDir）。
+         * 存在すればコア辞書より優先して使う。壊れていれば黙ってコアへ落ちる。
+         */
+        const val EXT_NAME = "ondevice-ext.dic"
+
+        /** ヘッダ長（固定）。これ未満のファイルは辞書ではない。 */
+        private const val HEADER_BYTES = 80
 
         /** 符号表を引くための文字コード範囲（ひらがな + 長音記号）。 */
         private const val ENCODE_BASE = 0x3041
@@ -252,9 +262,26 @@ class OnDeviceDictionary private constructor(private val buf: ByteBuffer) {
          */
         fun open(context: Context): OnDeviceDictionary? {
             val app = context.applicationContext
+            // 拡張辞書 -> コア辞書の順。拡張が壊れていても落ちずにコアで動き続ける。
+            mapFromFile(extFile(app))?.let { return it }
             mapFromAssets(app)?.let { return it }
             return mapFromCache(app)
         }
+
+        /** ダウンロードした拡張辞書の置き場所。 */
+        fun extFile(context: Context): File =
+            File(context.applicationContext.filesDir, EXT_NAME)
+
+        /** 拡張辞書が入っていて、かつ辞書として読める状態か。 */
+        fun hasValidExtension(context: Context): Boolean =
+            mapFromFile(extFile(context)) != null
+
+        private fun mapFromFile(file: File): OnDeviceDictionary? = runCatching {
+            if (!file.exists() || file.length() < HEADER_BYTES) return@runCatching null
+            FileInputStream(file).use { input ->
+                verified(input.channel.map(FileChannel.MapMode.READ_ONLY, 0, file.length()))
+            }
+        }.getOrNull()
 
         private fun mapFromAssets(context: Context): OnDeviceDictionary? = runCatching {
             context.assets.openFd(ASSET_NAME).use { afd ->
@@ -285,7 +312,7 @@ class OnDeviceDictionary private constructor(private val buf: ByteBuffer) {
         }.getOrNull()
 
         private fun verified(buf: ByteBuffer): OnDeviceDictionary? {
-            if (buf.capacity() < 80) return null
+            if (buf.capacity() < HEADER_BYTES) return null
             for (i in MAGIC.indices) if (buf.get(i) != MAGIC[i]) return null
             return OnDeviceDictionary(buf)
         }
