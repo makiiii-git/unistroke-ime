@@ -150,7 +150,10 @@ jobs:
         run: |
           set -euo pipefail
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          "$APKSIGNER" verify --verbose \
+          # --print-certs まで出す。証明書の指紋が手元の鍵と一致しているかを
+          # ログで確かめられるようにするため（Secrets に別の鍵を入れてしまうと、
+          # 既存の利用者が上書き更新できない APK を配ることになる）。
+          "$APKSIGNER" verify --verbose --print-certs \
             app/build/outputs/apk/release/app-release.apk
 
       - name: 鍵を消す
