@@ -131,8 +131,14 @@ cp keystore.properties.example keystore.properties
 署名の確認:
 
 ```bash
-apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+apksigner verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
 ```
+
+署名スキームは **v2 + v3** を有効にしています（v1 は Android 6 以前向けなので `minSdk 26` では不要）。
+v3 は署名証明書の系譜を持てる形式で、**将来どうしても鍵を替えることになったときに
+「同じアプリ」として更新を配り続けるために必要**です。v3 ブロックの無い APK を配ってしまうと
+後から遡って有効にはできません。実際に鍵を替えるときは `apksigner rotate` で系譜ファイルを
+作り、新旧両方の鍵で署名します。
 
 > **鍵を失うとアップデートを配れなくなります。** 別の鍵で署名した APK は既存インストールに
 > 上書きできず、ユーザーは手動アンインストールを強いられます。`release.jks` と

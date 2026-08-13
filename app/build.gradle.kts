@@ -103,6 +103,15 @@ android {
                 storePassword = signStorePassword
                 keyAlias = signKeyAlias
                 keyPassword = signKeyPassword
+
+                // v3 は鍵のローテーション（署名証明書の系譜）を可能にするために要る。
+                // v3 ブロックの無い APK を配ってしまうと、後から鍵を替えたときに
+                // 「別のアプリ」扱いになり、上書き更新を配れなくなる。
+                // 実際に鍵を替えるときは apksigner rotate で lineage を作る。
+                enableV2Signing = true
+                enableV3Signing = true
+                // v1（JAR 署名）は Android 6 以前向け。minSdk 26 なので不要。
+                enableV1Signing = false
             }
         }
     }
