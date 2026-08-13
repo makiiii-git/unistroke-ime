@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    実際に IME を使うときと同じ手の位置で練習できるレイアウト。
+
+      上部   … 進捗・結果メッセージ（見なくても書けるが、目を上げれば読める）
+      中央   … 見本アニメーション
+      下部   … 練習パッド（IME の入力エリアと同じ画面下端の位置・高さ）
+
+    パッドを画面下端に固定したいので ScrollView は使わない。
+    中央の見本だけが余った高さを吸収する（layout_weight=1）。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/app_background"
+    android:orientation="vertical">
+
+    <!-- ================= 上部: 進捗と結果メッセージ ================= -->
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="8dp">
+
+        <!-- 今どの文字を練習しているか。遠目でも分かるよう大きく出す。 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/training_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:textColor="@color/app_text"
+                android:textSize="44sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/training_instruction"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:text="@string/training_instruction"
+                android:textColor="@color/app_text"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/training_progress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/app_text"
+            android:textSize="16sp" />
+
+        <!-- 結果メッセージ。2 行ぶんの高さを確保して、出入りでレイアウトが動かないようにする。 -->
+        <TextView
+            android:id="@+id/training_feedback"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:minHeight="76dp"
+            android:textColor="@color/app_text"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+    <!-- ================= 中央: 見本 ================= -->
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:text="@string/training_sample_label"
+        android:textColor="@color/app_text"
+        android:textSize="13sp" />
+
+    <!-- 余った高さはすべてここが吸う。画面が小さくても最低 100dp は確保する。 -->
+    <com.unistroke.ime.StrokeSampleView
+        android:id="@+id/training_sample"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="20dp"
+        android:minHeight="100dp" />
+
+    <!-- スキップ系は見本の下・パッドの上。手の動線から外れる位置に置く。 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="8dp">
+
+        <Button
+            android:id="@+id/training_skip"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/training_skip_char" />
+
+        <Button
+            android:id="@+id/training_finish"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/training_skip_all" />
+
+    </LinearLayout>
+
+    <!-- ================= 下部: 練習パッド ================= -->
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:text="@string/training_pad_label"
+        android:textColor="@color/app_text"
+        android:textSize="13sp" />
+
+    <!--
+        高さは IME の入力エリア（UniStrokeView.HEIGHT_DP = 235dp）と揃えてある。
+        画面下端に貼り付くので、実際に入力するときと同じ手の位置で書ける。
+    -->
+    <com.unistroke.ime.PracticePadView
+        android:id="@+id/training_pad"
+        android:layout_width="match_parent"
+        android:layout_height="235dp"
+        android:layout_marginTop="4dp" />
+
+</LinearLayout>

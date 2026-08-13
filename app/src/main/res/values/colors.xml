@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 旧世代 PDA 筐体を思わせるダークグリーン/グレー -->
+    <color name="pad_bezel">#FF232B25</color>
+    <color name="pad_status">#FF161C18</color>
+    <color name="pad_zone_alpha">#FF3A4A3D</color>
+    <color name="pad_zone_number">#FF2E3A32</color>
+    <color name="pad_divider">#FF6E8472</color>
+    <color name="pad_hint">#FF54685A</color>
+    <color name="pad_text">#FFD3E9D6</color>
+    <color name="pad_ink">#FF7DF7A0</color>
+
+    <color name="app_background">#FFF2F4F1</color>
+    <color name="app_text">#FF1B2A20</color>
+
+    <!-- トレーニング画面の結果メッセージ（成功 / 要リトライ） -->
+    <color name="train_ok">#FF1B7A3E</color>
+    <color name="train_retry">#FFB05A00</color>
+</resources>
