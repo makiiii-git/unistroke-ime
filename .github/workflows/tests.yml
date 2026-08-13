@@ -1,0 +1,54 @@
+name: tests
+
+# 変更のたびに検証ハーネスを回す。
+# Kotlin のソースを Python に写したテストなので、Android SDK もエミュレータも要らない。
+# 辞書の整合（test_dictionary）とマニフェストの突き合わせ（test_updater）も
+# ここで自動的に見るので、辞書まわりの定数を片方だけ直した事故に気付ける。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  python-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 同梱のコア辞書とマニフェストはリポジトリに入っているので、
+      # Mozc の素材（93 MB）を落とさなくても全スイートが通る。
+      # 拡張辞書（dist/）が無い場合、test_updater は実物照合だけ省略する。
+      - name: run_all.py
+        run: python3 run_all.py
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # 署名鍵はリポジトリに無いので release は未署名 APK になる。
+      # ここで見たいのは「コンパイルが通るか」なので debug で足りる。
+      - name: assembleDebug
+        run: ./gradlew assembleDebug --console=plain
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

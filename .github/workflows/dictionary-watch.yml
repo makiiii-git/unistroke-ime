@@ -1,0 +1,114 @@
+name: 辞書の更新検知
+
+# 「拡張辞書を作り直すべきか」を自動で見張る。
+#
+# 辞書の中身は 2 つの入力だけで決まる。
+#   1. Mozc 上流の dictionary_oss（google/mozc が更新したとき）
+#   2. tools/build_dictionary.py（こちらが絞り込みやコストを調整したとき）
+#
+# ビルドは再現可能（同じ入力なら同じバイト列。PYTHONHASHSEED を変えても不変）なので、
+# **作り直してハッシュを比べれば、中身が変わったかどうかが確実に分かる**。
+# 上流を監視する必要も、更新日を追う必要もない。
+#
+# 変化を見つけても勝手に配りはしない。Issue を立てて知らせるだけで、
+# 実際に配るかどうかは「リリース」ワークフローを回すときに決める。
+
+on:
+  schedule:
+    # 毎月 1 日 04:00 JST（= 前日 19:00 UTC）。上流はそう頻繁には動かない。
+    - cron: '0 19 28 * *'
+  push:
+    branches: [main]
+    paths:
+      # 絞り込みやコストを触ったら、その場で影響を確かめる
+      - 'tools/build_dictionary.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 上流の変化を見たいので、ここでは素材をキャッシュしない。
+      # （キャッシュすると古い素材で作ってしまい、上流の更新に気付けない）
+      - name: 辞書を作り直して比べる
+        id: check
+        run: |
+          set -euo pipefail
+          python3 tools/build_dictionary.py --fetch --limit 220000 \
+            --out dist/ondevice-ext.dic
+          NEW=$(shasum -a 256 dist/ondevice-ext.dic | awk '{print $1}')
+          OLD=$(python3 -c "import json;print(json.load(open('dictionary/manifest.json'))['sha256'])")
+          VER=$(python3 -c "import json;print(json.load(open('dictionary/manifest.json'))['dictVersion'])")
+          echo "  今回:   $NEW"
+          echo "  配布中: $OLD (v$VER)"
+          {
+            echo "new=$NEW"
+            echo "old=$OLD"
+            echo "version=$VER"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$NEW" = "$OLD" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "変化なし"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "変化あり"
+          fi
+
+      # 変化があったときだけ、それが改善なのかを見るために品質を測る。
+      - name: 新しい辞書の品質を測る
+        if: steps.check.outputs.changed == 'true'
+        id: quality
+        run: |
+          set -euo pipefail
+          UNISTROKE_DIC=dist/ondevice-ext.dic python3 test_dictionary.py
+          OUT=$(UNISTROKE_DIC=dist/ondevice-ext.dic python3 test_ondevice.py || true)
+          RATE=$(echo "$OUT" | grep -o '一致率 [0-9.]*' | head -1 | awk '{print $2}')
+          echo "rate=${RATE:-不明}" >> "$GITHUB_OUTPUT"
+          echo "文字単位の一致率: ${RATE:-不明}"
+
+      - name: 知らせる Issue を立てる
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="拡張辞書に更新があります（v${{ steps.check.outputs.version }} から変化）"
+          # 同じ内容の Issue を毎月増やさない
+          if gh issue list --state open --search "$TITLE in:title" --json title \
+               --jq '.[].title' | grep -qF "$TITLE"; then
+            echo "同じ Issue が開いているので何もしない"
+            exit 0
+          fi
+          {
+            echo "拡張辞書を作り直したところ、現在配布中のものと中身が変わりました。"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| 配布中 (v${{ steps.check.outputs.version }}) | \`${{ steps.check.outputs.old }}\` |"
+            echo "| 作り直した結果 | \`${{ steps.check.outputs.new }}\` |"
+            echo "| 新しい辞書の文字単位の一致率 | ${{ steps.quality.outputs.rate }} |"
+            echo
+            echo "原因は次のどちらかです。"
+            echo
+            echo "- [google/mozc](https://github.com/google/mozc) の \`dictionary_oss\` が更新された"
+            echo "- \`tools/build_dictionary.py\` を変更した（絞り込みやコストの調整）"
+            echo
+            echo "配る場合は **「リリース」ワークフローを実行**してください。辞書の変化は自動で検知され、"
+            echo "版が上がって APK と同じリリースに同梱されます。手元でコマンドを叩く必要はありません。"
+            echo
+            echo "一致率が下がっている場合は配らず、\`tools/build_dictionary.py\` の調整を見直してください。"
+            echo
+            echo "（この Issue は自動生成です）"
+          } > issue-body.md
+          gh issue create --title "$TITLE" --body-file issue-body.md

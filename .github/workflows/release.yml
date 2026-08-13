@@ -1,0 +1,231 @@
+name: リリース
+
+# アプリのリビジョンアップと拡張辞書の配信を 1 本にまとめたもの。
+# Actions タブから「Run workflow」を押すだけで次が走る。
+#
+#   1. build.gradle.kts から versionName / versionCode を読む（唯一の情報源）
+#   2. 拡張辞書をビルドし、**現在配っているものとハッシュを比べる**
+#        変化なし -> 辞書は同梱しない。マニフェストは今のリリースを指したまま
+#        変化あり -> 版を上げ、このリリースに同梱し、マニフェストを更新
+#   3. APK をビルド（署名鍵の Secrets があれば署名する）
+#   4. リリースを作り、APK と（変化があれば）辞書を添付
+#   5. マニフェストを main へコミット
+#
+# 辞書ビルドは再現可能（同じ入力なら同じバイト列）なので、
+# ハッシュが変わったときだけ「本当に中身が変わった」と判断できる。
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_dictionary:
+        description: '辞書に変化が無くても作り直して配る'
+        required: false
+        default: false
+        type: boolean
+      dict_limit:
+        description: '拡張辞書に残す語数の上限'
+        required: false
+        default: '220000'
+        type: string
+      dry_run:
+        description: 'リリースせず、ビルドと検証だけ行う'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # secrets はステップの if では参照できないので、ここで真偽値に落としておく。
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # 素材は 93 MB。中身は Mozc 側が更新しない限り変わらないので寝かせる。
+      - name: Mozc の素材をキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: tools/mozc-src
+          key: mozc-src-v1
+
+      - name: バージョンを読む
+        id: ver
+        run: |
+          set -euo pipefail
+          NAME=$(grep -o 'versionName = "[^"]*"' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)"/\1/')
+          CODE=$(grep -o 'versionCode = [0-9]*' app/build.gradle.kts | head -1 | grep -o '[0-9]*')
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NAME" >> "$GITHUB_OUTPUT"
+          echo "アプリ: v$NAME (versionCode $CODE)"
+          if gh release view "v$NAME" >/dev/null 2>&1; then
+            echo "::error::リリース v$NAME は既にあります。build.gradle.kts の versionName / versionCode を上げてください"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      # ---------------------------------------------------------------- 辞書
+
+      - name: 拡張辞書をビルドして変化を見る
+        id: dict
+        run: |
+          set -euo pipefail
+          python3 tools/build_dictionary.py --fetch \
+            --limit '${{ inputs.dict_limit }}' --out dist/ondevice-ext.dic
+          NEW=$(shasum -a 256 dist/ondevice-ext.dic | awk '{print $1}')
+          OLD=$(python3 -c "import json;print(json.load(open('dictionary/manifest.json'))['sha256'])")
+          CUR=$(python3 -c "import json;print(json.load(open('dictionary/manifest.json'))['dictVersion'])")
+          echo "  今回: $NEW"
+          echo "  配布中: $OLD"
+          if [ "$NEW" = "$OLD" ] && [ "${{ inputs.force_dictionary }}" != "true" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "辞書に変化なし。同梱せず、マニフェストも据え置く"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$((CUR + 1))" >> "$GITHUB_OUTPUT"
+            echo "辞書が変化した。v$((CUR + 1)) として配る"
+          fi
+
+      # 辞書を配るときだけマニフェストを作り直す。
+      # url は今回のリリースタグを指すので、辞書は APK と同じリリースに載る。
+      - name: マニフェストを更新
+        if: steps.dict.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          python3 tools/make_manifest.py \
+            --version '${{ steps.dict.outputs.version }}' \
+            --min-app '${{ steps.ver.outputs.code }}' \
+            --url "https://github.com/${{ github.repository }}/releases/download/${{ steps.ver.outputs.tag }}/ondevice-ext.dic"
+
+      # ---------------------------------------------------------------- 検証
+
+      - name: 検証
+        run: |
+          set -euo pipefail
+          python3 run_all.py
+          if [ "${{ steps.dict.outputs.changed }}" = "true" ]; then
+            UNISTROKE_DIC=dist/ondevice-ext.dic python3 test_dictionary.py
+            UNISTROKE_DIC=dist/ondevice-ext.dic python3 test_ondevice.py
+          fi
+
+      # ---------------------------------------------------------------- APK
+
+      # 署名鍵の Secrets が入っていれば署名する。無ければ未署名のまま進み、
+      # 未署名 APK はリリースに添付しない（配布物と紛らわしいため）。
+      - name: 署名鍵を用意
+        id: sign
+        if: env.HAS_SIGNING_KEY == 'true'
+        run: |
+          set -euo pipefail
+          echo '${{ secrets.ANDROID_KEYSTORE_BASE64 }}' | base64 --decode > release.jks
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: APK をビルド
+        env:
+          UNISTROKE_STORE_FILE: release.jks
+          UNISTROKE_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          UNISTROKE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          UNISTROKE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --console=plain
+
+      - name: 署名を確認
+        if: steps.sign.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --verbose \
+            app/build/outputs/apk/release/app-release.apk
+
+      - name: 鍵を消す
+        if: always()
+        run: rm -f release.jks
+
+      - name: 生成物を保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.ver.outputs.tag }}
+          path: |
+            app/build/outputs/apk/release/*.apk
+            dist/ondevice-ext.dic
+            dictionary/manifest.json
+          if-no-files-found: warn
+
+      # -------------------------------------------------------------- リリース
+
+      - name: リリースを作成
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # 添付するものを先に決める。未署名 APK は添付しない
+          # （配布物と紛らわしく、入れてしまうと利用者が上書き更新できなくなる）。
+          ASSETS=()
+          APK=app/build/outputs/apk/release/app-release.apk
+          if [ -f "$APK" ]; then
+            cp "$APK" "unistroke-ime-${{ steps.ver.outputs.tag }}.apk"
+            ASSETS+=("unistroke-ime-${{ steps.ver.outputs.tag }}.apk")
+          else
+            echo "::warning::署名済み APK が無いため添付しません（Secrets 未設定）"
+          fi
+          if [ "${{ steps.dict.outputs.changed }}" = "true" ]; then
+            ASSETS+=("dist/ondevice-ext.dic")
+          fi
+          if [ ${#ASSETS[@]} -eq 0 ]; then
+            echo "::error::添付できるものがありません"
+            exit 1
+          fi
+          {
+            echo "## Uni-Stroke IME ${{ steps.ver.outputs.tag }}"
+            echo
+            echo "一筆書きストロークで日本語を入力する IME です。既定では一切通信しません。"
+            echo
+            if [ "${{ steps.dict.outputs.changed }}" = "true" ]; then
+              WORDS=$(python3 -c "import json;print(json.load(open('dictionary/manifest.json'))['words'])")
+              SHA=$(python3 -c "import json;print(json.load(open('dictionary/manifest.json'))['sha256'])")
+              echo "### 拡張辞書 v${{ steps.dict.outputs.version }}"
+              echo
+              echo "この版から拡張辞書が更新されています（約 $WORDS 語）。"
+              echo "アプリの 設定 → 拡張辞書 から取得できます。手動でのダウンロードは不要です。"
+              echo
+              echo "SHA-256: \`$SHA\`"
+            else
+              echo "拡張辞書はこの版では変更ありません。"
+            fi
+            echo
+            echo "元データは [google/mozc](https://github.com/google/mozc) の \`dictionary_oss\`"
+            echo "（BSD-3-Clause、一部 IPAdic / NAIST 由来）です。"
+            echo "詳細は [NOTICE](https://github.com/${{ github.repository }}/blob/main/NOTICE) を参照してください。"
+          } > notes.md
+          gh release create "${{ steps.ver.outputs.tag }}" "${ASSETS[@]}" \
+            --title "Uni-Stroke IME ${{ steps.ver.outputs.tag }}" \
+            --notes-file notes.md
+
+      # マニフェストは、アセットが載ったリリースを作ったあとにコミットする。
+      # 逆順だと「マニフェストは新しいのにファイルが無い」瞬間ができる。
+      - name: マニフェストをコミット
+        if: ${{ !inputs.dry_run && steps.dict.outputs.changed == 'true' }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dictionary/manifest.json
+          git commit -m "拡張辞書 v${{ steps.dict.outputs.version }} を配信（${{ steps.ver.outputs.tag }}）"
+          git push
