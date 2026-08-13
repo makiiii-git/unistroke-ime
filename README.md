@@ -92,19 +92,25 @@ keytool -genkeypair -v -keystore release.jks -alias unistroke \
 
 **方法 A: macOS キーチェーン（推奨・平文をディスクに残さない）**
 
+一度だけ登録します。`-w` を**最後**に置くのが要点で、こう書くと対話プロンプトになり、
+パスワードがシェル履歴にもプロセス一覧にも残りません。
+
 ```bash
-security add-generic-password -a "$USER" -s unistroke-keystore -w   # 対話でパスワード入力
+security add-generic-password -a "$USER" -s unistroke-keystore -U -w
 ```
 
-以後はこれでビルドします。
+`password data for new item:` と聞かれるので入力し、確認でもう一度入力します（入力は非表示）。
+
+以後のビルドはこれだけです。
 
 ```bash
-export UNISTROKE_STORE_FILE=release.jks
-export UNISTROKE_KEY_ALIAS=unistroke
-export UNISTROKE_STORE_PASSWORD=$(security find-generic-password -a "$USER" -s unistroke-keystore -w)
-export UNISTROKE_KEY_PASSWORD="$UNISTROKE_STORE_PASSWORD"
+source tools/release-env.sh
 ./gradlew assembleRelease
 ```
+
+`tools/release-env.sh` はキーチェーンから読んで環境変数に入れるだけで、
+パスワードを表示も保存もしません。ストアと鍵で違うパスワードにした場合は
+スクリプト内の `UNISTROKE_KEY_PASSWORD` を分けてください。
 
 **方法 B: Gradle プロパティ（CI 向け）**
 
