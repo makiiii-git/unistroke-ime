@@ -45,6 +45,9 @@ jobs:
       HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 変更履歴（前回のリリースタグから HEAD まで）を作るために全履歴とタグが要る
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -211,6 +214,30 @@ jobs:
 
       # -------------------------------------------------------------- リリース
 
+      # 変更履歴は dry_run でも組み立てる（リリース作成をスキップするモードでも
+      # この部分の不具合に気づけるように）。
+      - name: 変更履歴を組み立てる
+        run: |
+          set -euo pipefail
+          # 前回のリリースタグ。初回リリースならタグが無いので空になる。
+          PREV=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || true)
+          {
+            echo "### 変更点"
+            echo
+            # バージョンを上げるだけのコミット（件名が vX.Y.Z で始まる）と
+            # 辞書配信のボットコミットは、リリースの体裁情報なので載せない。
+            git log --no-merges --pretty='- %s' ${PREV:+$PREV..}HEAD \
+              | grep -vE '^- v[0-9]' \
+              | grep -v '^- 拡張辞書 v[0-9]* を配信' || true
+            echo
+            if [ -n "$PREV" ]; then
+              echo "詳細な差分: [\`$PREV...${{ steps.ver.outputs.tag }}\`](https://github.com/${{ github.repository }}/compare/$PREV...${{ steps.ver.outputs.tag }})"
+            fi
+          } > changelog.md
+          echo "前回タグ: ${PREV:-（無し・初回）}"
+          cat changelog.md
+          cat changelog.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: リリースを作成
         if: ${{ !inputs.dry_run }}
         env:
@@ -237,7 +264,9 @@ jobs:
           {
             echo "## Uni-Stroke IME ${{ steps.ver.outputs.tag }}"
             echo
-            echo "一筆書きストロークで日本語を入力する IME です。既定では一切通信しません。"
+            echo "一筆書きストロークで日本語を入力する IME です。入力した内容が外部へ送られることはありません。"
+            echo
+            cat changelog.md
             echo
             if [ "${{ steps.dict.outputs.changed }}" = "true" ]; then
               WORDS=$(python3 -c "import json;print(json.load(open('dictionary/manifest.json'))['words'])")
