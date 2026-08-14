@@ -785,6 +785,40 @@ def main():
     check(not bad2, "横線帯に #return が、斜線帯に横線系が 1 本も出ない%s"
           % ("" if not bad2 else " " + str(bad2)))
 
+    print("\n=== o の回り込み（閉じたあと円弧に沿って書き進む） ===")
+
+    # 速い円運動は閉じた位置でぴたりと止められず、円弧に沿って 1/4〜1/3 周ほど
+    # 余分に回ってから離れる。この形は素の丸テンプレートから遠ざかる一方で
+    # q（円 + 尻尾）にも届かず、「q:0.75 / o:0.70」のように全候補が閾値未満に
+    # 落ちる死角だった（実機ログの below_threshold 12 件中 8 件がこの形）。
+    # 回り込み付きバリアントがこの帯を埋めることを確認する。
+
+    def circle_overshoot(extra_deg, n=48):
+        """上から反時計回り（画面座標）の円を 360 + extra_deg 度ぶん描く。"""
+        pts = []
+        total = 360.0 + extra_deg
+        for i in range(n + 1):
+            a = _math.radians(-90.0 - total * i / n)
+            pts.append((0.5 + 0.45 * _math.cos(a), 0.5 + 0.45 * _math.sin(a)))
+        return pts
+
+    rec_oq = Recognizer(TPL.alpha_zone)
+    for extra in (0, 45, 90, 100, 110, 120, 130):
+        rng = random.Random("oq/%d" % extra)
+        ideal = circle_overshoot(extra)
+        ok_o = as_q = 0
+        for _ in range(30):
+            s = human_stroke(ideal, rng, **NORMAL)
+            sc = rec_oq.scores(s)
+            best = max(sc, key=lambda k: sc[k])
+            if sc[best] >= SCORE_THRESHOLD:
+                if best == "o":
+                    ok_o += 1
+                elif best == "q":
+                    as_q += 1
+        check(ok_o >= 27, "回り込み %d 度の o が >= 90%% で認識される (%d/30)" % (extra, ok_o))
+        check(as_q == 0, "回り込み %d 度の o が q に化けない (%d/30)" % (extra, as_q))
+
     print("\n=== 角度ゲートの Kotlin 側配線 ===")
     kt4 = SRC["StrokeRecognizer"]
     check("private fun verticalSlant" in kt4, "生の角度の計算がある")
