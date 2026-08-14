@@ -95,7 +95,8 @@ class StrokeRecognizer(
         val straight = straightness(points) >= STRAIGHT_GATE
         val slant = verticalSlant(points)
         val ambiguousSlant = straight &&
-            slant > RETURN_MIN_SLANT && slant < VERTICAL_MAX_SLANT
+            (slant > RETURN_MIN_SLANT && slant < VERTICAL_MAX_SLANT ||
+                slant > HORIZONTAL_MIN_SLANT && slant < RETURN_MAX_SLANT)
 
         var bestSymbol: String? = null
         var bestScore = -1f
@@ -377,14 +378,24 @@ class StrokeRecognizer(
      *
      *   [slant] <= [RETURN_MIN_SLANT]      縦線とみなす -> #return を外す
      *   [slant] >= [VERTICAL_MAX_SLANT]    斜線とみなす -> 縦線系（i / 1 / シフト）を外す
-     *   その間（曖昧帯）                    どちらも残すが、#return は不利に扱う
+     *   [slant] >= [RETURN_MAX_SLANT]      横線とみなす -> #return を外す
+     *   [slant] <= [HORIZONTAL_MIN_SLANT]  斜線とみなす -> 横線系（スペース / バックスペース）を外す
+     *   各境界の間（曖昧帯）                どちらも残すが、#return は不利に扱う
+     *
+     * 縦側と同様に横側も生の角度で切るのは、正規化の副作用で
+     * 「傾いた横線が回転探索と非一様スケールできっかり 45 度の斜線へ化ける」ため
+     * （[verticalSlant] の説明を参照）。実機ログでも、速く書いたバックスペースが
+     * #backspace:0.998 / #return:0.999 のマージン 0.001 で #return に化けた例がある。
      *
      * 曖昧帯で #return を不利にするのは、取り違えたときの被害が非対称だから。
-     * 「i が出ない」は書き直せば済むが、「意図せず確定・改行が入る」は取り返しがつかない。
+     * 「i やバックスペースが出ない」は書き直せば済むが、
+     * 「意図せず確定・改行が入る」は取り返しがつかない。
      */
     private fun angleGated(symbol: String, slant: Float): Boolean = when {
-        symbol == RETURN_SYMBOL -> slant <= RETURN_MIN_SLANT
+        symbol == RETURN_SYMBOL ->
+            slant <= RETURN_MIN_SLANT || slant >= RETURN_MAX_SLANT
         symbol in VERTICAL_SYMBOLS -> slant >= VERTICAL_MAX_SLANT
+        symbol in HORIZONTAL_SYMBOLS -> slant <= HORIZONTAL_MIN_SLANT
         else -> false
     }
 
@@ -645,11 +656,31 @@ class StrokeRecognizer(
          */
         const val VERTICAL_MAX_SLANT = 20f
 
-        /** 曖昧帯（15〜20 度）で #return に課す不利。縦線系をこれ以上上回らないと勝てない。 */
+        /**
+         * これ以上の傾き（= 横線に近い）なら #return を候補から外す。
+         *
+         * ハーネス実測（垂直からの角度・各 2000 本）:
+         *   #return   通常 max 64.9 / 雑 p99 71.6 / 速書き p99 65.7
+         *   横線系    雑でも min 69.1・p1 71.9（それ未満へ倒れることがほぼ無い）
+         * 雑に書いた #return の 1% 弱がここで棄却されるが、リターンの取り逃しは
+         * 書き直せば済む。逆方向（横線が #return に化ける）の被害を優先して防ぐ。
+         */
+        const val RETURN_MAX_SLANT = 70f
+
+        /**
+         * これ以下の傾きなら斜線とみなし、横線系（[HORIZONTAL_SYMBOLS]）を候補から外す。
+         * 実測では雑書きの横線でも 69.1 度未満に倒れたものは 2000 本中 0（上記参照）。
+         */
+        const val HORIZONTAL_MIN_SLANT = 65f
+
+        /** 曖昧帯（15〜20 度・65〜70 度）で #return に課す不利。 */
         const val AMBIGUOUS_RETURN_PENALTY = 0.05f
 
         /** 縦線 1 本の字形。傾いたストロークでは候補から外す。 */
         val VERTICAL_SYMBOLS: Set<String> = setOf("i", "1", SHIFT_SYMBOL)
+
+        /** 横線 1 本の字形。斜めに倒れたストロークでは候補から外す。 */
+        val HORIZONTAL_SYMBOLS: Set<String> = setOf(SPACE_SYMBOL, BACKSPACE_SYMBOL)
 
         /**
          * 曲がっていても、これ未満に細いストロークは非一様スケールしない。

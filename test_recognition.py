@@ -716,12 +716,84 @@ def main():
                 as_i += 1
     check(as_i == 0, "#shift が i と取り違えられない (%d/120)" % as_i)
 
+    print("\n=== 生の角度ゲート（横線と #return の分離）===")
+    from unistroke_model import HORIZONTAL_MIN_SLANT, HORIZONTAL_SYMBOLS, RETURN_MAX_SLANT
+
+    # 傾いた横線は、回転探索（±15 度）と非一様スケール（縦横比 0.40 以上で
+    # 単位正方形へ引き伸ばし）の合わせ技で「きっかり 45 度の斜線」へ化けるため、
+    # スコアでは #return と切れない（実機ログ: #backspace 0.998 vs #return 0.999）。
+    # 縦線側（i vs #return）と同じく、生の角度で先に候補を絞る。
+    check(HORIZONTAL_MIN_SLANT < RETURN_MAX_SLANT, "曖昧帯が正しい向きに定義されている")
+    check(VERTICAL_MAX_SLANT < HORIZONTAL_MIN_SLANT, "縦側の閾値と重ならない")
+
+    # ゲートの判定
+    check(angle_gated("#return", 75.0), "75 度（横線寄り）では #return を外す")
+    check(not angle_gated("#return", 60.0), "60 度では #return を残す")
+    for sym in sorted(HORIZONTAL_SYMBOLS):
+        check(angle_gated(sym, 60.0), "60 度では %s（横線系）を外す" % sym)
+        check(not angle_gated(sym, 75.0), "75 度では %s を残す" % sym)
+
+    # テンプレートの実角度が両閾値から十分離れていること
+    check(ret_angle < HORIZONTAL_MIN_SLANT - 15,
+          "#return の実角度 %.1f 度は横線ゲート %.0f 度から十分離れている"
+          % (ret_angle, HORIZONTAL_MIN_SLANT))
+    for sym in sorted(HORIZONTAL_SYMBOLS):
+        h_angle = vertical_slant([p for s, p in TPL.alpha_zone if s == sym][0])
+        check(h_angle > RETURN_MAX_SLANT + 15,
+              "%s の実角度 %.1f 度は #return 上限 %.0f 度から十分離れている"
+              % (sym, h_angle, RETURN_MAX_SLANT))
+
+    # 角度スイープ: 右から左への直線を水平（90 度）から斜め（45 度）まで倒す。
+    # 実際に書かれた角度が #return 上限以上なら #return は 1 本も出ない、
+    # 横線ゲート以下なら横線系は 1 本も出ないこと（曖昧帯 65-69 はどちらも可）。
+    print("       -- 実際に書かれた角度ごとの勝者（右 -> 左の直線） --")
+
+    def leftward_line(deg, n=16):
+        """垂直から deg 度・右上から左下へ向かう直線（90 度で水平の右 -> 左）。"""
+        r = _math.radians(deg)
+        pts = []
+        for i in range(n + 1):
+            t = i / n
+            pts.append((0.8 - 0.7 * _math.sin(r) * t, 0.1 + 0.7 * _math.cos(r) * t))
+        return pts
+
+    bins2 = {}
+    rng = random.Random(17)
+    for deg in range(45, 91):
+        g = leftward_line(deg)
+        for profile in (NORMAL, HARD):
+            for _ in range(12):
+                st = human_stroke(g, rng, **profile)
+                r = rec_ang.recognize(st)
+                key = r[0] if r else "(none)"
+                b = int(vertical_slant(st) // 5) * 5
+                bins2.setdefault(b, {})
+                bins2[b][key] = bins2[b].get(key, 0) + 1
+    bad2 = []
+    for b in sorted(bins2):
+        hist = bins2[b]
+        n = sum(hist.values())
+        winner = max(hist, key=lambda k: hist[k])
+        print("          %2d-%2d度 n=%4d  %-10s %d%%"
+              % (b, b + 4, n, winner, 100 * hist[winner] // n))
+        if b >= RETURN_MAX_SLANT and hist.get("#return", 0) > 0:
+            bad2.append((b, "#return", hist["#return"]))
+        if b + 4 < HORIZONTAL_MIN_SLANT:
+            for sym in HORIZONTAL_SYMBOLS:
+                if hist.get(sym, 0) > 0:
+                    bad2.append((b, sym, hist[sym]))
+    check(not bad2, "横線帯に #return が、斜線帯に横線系が 1 本も出ない%s"
+          % ("" if not bad2 else " " + str(bad2)))
+
     print("\n=== 角度ゲートの Kotlin 側配線 ===")
     kt4 = SRC["StrokeRecognizer"]
     check("private fun verticalSlant" in kt4, "生の角度の計算がある")
     check("angleGated(e.symbol, slant)" in kt4, "スコア計算前に候補を絞っている")
     check("AMBIGUOUS_RETURN_PENALTY" in kt4, "曖昧帯で #return を不利にしている")
     check("straight && angleGated" in kt4, "直線的なストロークにだけ掛けている")
+    check("slant >= RETURN_MAX_SLANT" in kt4, "#return に横線側の上限がある")
+    check("symbol in HORIZONTAL_SYMBOLS -> slant <= HORIZONTAL_MIN_SLANT" in kt4,
+          "横線系に斜線側の下限がある")
 
     print()
     if FAILURES:

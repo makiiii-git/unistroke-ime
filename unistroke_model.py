@@ -186,9 +186,12 @@ SWING_DEADBAND = float_const(_R, "SWING_DEADBAND")
 SWING_GATE = int_const(_R, "SWING_GATE")
 RETURN_MIN_SLANT = float_const(_R, "RETURN_MIN_SLANT")
 VERTICAL_MAX_SLANT = float_const(_R, "VERTICAL_MAX_SLANT")
+RETURN_MAX_SLANT = float_const(_R, "RETURN_MAX_SLANT")
+HORIZONTAL_MIN_SLANT = float_const(_R, "HORIZONTAL_MIN_SLANT")
 AMBIGUOUS_RETURN_PENALTY = float_const(_R, "AMBIGUOUS_RETURN_PENALTY")
 VERTICAL_SYMBOLS = set(re.findall(r'"([^"]+)"', re.search(
     r"val VERTICAL_SYMBOLS: Set<String> = setOf\(([^)]*)\)", _R).group(1))) | {"#shift"}
+HORIZONTAL_SYMBOLS = {"#space", "#backspace"}
 ASPECT_FLOOR = float_const(_R, "ASPECT_FLOOR")
 REVERSAL_PROMINENCE = float_const(_R, "REVERSAL_PROMINENCE")
 REVERSAL_SLACK = int_const(_R, "REVERSAL_SLACK")
@@ -359,9 +362,11 @@ def vertical_slant(pts) -> float:
 def angle_gated(symbol: str, slant: float) -> bool:
     """生の角度による直線系の絞り込み（StrokeRecognizer.angleGated）。"""
     if symbol == "#return":
-        return slant <= RETURN_MIN_SLANT
+        return slant <= RETURN_MIN_SLANT or slant >= RETURN_MAX_SLANT
     if symbol in VERTICAL_SYMBOLS:
         return slant >= VERTICAL_MAX_SLANT
+    if symbol in HORIZONTAL_SYMBOLS:
+        return slant <= HORIZONTAL_MIN_SLANT
     return False
 
 
@@ -457,7 +462,9 @@ class Recognizer:
         asp = aspect_of(pts)
         straight = straightness(pts) >= STRAIGHT_GATE
         slant = vertical_slant(pts)
-        ambiguous = straight and RETURN_MIN_SLANT < slant < VERTICAL_MAX_SLANT
+        ambiguous = straight and (
+            RETURN_MIN_SLANT < slant < VERTICAL_MAX_SLANT
+            or HORIZONTAL_MIN_SLANT < slant < RETURN_MAX_SLANT)
         for rot in ROTATIONS:
             v = vectorize(pts, rot)
             if v is None:
