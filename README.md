@@ -69,85 +69,22 @@
 | `V` | `v` を書いたあと終端を右へ水平に払う（この払いが `U` との識別点） |
 | `I` | 縦に近く書く。傾けると「リターン」と数値的に区別できなくなります |
 
-## ビルド
+## ソースからビルドする
+
+APK を使うだけならこの節は不要です。[Releases](https://github.com/makiiii-git/unistroke-ime/releases) のものをそのままインストールしてください。
+
+JDK 17 が必要です。`JAVA_HOME` が未設定の場合は `~/.gradle/gradle.properties` に
+`org.gradle.java.home` を書いてください（リポジトリ側には環境依存のパスを置いていません）。
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-JDK 17 が必要です。`JAVA_HOME` が未設定の場合は `~/.gradle/gradle.properties` に
-`org.gradle.java.home` を書いてください（リポジトリ側には環境依存のパスを置いていません）。
+出力は `app/build/outputs/apk/debug/app-debug.apk` です。デバッグ署名が付くので、そのまま端末にインストールできます。
 
-### リリース用の署名
+### 辞書の再生成（任意）
 
-配布する APK には署名が必要です。鍵はリポジトリに置かないので、各自で作ります。
-
-```bash
-keytool -genkeypair -v -keystore release.jks -alias unistroke \
-        -keyalg RSA -keysize 4096 -validity 10000
-```
-
-対話的にパスワードと氏名等を聞かれます。次に署名情報をビルドへ渡します。
-**方法は3つあり、先に見つかったものが使われます。**
-
-**方法 A: macOS キーチェーン（推奨・平文をディスクに残さない）**
-
-一度だけ登録します。`-w` を**最後**に置くのが要点で、こう書くと対話プロンプトになり、
-パスワードがシェル履歴にもプロセス一覧にも残りません。
-
-```bash
-security add-generic-password -a "$USER" -s unistroke-keystore -U -w
-```
-
-`password data for new item:` と聞かれるので入力し、確認でもう一度入力します（入力は非表示）。
-
-以後のビルドはこれだけです。
-
-```bash
-source tools/release-env.sh
-./gradlew assembleRelease
-```
-
-`tools/release-env.sh` はキーチェーンから読んで環境変数に入れるだけで、
-パスワードを表示も保存もしません。ストアと鍵で違うパスワードにした場合は
-スクリプト内の `UNISTROKE_KEY_PASSWORD` を分けてください。
-
-**方法 B: Gradle プロパティ（CI 向け）**
-
-シークレットを `ORG_GRADLE_PROJECT_unistrokeStorePassword` などの環境変数として
-注入するか、`-PunistrokeStorePassword=…` で渡します。
-`~/.gradle/gradle.properties`（リポジトリ外）に書く手もあります。
-
-**方法 C: keystore.properties（手軽だが平文）**
-
-```bash
-cp keystore.properties.example keystore.properties
-# エディタで storePassword / keyPassword を記入
-```
-
-いずれも設定しなくてもビルドは通ります（`app-release-unsigned.apk` になり、
-何が足りないかがビルドログに出ます）。署名されると出力名が `app-release.apk` に変わります。
-
-署名の確認:
-
-```bash
-apksigner verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
-```
-
-署名スキームは **v2 + v3** を有効にしています（v1 は Android 6 以前向けなので `minSdk 26` では不要）。
-v3 は署名証明書の系譜を持てる形式で、**将来どうしても鍵を替えることになったときに
-「同じアプリ」として更新を配り続けるために必要**です。v3 ブロックの無い APK を配ってしまうと
-後から遡って有効にはできません。実際に鍵を替えるときは `apksigner rotate` で系譜ファイルを
-作り、新旧両方の鍵で署名します。
-
-> **鍵を失うとアップデートを配れなくなります。** 別の鍵で署名した APK は既存インストールに
-> 上書きできず、ユーザーは手動アンインストールを強いられます。`release.jks` と
-> パスワードは必ずオフラインにバックアップしてください。
-> `*.jks` と `keystore.properties` は `.gitignore` 済みです。
-
-### 辞書の再生成
-
-同梱済みなので通常は不要です。差し替えたい場合:
+変換辞書はビルド済みのものを同梱しているので、通常は不要です。差し替えたい場合:
 
 ```bash
 python3 tools/build_dictionary.py --fetch   # 初回のみ素材を約 93 MB ダウンロード
@@ -158,7 +95,7 @@ python3 test_ondevice.py                    # 変換品質のスモークテス�
 素材は `tools/mozc-src/` に置かれ、リポジトリには含めません（`.gitignore` 済み）。
 詳細は [tools/README.md](tools/README.md) を参照してください。
 
-### 検証
+### テスト
 
 ```bash
 python3 run_all.py
