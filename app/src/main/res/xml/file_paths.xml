@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    FileProvider が外へ渡してよい場所。
+    更新用の APK を置く cacheDir/updates だけを公開する。
+-->
+<paths>
+    <cache-path
+        name="updates"
+        path="updates/" />
+</paths>

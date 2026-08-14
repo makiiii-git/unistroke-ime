@@ -36,6 +36,12 @@ object Prefs {
     /** 拡張辞書の取得をセットアップで一度案内したか。 */
     const val KEY_DICT_PROMPTED = "dict_prompted"
 
+    /** アプリ本体の更新を自動で確認するか（既定オン）。 */
+    const val KEY_APP_AUTO_UPDATE = "app_auto_update"
+
+    /** 最後にアプリの更新を確認した時刻。 */
+    const val KEY_APP_LAST_CHECK = "app_last_check"
+
     /** 大画面でパネルを寄せた側（[SIDE_LEFT] / [SIDE_RIGHT]）。未設定なら利き手側。 */
     const val KEY_PANEL_SIDE = "panel_side"
 
@@ -122,6 +128,20 @@ object Prefs {
 
     fun setDictAutoUpdate(context: Context, enabled: Boolean) {
         of(context).edit().putBoolean(KEY_DICT_AUTO_UPDATE, enabled).apply()
+    }
+
+    /**
+     * アプリ本体の更新確認。**既定はオン**。
+     *
+     * 入力中（IME サービス）からは絶対に走らせない。アプリの画面を開いたときだけ、
+     * 1 日 1 回を上限に GitHub のリリース情報を見に行く。
+     * 送るのは「最新版は何か」という問い合わせだけで、入力内容は含まれない。
+     */
+    fun isAppAutoUpdate(context: Context): Boolean =
+        of(context).getBoolean(KEY_APP_AUTO_UPDATE, true)
+
+    fun setAppAutoUpdate(context: Context, enabled: Boolean) {
+        of(context).edit().putBoolean(KEY_APP_AUTO_UPDATE, enabled).apply()
     }
 
     /**

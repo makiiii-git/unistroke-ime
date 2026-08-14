@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 漢字変換（Google 日本語入力 CGI API）に使う -->
+    <!--
+        通信の用途は 2 つだけ。
+          1. ネット変換（Google 日本語入力 CGI API）… 既定オフのオプトイン
+          2. アプリと拡張辞書の更新確認（GitHub）… アプリ画面を開いたときだけ
+        入力中（IME サービス）に外へ出るのは 1 を有効にした場合のみ。
+    -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 更新 APK をシステムのインストーラーへ渡すために要る -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
@@ -56,6 +64,17 @@
                 android:name="android.view.im"
                 android:resource="@xml/method" />
         </service>
+
+        <!-- 更新 APK を content:// で渡す。cacheDir/updates だけを公開する。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

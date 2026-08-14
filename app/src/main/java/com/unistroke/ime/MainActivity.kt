@@ -38,6 +38,7 @@ class MainActivity : Activity() {
 
         runSetupChain()
         maybeAutoCheckDictionary()
+        maybeAutoCheckAppUpdate()
     }
 
     /**
@@ -48,6 +49,18 @@ class MainActivity : Activity() {
      * 通信が起き続けることになり、この IME の建て付けと合わない。
      * 結果は静かに反映し、失敗しても黙って諦める（今の辞書のまま動く）。
      */
+    /**
+     * アプリ本体の更新確認（自動）。
+     *
+     * 既定オン。1 日 1 回を上限に、この画面を開いたときだけ便乗する。
+     * **IME サービスからは呼ばない**（入力中に通信やダイアログが走らないように）。
+     * 自動なので、更新が無いときも失敗したときも何も出さない。
+     */
+    private fun maybeAutoCheckAppUpdate() {
+        if (!AppUpdater.shouldAutoCheck(this, System.currentTimeMillis())) return
+        AppUpdateUi.checkAndOffer(this, manual = false)
+    }
+
     private fun maybeAutoCheckDictionary() {
         if (!DictionaryUpdater.shouldAutoCheck(this, System.currentTimeMillis())) return
         DictionaryUpdater.checkAndUpdate(this, autoDownload = true) { p ->

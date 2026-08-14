@@ -146,11 +146,18 @@ IMPLICIT = {
 
 
 def declared_types():
+    """型名 -> それを宣言しているファイルの一覧。
+
+    入れ子の型は別のクラスの中で同じ名前を使える（AppUpdater.Failure と
+    DictionaryUpdater.Failure など）。1 つに決め打ちすると、
+    先に見つかったほうだけを正として他方を「存在しない」と誤判定するので、
+    宣言しているファイルを全部覚えておく。
+    """
     out = {}
     for name, src in SRCS.items():
         code = strip_kotlin(src)
         for m in DECL_RE.finditer(code):
-            out.setdefault(m.group(1), name)
+            out.setdefault(m.group(1), []).append(name)
     return out
 
 
@@ -183,16 +190,18 @@ def main():
         code = strip_kotlin(src)
         for m in re.finditer(r"\b([A-Z]\w+)\.(\w+)", code):
             tname, member = m.group(1), m.group(2)
-            owner = types.get(tname)
-            if owner is None:
+            owners = types.get(tname)
+            if not owners:
                 continue  # Android / stdlib の型
             if member in IMPLICIT:
                 continue
-            if owner not in cache:
-                cache[owner] = members_of_file(owner)
+            # 同じ名前の入れ子型が複数あるときは、参照元のファイル自身の宣言を優先する。
+            # それが無ければ、宣言しているどれかに在れば解決とみなす。
+            candidates = [name] if name in owners else owners
             refs += 1
-            if member not in cache[owner]:
-                bad.append("%s.kt: %s.%s が %s.kt に無い" % (name, tname, member, owner))
+            if not any(member in cache.setdefault(o, members_of_file(o)) for o in candidates):
+                bad.append("%s.kt: %s.%s が %s に無い"
+                           % (name, tname, member, " / ".join(c + ".kt" for c in candidates)))
     check(not bad, "自作型への参照 %d 件がすべて解決する%s"
           % (refs, "" if not bad else " -> " + "; ".join(sorted(set(bad))[:6])))
 

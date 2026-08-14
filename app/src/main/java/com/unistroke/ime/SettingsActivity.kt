@@ -68,6 +68,15 @@ class SettingsActivity : Activity() {
             }
         }
 
+        // アプリの更新確認（既定オン）。IME からは走らせない。
+        findViewById<CheckBox>(R.id.check_app_auto_update).apply {
+            isChecked = Prefs.isAppAutoUpdate(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on ->
+                Prefs.setAppAutoUpdate(this@SettingsActivity, on)
+            }
+        }
+        findViewById<Button>(R.id.btn_update_check).setOnClickListener { runAppUpdateCheck() }
+
         // 速書き調査用のログ（既定オフ）。入力内容は出さない。
         val debug = findViewById<CheckBox>(R.id.debug_strokes)
         debug.isChecked = Prefs.isDebugStrokes(this)
@@ -126,6 +135,21 @@ class SettingsActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refresh()
+    }
+
+    /**
+     * アプリ本体の更新確認（手動）。
+     * 手動なので「最新です」も失敗も画面に出す。
+     */
+    private fun runAppUpdateCheck() {
+        val button = findViewById<Button>(R.id.btn_update_check)
+        button.isEnabled = false
+        button.setText(R.string.update_checking)
+        AppUpdateUi.checkAndOffer(this, manual = true) {
+            if (isFinishing || isDestroyed) return@checkAndOffer
+            button.isEnabled = true
+            button.setText(R.string.update_check_now)
+        }
     }
 
     /**
