@@ -138,20 +138,27 @@ def main():
         check(rate_sym >= 85.0, "%s は雑に書いても >= 85%% (%.1f%%)" % (sym, rate_sym))
 
     print("\n=== 3. K / X のループ形状 ===")
-    tpl = {s: p for s, p in TPL.blocks["letters"]}
+    # バリアント（進入の腕が短い形）も含め、K / X の全テンプレートを
+    # 定義順で対にして検査する。dict にすると後勝ちでバリアントしか見えない。
+    k_all = [p for s, p in TPL.blocks["letters"] if s == "k"]
+    x_all = [p for s, p in TPL.blocks["letters"] if s == "x"]
     punct = {s: p for s, p in TPL.blocks["punctuation"]}
     ext = {s: p for s, p in TPL.blocks["extended"]}
-    k, x = tpl["k"], tpl["x"]
-    check(G.loop_orientation(k) == "cw", "認識テンプレート K のループは時計回り")
-    check(G.loop_orientation(x) == "ccw", "認識テンプレート X のループは反時計回り（K の鏡像）")
-    check(abs(G.total_turn(k) - 270.0) < 1.0, "K の総回転量が 270 度 (%.1f)" % G.total_turn(k))
-    check(G.max_kink(k) < 20.0, "K に折れ角が無い（最大 %.1f 度）" % G.max_kink(k))
-    check(G.max_kink(x) < 20.0, "X に折れ角が無い（最大 %.1f 度）" % G.max_kink(x))
-    check(all(abs(a[0] - (1 - b[0])) < 1e-3 and abs(a[1] - b[1]) < 1e-3 for a, b in zip(k, x)),
-          "X は K の厳密な左右反転")
+    check(len(k_all) == len(x_all), "K と X のバリアント数が揃っている")
+    for i, (k, x) in enumerate(zip(k_all, x_all)):
+        tag = "K/X" if i == 0 else "K/X バリアント%d" % i
+        check(G.loop_orientation(k) == "cw", "%s: K のループは時計回り" % tag)
+        check(G.loop_orientation(x) == "ccw", "%s: X のループは反時計回り（K の鏡像）" % tag)
+        check(abs(G.total_turn(k) - 270.0) < 1.0,
+              "%s: K の総回転量が 270 度 (%.1f)" % (tag, G.total_turn(k)))
+        check(G.max_kink(k) < 20.0, "%s: K に折れ角が無い（最大 %.1f 度）" % (tag, G.max_kink(k)))
+        check(G.max_kink(x) < 20.0, "%s: X に折れ角が無い（最大 %.1f 度）" % (tag, G.max_kink(x)))
+        check(all(abs(a[0] - (1 - b[0])) < 1e-3 and abs(a[1] - b[1]) < 1e-3
+                  for a, b in zip(k, x)),
+              "%s: X は K の厳密な左右反転" % tag)
     check(G.loop_orientation(punct["+"]) == "cw", "Punctuation の + も K と同じ時計回り")
     check(G.loop_orientation(ext["+"]) == "cw", "Extended の + も K と同じ時計回り")
-    check(punct["+"] == k and ext["+"] == k, "+ は K と同一の字形")
+    check(punct["+"] == k_all[0] and ext["+"] == k_all[0], "+ は K（正準形）と同一の字形")
 
     # 進入・退出が交差してループになっていること（腕が閉じずに開いたままでない）
     def crosses(pts):
@@ -818,6 +825,50 @@ def main():
                     as_q += 1
         check(ok_o >= 27, "回り込み %d 度の o が >= 90%% で認識される (%d/30)" % (extra, ok_o))
         check(as_q == 0, "回り込み %d 度の o が q に化けない (%d/30)" % (extra, as_q))
+
+    print("\n=== k / x の進入の腕が短いバリアント ===")
+
+    # 速書きではタッチ開始の取りこぼしでストロークの書き出しが欠け、
+    # ∝ 字形の進入の腕だけが短くなる。素の k から遠ざかる一方で
+    # h（縦線 + 山）や a（山型）に寄り、h:0.80/k:0.78 のような僅差で
+    # 負けていた（実機ログで k -> h、書き直しで k -> a の誤認を確認）。
+
+    def loop_glyph_arms(arm_in, arm_out, r=0.2071, steps=20, mirrored=False):
+        """SampleStrokes.loopGlyph と同じ式（直線 -> 270 度の円弧 -> 直線）。"""
+        sq = _math.sqrt(0.5)
+        cx, cy = -r * sq, -r * sq
+        pts = [(arm_in * sq, -arm_in * sq)]
+        for i in range(steps + 1):
+            th = _math.radians(45.0 + 270.0 * i / steps)
+            pts.append((cx + r * _math.cos(th), cy + r * _math.sin(th)))
+        t2 = pts[-1]
+        pts.append((t2[0] + arm_out * sq, t2[1] + arm_out * sq))
+        if mirrored:
+            pts = [(-p[0], p[1]) for p in pts]
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        s = max(max(xs) - min(xs), max(ys) - min(ys))
+        return [((p[0] - min(xs)) / s, (p[1] - min(ys)) / s) for p in pts]
+
+    rec_kx = Recognizer(TPL.alpha_zone)
+    for sym, mir in (("k", False), ("x", True)):
+        for ain, aout in ((0.91, 0.91), (0.5, 1.1), (0.45, 1.15), (0.3, 1.2)):
+            rng = random.Random("kx/%s/%s" % (sym, ain))
+            ideal = loop_glyph_arms(ain, aout, mirrored=mir)
+            ok = wrong = 0
+            for _ in range(30):
+                s = human_stroke(ideal, rng, **HARD)
+                sc = rec_kx.scores(s)
+                best = max(sc, key=lambda kk: sc[kk])
+                if sc[best] >= SCORE_THRESHOLD:
+                    if best == sym:
+                        ok += 1
+                    elif best in ("h", "a"):
+                        wrong += 1
+            check(ok >= 27, "腕 %.2f/%.2f の %s が >= 90%% で認識される (%d/30)"
+                  % (ain, aout, sym, ok))
+            check(wrong == 0, "腕 %.2f/%.2f の %s が h / a に化けない (%d/30)"
+                  % (ain, aout, sym, wrong))
 
     print("\n=== 角度ゲートの Kotlin 側配線 ===")
     kt4 = SRC["StrokeRecognizer"]
