@@ -1392,6 +1392,50 @@ def main():
     check(ime.out.startswith("str"), "綴りが確定される")
     check("？" not in ime.out, "全角にはならない")
 
+    print("\n=== かなモードの 〜 は全角（波ダッシュ U+301C）===")
+    eq(KANA_SYMBOL_MAP.get("~"), "〜", "~ -> 〜 のマッピングがある")
+    eq(ord(KANA_SYMBOL_MAP["~"]), 0x301C,
+       "波ダッシュ U+301C（全角チルダ U+FF5E ではない）")
+    check(KANA_SYMBOL_MAP["~"] in KANA_COMPOSING_SYMBOLS,
+          "合成へ足す対象の 〜 と同じ符号位置")
+
+    m = ComposingIME().type("a").symbol("~")
+    eq(m.ic.whole(), "\u3042〜", "あ + 〜 で合成が伸びる")
+    eq(m.ic.committed(), "", "確定側は空（途中で確定していない）")
+    eq(m.ic.composing(), "\u3042〜", "全部が合成領域に入っている")
+
+    print("       -- 〜 を含んだまま変換できる --")
+    m = ComposingIME().type("nagai").symbol("~").convert(["\u9577\u3044〜"])
+    eq(m.ic.whole(), "\u9577\u3044〜", "〜 込みで変換できる")
+    eq(m.ic.committed(), "", "変換中はまだ確定していない")
+    m.confirm()
+    eq(m.ic.committed(), "\u9577\u3044〜", "確定して 〜 込みで入る")
+
+    print("       -- 〜 のあとのバックスペースは 〜 だけ消える --")
+    m = ComposingIME().type("nagai").symbol("~")
+    m.backspace()
+    eq(m.ic.whole(), "\u306a\u304c\u3044", "〜 だけ消えて合成が残る")
+    eq(m.ic.committed(), "", "確定側は空のまま")
+
+    print("       -- カタカナモードでも全角 --")
+    ime = IME(mode="KATAKANA")
+    typed(ime, "a")
+    ime.stroke(TAP); ime.stroke("~")
+    eq(ime.composing(), "\u30a2〜", "カタカナモードでも 〜 が合成へ足される")
+    eq(ime.out, "", "確定しない")
+
+    print("       -- abc モード・Extended・自動英字化中は半角のまま --")
+    ime = IME(mode="LATIN")
+    typed(ime, "ab")
+    ime.stroke(TAP); ime.stroke("~")
+    eq(ime.out, "ab~", "abc モードでは半角 ~ のまま確定")
+    ime = IME()
+    typed(ime, "str")
+    eq(ime.auto_latin, True, "自動英字化中")
+    ime.stroke(TAP); ime.stroke("~")
+    check("〜" not in ime.out, "自動英字化中は全角にならない")
+    check(ime.out.startswith("str"), "綴りが確定される")
+
     print("\n=== 記号を含んだまま変換できる ===")
     m = ComposingIME().type("kyouha").symbol(",").convert(["今日は、", "京は、"])
     eq(m.ic.whole(), "今日は、", "記号込みで変換できる")

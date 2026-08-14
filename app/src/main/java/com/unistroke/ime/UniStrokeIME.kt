@@ -625,6 +625,9 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
                 "-" -> "ー"
                 "?" -> "？"
                 "!" -> "！"
+                // 波ダッシュ U+301C。全角チルダ U+FF5E ではない
+                // （[KANA_COMPOSING_SYMBOLS] に入っているのが U+301C なので合わせる）
+                "~" -> "〜"
                 else -> symbol
             }
         } else {
