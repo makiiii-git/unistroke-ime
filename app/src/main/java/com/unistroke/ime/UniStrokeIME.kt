@@ -616,12 +616,15 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     /** 記号（punctuation / extended）をアプリへ送る。 */
     private fun emitSymbol(ic: InputConnection, symbol: String, extended: Boolean = false) {
         learner.onOther(System.currentTimeMillis())
-        val kanaMode = !extended && inputMode != InputMode.LATIN
+        // 自動英字化中の単語は ASCII として扱っているので、記号も半角のままにする。
+        val kanaMode = !extended && inputMode != InputMode.LATIN && !autoLatin
         val text = if (kanaMode) {
             when (symbol) {
                 "." -> "。"
                 "," -> "、"
                 "-" -> "ー"
+                "?" -> "？"
+                "!" -> "！"
                 else -> symbol
             }
         } else {
@@ -629,9 +632,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         }
         // かなモードの全角記号は「読みの一部」。確定させず合成へ足す。
         // 「ー」は読みそのもの（こーひー -> コーヒー）だし、
-        // 「、」「。」も付けたまま変換できるのが普通の日本語 IME の動き。
-        // 自動英字化中の単語は ASCII として扱っているので対象外。
-        if (kanaMode && !autoLatin && isKanaComposingSymbol(text)) {
+        // 「、」「。」「？」「！」も付けたまま変換できるのが普通の日本語 IME の動き。
+        if (kanaMode && isKanaComposingSymbol(text)) {
             appendSymbolToComposing(text)
             return
         }

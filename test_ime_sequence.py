@@ -28,6 +28,12 @@ def eq(got, want, msg):
     check(got == want, "%s  (got %r)" % (msg, got) if got != want else msg)
 
 
+# かなモードの半角->全角マッピング（Kotlin: emitSymbol の when）を実装から読む。
+# ここを手で二重管理すると、片方だけ足したときにテストが素通りしてしまう。
+KANA_SYMBOL_MAP = dict(re.findall(
+    r'"(.)" -> "(.)"',
+    re.search(r"val kanaMode = .*?\n        \} else \{", SRC["UniStrokeIME"], re.S).group(0)))
+
 KANA_COMPOSING_SYMBOLS = re.search(
     r'KANA_COMPOSING_SYMBOLS\s*=\s*"([^"]+)"', SRC["UniStrokeIME"]).group(1)
 
@@ -298,10 +304,11 @@ class IME:
             self._character(sym)
 
     def _emit(self, sym, extended=False):
-        kana_mode = not extended and self.mode != "LATIN"
-        text = {".": "。", ",": "、", "-": "ー"}.get(sym, sym) if kana_mode else sym
+        # 自動英字化中は ASCII 扱いなので半角のまま
+        kana_mode = not extended and self.mode != "LATIN" and not self.auto_latin
+        text = KANA_SYMBOL_MAP.get(sym, sym) if kana_mode else sym
         # かなモードの全角記号は確定させず合成へ足す（読みの一部として変換にかける）
-        if kana_mode and not self.auto_latin and text in KANA_COMPOSING_SYMBOLS:
+        if kana_mode and text in KANA_COMPOSING_SYMBOLS:
             self._merge_pending()
             self.kana += text
             self.word_raw += text
@@ -641,7 +648,7 @@ class ComposingIME:
 
     def symbol(self, sym):
         """かなモードの記号入力（Punctuation 経由）。全角なら合成へ足す。"""
-        text = {".": "。", ",": "、", "-": "ー"}.get(sym, sym)
+        text = KANA_SYMBOL_MAP.get(sym, sym)
         if text in KANA_COMPOSING_SYMBOLS:
             if self.romaji:
                 self.kana += Romaji.flush(self.romaji)
@@ -687,8 +694,7 @@ class ComposingIME:
         「確定したあとにもう 1 文字コミットする」経路の代表。
         """
         ic = self._cur()
-        text = {".": "。", ",": "、", "-": "ー"}.get(symbol, symbol) \
-            if self.mode != "LATIN" else symbol
+        text = KANA_SYMBOL_MAP.get(symbol, symbol) if self.mode != "LATIN" else symbol
         # かなモードの全角記号は確定させず合成へ足す
         if self.mode != "LATIN" and text in KANA_COMPOSING_SYMBOLS:
             if self.romaji:
@@ -1331,6 +1337,61 @@ def main():
     eq(m.ic.whole(), "にほんご。", "。 も合成へ足される")
     eq(m.ic.committed(), "", "確定側は空")
 
+    print("\n=== かなモードの ？ ！ は全角になり合成へ足される ===")
+    eq(KANA_SYMBOL_MAP.get("?"), "？", "? -> ？ のマッピングがある")
+    eq(KANA_SYMBOL_MAP.get("!"), "！", "! -> ！ のマッピングがある")
+    for c in "？！":
+        check(c in KANA_COMPOSING_SYMBOLS, "%s が合成へ足す対象に入っている" % c)
+
+    m = ComposingIME().type("kyouha").symbol("?")
+    eq(m.ic.whole(), "きょうは？", "きょうは + ？ で合成が伸びる")
+    eq(m.ic.committed(), "", "確定側は空（途中で確定していない）")
+    eq(m.ic.composing(), "きょうは？", "全部が合成領域に入っている")
+
+    m = ComposingIME().type("sugoi").symbol("!")
+    eq(m.ic.whole(), "すごい！", "すごい + ！ で合成が伸びる")
+    eq(m.ic.committed(), "", "確定側は空")
+
+    print("       -- ？ を含んだまま変換できる --")
+    m = ComposingIME().type("kyouha").symbol("?").convert(["今日は？", "京は？"])
+    eq(m.ic.whole(), "今日は？", "？ 込みで変換できる")
+    eq(m.ic.committed(), "", "変換中はまだ確定していない")
+    m.confirm()
+    eq(m.ic.whole(), "今日は？", "確定して ？ 込みで入る")
+    eq(m.ic.committed(), "今日は？", "確定側へ移った")
+
+    print("       -- ？ のあとのバックスペースは ？ だけ消える --")
+    m = ComposingIME().type("kyouha").symbol("?")
+    m.backspace()
+    eq(m.ic.whole(), "きょうは", "？ だけ消えて合成が残る")
+    eq(m.ic.committed(), "", "確定側は空のまま")
+
+    print("       -- カタカナモードでも全角 --")
+    ime = IME(mode="KATAKANA")
+    typed(ime, "sugoi")
+    ime.stroke(TAP); ime.stroke("!")
+    eq(ime.composing(), "スゴイ！", "カタカナモードでも ！ が合成へ足される")
+    eq(ime.out, "", "確定しない")
+
+    print("       -- abc モード・Extended では半角のまま --")
+    ime = IME(mode="LATIN")
+    typed(ime, "ok")
+    ime.stroke(TAP); ime.stroke("?")
+    eq(ime.out, "ok?", "abc モードでは半角 ? のまま確定")
+    ime = IME()
+    typed(ime, "kyou")
+    ime.stroke(EXT); ime.stroke("¿")
+    eq(ime.composing(), "", "Extended 経由は合成を確定する")
+    check(ime.out.startswith("きょう"), "Extended の記号は半角のまま挿入される")
+
+    print("       -- 自動英字化中は半角のまま確定 --")
+    ime = IME()
+    typed(ime, "str")
+    eq(ime.auto_latin, True, "自動英字化中")
+    ime.stroke(TAP); ime.stroke("?")
+    check(ime.out.startswith("str"), "綴りが確定される")
+    check("？" not in ime.out, "全角にはならない")
+
     print("\n=== 記号を含んだまま変換できる ===")
     m = ComposingIME().type("kyouha").symbol(",").convert(["今日は、", "京は、"])
     eq(m.ic.whole(), "今日は、", "記号込みで変換できる")
@@ -1368,8 +1429,8 @@ def main():
     print("\n=== 半角記号・abc モードは従来どおり確定 ===")
     ime = IME()
     typed(ime, "kyou")
-    ime.stroke(TAP); ime.stroke("?")   # 「?」は全角化しないので確定
-    eq(ime.out, "きょう?", "半角記号は合成を確定して挿入する")
+    ime.stroke(TAP); ime.stroke("$")   # 「$」は全角化しないので確定
+    eq(ime.out, "きょう$", "半角記号は合成を確定して挿入する")
     eq(ime.composing(), "", "合成は空になる")
 
     ime = IME(mode="LATIN")
@@ -1405,8 +1466,10 @@ def main():
     check("KANA_COMPOSING_SYMBOLS" in src, "対象記号の一覧がある")
     for c in "ー、。":
         check(c in KANA_COMPOSING_SYMBOLS, "%s が対象に入っている" % c)
-    check("kanaMode && !autoLatin && isKanaComposingSymbol" in src,
-          "かなモードかつ自動英字化中でないときだけ合成へ足す")
+    check("inputMode != InputMode.LATIN && !autoLatin" in src,
+          "自動英字化中はかなモード扱いにしない（記号も半角のまま）")
+    check("if (kanaMode && isKanaComposingSymbol(text)) {" in src,
+          "かなモードのときだけ全角記号を合成へ足す")
 
     print("\n=== InputConnection モック: 画面全体の文字列を検証 ===")
     # 「バックスペースのたびに 1 文字ずつ増える」不具合の回帰。
@@ -1482,9 +1545,9 @@ def main():
     eq(m.ic.whole(), "こんにちは", "合成中")
     # 全角記号（、。ー）はかなモードでは合成へ足されるので、
     # 「確定してからもう 1 文字コミットする」経路には半角記号を使う。
-    m.emit_symbol("?")
-    eq(m.ic.whole(), "こんにちは?", "記号まで含めて確定")
-    eq(m.ic.committed(), "こんにちは?", "すべて確定側")
+    m.emit_symbol("$")
+    eq(m.ic.whole(), "こんにちは$", "記号まで含めて確定")
+    eq(m.ic.committed(), "こんにちは$", "すべて確定側")
     m.backspace()
     eq(m.ic.whole(), "こんにちは", "BS は余分な記号 1 文字だけを消す")
     eq(m.ic.committed(), "こんにちは", "先頭が複製されていない")
@@ -1493,15 +1556,15 @@ def main():
     print("       -- 9. 同じ事故を 3 回繰り返しても 1 文字も増えない --")
     m = ComposingIME()
     for i in range(3):
-        m.type("konnnichiha").emit_symbol("?").backspace()
+        m.type("konnnichiha").emit_symbol("$").backspace()
         eq(m.ic.whole(), "こんにちは" * (i + 1), "%d 周目の画面全体" % (i + 1))
         eq(m.ic.committed(), "こんにちは" * (i + 1), "%d 周目の確定済み" % (i + 1))
 
     print("       -- 10. 変換確定（surface != reading）のあとに記号 --")
     m = ComposingIME().type("kyou").convert(["今日"]).confirm()
     eq(m.ic.whole(), "今日", "変換確定")
-    m.emit_symbol("?")
-    eq(m.ic.whole(), "今日?", "記号まで確定")
+    m.emit_symbol("$")
+    eq(m.ic.whole(), "今日$", "記号まで確定")
     m.backspace()
     eq(m.ic.whole(), "今日", "BS は記号だけを消す（「今きょう」にならない）")
     eq(m.ic.committed(), "今日", "確定側も同じ")
@@ -1551,7 +1614,7 @@ def main():
         m.unrecognized()
         m.type("kyou")
         m.unrecognized()
-        m.emit_symbol("?")           # 半角記号（確定してからもう 1 文字コミット）
+        m.emit_symbol("$")           # 半角記号（確定してからもう 1 文字コミット）
         m.unrecognized()
         m.backspace()
         eq(m.ic.whole(), "きょう" * (i + 1), "%d 周目（棄却まみれ）" % (i + 1))
@@ -1603,7 +1666,7 @@ def main():
     for i in range(3):
         m.type("konnnichiha")
         m.unrecognized()             # 認識悪化で棄却
-        m.emit_symbol("?")           # 半角記号（確定してからもう 1 文字コミット）
+        m.emit_symbol("$")           # 半角記号（確定してからもう 1 文字コミット）
         m.backspace()                # SPACE のつもりが BACKSPACE に誤認
         eq(m.ic.whole(), "こんにちは" * (i + 1), "リセット後 %d 周目" % (i + 1))
     eq(m.ic.committed(), "こんにちは" * 3, "確定済みも 3 語ちょうど")
@@ -1972,8 +2035,8 @@ def main():
     ime.stroke(TAP)          # Punctuation shift
     # 全角記号（、。ー）はかなモードでは合成へ足されるので、
     # 「確定してからもう 1 文字コミットする」経路の検証には半角記号を使う。
-    ime.stroke("?")
-    eq(ime.out, "こんにちは?", "記号まで確定")
+    ime.stroke("$")
+    eq(ime.out, "こんにちは$", "記号まで確定")
     ime.stroke(BACKSPACE)
     eq(ime.out, "こんにちは", "BS は記号 1 文字だけ消す")
     eq(ime.composing(), "", "読みが合成として挿し直されない")
@@ -1983,7 +2046,7 @@ def main():
     for i in range(3):
         typed(ime, "konnnichiha")
         ime.stroke(TAP)
-        ime.stroke("?")
+        ime.stroke("$")
         ime.stroke(BACKSPACE)
         eq(ime.out + ime.composing(), "こんにちは" * (i + 1), "%d 周目" % (i + 1))
 
@@ -2006,8 +2069,8 @@ def main():
     typed(ime, "kyou")
     ime.commit_candidate("今日", "きょう")
     ime.stroke(TAP)
-    ime.stroke("?")          # 半角記号は従来どおり確定する
-    eq(ime.out, "今日?", "記号まで確定")
+    ime.stroke("$")          # 半角記号は従来どおり確定する
+    eq(ime.out, "今日$", "記号まで確定")
     ime.stroke(BACKSPACE)
     eq(ime.out + ime.composing(), "今日", "「今きょう」にならない")
 
