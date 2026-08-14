@@ -120,6 +120,36 @@ python3 run_all.py
 Kotlin のソースを Python で写した検証ハーネスです。認識器・ローマ字テーブル・
 IME の状態機械・文字コード処理を、実機ビルドなしで回帰テストできます。
 
+### リリース APK の署名
+
+**リリース用 APK の署名は CI（GitHub Actions）で行います。** ローカルのビルドは
+デバッグ署名のみで、`./gradlew assembleDebug` の出力はそのまま端末に入りますが、
+[Releases](https://github.com/makiiii-git/unistroke-ime/releases) に載るものとは別の署名です。
+
+CI は署名のたびに証明書の SHA-256 指紋を
+[`.github/expected-signing-cert.txt`](.github/expected-signing-cert.txt) と突き合わせ、
+一致しなければリリースを中止します。署名の異なる APK を配ると、既存の利用者が
+上書き更新できなくなるためです。指紋は配布済みの APK から誰でも確認できます。
+
+```bash
+apksigner verify --print-certs unistroke-ime-vX.Y.Z.apk
+```
+
+#### 署名済み APK をリリースせずに入手する
+
+動作確認のために署名済み APK が要るときは、リリースを公開せずに取り出せます。
+
+1. Actions の「リリース」ワークフローを **`dry_run: true`** で実行する
+2. 実行が終わったら生成物を取得する
+
+```bash
+gh run download <run-id>          # release-vX.Y.Z/ に APK が入っています
+adb install -r app-release.apk
+```
+
+`dry_run` ではビルド・署名・指紋の確認までは通常どおり行い、
+リリースの作成とマニフェストの更新だけを飛ばします。
+
 ## ライセンス
 
 本体のコードは **Apache License 2.0** です（[LICENSE](LICENSE)）。

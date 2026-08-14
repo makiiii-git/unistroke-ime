@@ -127,8 +127,26 @@ jobs:
 
       # ---------------------------------------------------------------- APK
 
-      # 署名鍵の Secrets が入っていれば署名する。無ければ未署名のまま進み、
-      # 未署名 APK はリリースに添付しない（配布物と紛らわしいため）。
+      # リリース用の署名は CI で行う。
+      # 未署名 APK は Android にインストールできず配布物として意味がないので、
+      # 本番のリリースへ進む実行では、署名できない時点で止める。
+      - name: 署名鍵があることを確認
+        run: |
+          set -euo pipefail
+          if [ "$HAS_SIGNING_KEY" = "true" ]; then
+            echo "署名の設定を確認しました。"
+            exit 0
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "::warning::署名の設定がないため、**未署名の APK** ができます。"
+            echo "::warning::この APK は端末にインストールできません（ビルド検証専用）。"
+            exit 0
+          fi
+          echo "::error::署名の設定がないため APK に署名できません。"
+          echo "::error::未署名 APK は配布できないため、リリースを中止します。"
+          exit 1
+
+      # 署名鍵の Secrets が入っていれば署名する。
       - name: 署名鍵を用意
         id: sign
         if: env.HAS_SIGNING_KEY == 'true'
@@ -145,16 +163,37 @@ jobs:
           UNISTROKE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --console=plain
 
-      - name: 署名を確認
+      - name: 署名と証明書の指紋を確認
         if: steps.sign.outputs.ready == 'true'
         run: |
           set -euo pipefail
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          # --print-certs まで出す。証明書の指紋が手元の鍵と一致しているかを
-          # ログで確かめられるようにするため（Secrets に別の鍵を入れてしまうと、
-          # 既存の利用者が上書き更新できない APK を配ることになる）。
-          "$APKSIGNER" verify --verbose --print-certs \
-            app/build/outputs/apk/release/app-release.apk
+          APK=app/build/outputs/apk/release/app-release.apk
+
+          # 指紋は APK から誰でも計算できる公開情報なので、ログに出してよい。
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee apksigner.log
+
+          # 期待する証明書かどうかを機械的に突き合わせる。
+          # 署名の異なる APK を配ると、既存の利用者は上書き更新できなくなる。
+          # 一度配ると取り返しがつかないので、ここで必ず止める。
+          EXPECTED=$(grep -v '^#' .github/expected-signing-cert.txt | tr -d '[:space:]' | tr 'A-Z' 'a-z')
+          ACTUAL=$(grep -i 'SHA-256 digest' apksigner.log | head -1 \
+            | sed 's/.*: *//' | tr -d '[:space:]' | tr 'A-Z' 'a-z')
+
+          echo "期待する指紋: $EXPECTED"
+          echo "実際の指紋  : $ACTUAL"
+
+          if [ -z "$ACTUAL" ]; then
+            echo "::error::証明書の指紋を取り出せませんでした。"
+            exit 1
+          fi
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::署名証明書が期待と違います。"
+            echo "::error::このまま配ると、既存の利用者は上書き更新できなくなります。"
+            echo "::error::意図した変更であれば .github/expected-signing-cert.txt を更新してください。"
+            exit 1
+          fi
+          echo "署名証明書は期待どおりです。"
 
       - name: 鍵を消す
         if: always()
