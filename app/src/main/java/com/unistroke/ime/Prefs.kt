@@ -21,6 +21,18 @@ object Prefs {
     /** 変換エンジンの選択（[ENGINE_AUTO] / [ENGINE_ONDEVICE]）。 */
     const val KEY_CONVERT_ENGINE = "convert_engine"
 
+    /** 音声入力（手書きゾーンの長押しで開始）を使うか。 */
+    const val KEY_VOICE_INPUT = "voice_input"
+
+    /** 音声認識エンジンの選択（[VOICE_ONDEVICE] / [VOICE_AUTO]）。 */
+    const val KEY_VOICE_ENGINE = "voice_engine"
+
+    /** ボイスコマンド（「確定」「取り消し」などを操作として実行する）。 */
+    const val KEY_VOICE_COMMANDS = "voice_commands"
+
+    /** 連続音声入力（1 回の長押しで、やめると言うまで聞き続ける）。 */
+    const val KEY_VOICE_CONTINUOUS = "voice_continuous"
+
     /** 速書きの調査用ログ（既定オフ）。 */
     const val KEY_DEBUG_STROKES = "debug_strokes"
 
@@ -59,6 +71,12 @@ object Prefs {
 
     /** 常に端末内辞書だけで変換する。 */
     const val ENGINE_ONDEVICE = "ondevice"
+
+    /** 音声認識は端末内エンジンだけを使う（音声を端末から出さない）。 */
+    const val VOICE_ONDEVICE = "ondevice"
+
+    /** 端末内が使えないときは端末の音声認識サービスへ渡す（外部送信の可能性あり）。 */
+    const val VOICE_AUTO = "auto"
 
     fun of(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -159,6 +177,63 @@ object Prefs {
 
     fun isOnDeviceOnly(context: Context): Boolean =
         convertEngine(context) == ENGINE_ONDEVICE
+
+    /**
+     * 音声入力を使うか。既定はオン。
+     *
+     * オンでも、実際に録音が始まるのは手書きゾーンを長押ししたときだけ。
+     * マイクの許可も、初めて長押しした時点で初めて尋ねる。
+     * オフにすると長押しが無効になり、ゾーンの案内表示も消える。
+     */
+    fun isVoiceInputEnabled(context: Context): Boolean =
+        of(context).getBoolean(KEY_VOICE_INPUT, true)
+
+    fun setVoiceInputEnabled(context: Context, enabled: Boolean) {
+        of(context).edit().putBoolean(KEY_VOICE_INPUT, enabled).apply()
+    }
+
+    /**
+     * 音声認識エンジン。既定は [VOICE_ONDEVICE]（端末内のみ）。
+     *
+     * 端末内認識は Android 13 以降でしか使えない。それより前の端末や
+     * 端末内認識を持たない端末では、既定のままだと音声入力は動かない
+     * （黙って外部へ送る側へ倒さないため）。
+     */
+    fun voiceEngine(context: Context): String =
+        of(context).getString(KEY_VOICE_ENGINE, VOICE_ONDEVICE) ?: VOICE_ONDEVICE
+
+    fun setVoiceEngine(context: Context, engine: String) {
+        of(context).edit().putString(KEY_VOICE_ENGINE, engine).apply()
+    }
+
+    fun isVoiceOnDeviceOnly(context: Context): Boolean =
+        voiceEngine(context) == VOICE_ONDEVICE
+
+    /**
+     * ボイスコマンドを使うか。既定はオン。
+     *
+     * オフにすると「確定」「取り消し」などもそのまま文字として入力される。
+     */
+    fun isVoiceCommandsEnabled(context: Context): Boolean =
+        of(context).getBoolean(KEY_VOICE_COMMANDS, true)
+
+    fun setVoiceCommandsEnabled(context: Context, enabled: Boolean) {
+        of(context).edit().putBoolean(KEY_VOICE_COMMANDS, enabled).apply()
+    }
+
+    /**
+     * 連続音声入力を使うか。既定はオン（ハンズフリー向け）。
+     *
+     * オンのときは 1 回の長押しで、「音声終了」と言うか ✕ を押すまで聞き続ける。
+     * ただし何も話されない状態が続けば自動で終わるので、マイクが開きっぱなしにはならない。
+     * オフにすると 1 回喋って確定したらそこで終わる。
+     */
+    fun isVoiceContinuous(context: Context): Boolean =
+        of(context).getBoolean(KEY_VOICE_CONTINUOUS, true)
+
+    fun setVoiceContinuous(context: Context, enabled: Boolean) {
+        of(context).edit().putBoolean(KEY_VOICE_CONTINUOUS, enabled).apply()
+    }
 
     /**
      * ストロークのデバッグログを出すか（既定オフ）。

@@ -14,6 +14,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.BackgroundColorSpan
 import android.text.style.UnderlineSpan
+import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.View
 import android.inputmethodservice.InputMethodService.Insets
@@ -60,6 +61,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
                 Prefs.KEY_CONVERT_ENGINE -> onDeviceOnly = Prefs.isOnDeviceOnly(this)
                 Prefs.KEY_DEBUG_STROKES ->
                     inputView?.debugStrokes = Prefs.isDebugStrokes(this)
+                Prefs.KEY_VOICE_INPUT, Prefs.KEY_VOICE_ENGINE -> syncVoiceAvailability()
             }
         }
     private var symbolMode = SymbolMode.NORMAL
@@ -257,6 +259,49 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     private lateinit var personalStore: PersonalTemplateStore
     private lateinit var learner: StrokeLearner
 
+    // ------------------------------------------------------------- 音声入力
+
+    private lateinit var voice: VoiceInput
+
+    /**
+     * この入力欄で音声入力してよいか。
+     *
+     * パスワード欄では端末内認識であっても許さない（声に出させること自体が危ない）。
+     * さらに、音声を端末外へ出す経路（[VoiceInput.Ready.SERVICE]）は
+     * ネット変換とまったく同じ基準（[netConvertAllowedHere]）でも止める。
+     */
+    private var voiceAllowedHere = true
+
+    /** 録音〜結果待ちの最中か（案内バナーだけ出ている状態は含まない）。 */
+    private var voiceActive = false
+
+    /** いまのセッションが端末内認識か（表示を実態に合わせるために持つ）。 */
+    private var voiceOnDevice = false
+
+    /** 何らかのバナー（録音中・認識中・案内）を出しているか。 */
+    private var voiceBannerShown = false
+
+    /**
+     * このセッションが連続入力か（開始時の設定で決め、途中では変えない）。
+     *
+     * 連続入力では 1 回の長押しで、「音声終了」と言うか ✕ を押すまで聞き続ける。
+     * ハンズフリーで使うための挙動なので、**始めるとき以外はマイクを開けない**という
+     * 原則（長押しが唯一の入口）は変えていない。
+     */
+    private var voiceContinuous = false
+
+    /** 連続入力で「何も話されなかった」が続いた回数。続いたら自動で終わる。 */
+    private var voiceSilentRounds = 0
+
+    /** 音声で最後に確定した文字列（「取り消し」で消す対象）。 */
+    private var lastVoiceCommit: String? = null
+
+    /** 案内バナーを一定時間で閉じるためのタイマー。 */
+    private val voiceNoticeRunnable = Runnable { hideVoiceBanner() }
+
+    /** 連続入力で次の発話を聞き始めるためのタイマー。 */
+    private val voiceRestartRunnable = Runnable { restartVoiceListening() }
+
     // ------------------------------------------------------------ lifecycle
 
     override fun onCreate() {
@@ -266,6 +311,9 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         prediction = PredictionEngine.get(this)
         // 辞書はメモリマップするだけなのでここで開いてよい（展開もパースもしない）
         onDevice = OnDeviceConverter.get(this)
+        // 実体（認識器・マイク）は長押しで始めるまで作らない。
+        // 設定の変更通知（KEY_VOICE_*）から触るので、購読より先に用意しておく。
+        voice = VoiceInput(this)
         prefs.registerOnSharedPreferenceChangeListener(prefsListener)
         learner = StrokeLearner(personalStore).apply {
             guardProvider = { setName ->
@@ -287,6 +335,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         inputView = view
         applyLayoutPrefs()
         makeWindowTransparent()
+        syncVoiceAvailability()
         syncView()
         return view
     }
@@ -300,12 +349,15 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      */
     override fun onStartInput(info: EditorInfo?, restarting: Boolean) {
         super.onStartInput(info, restarting)
+        // 入力欄が変わったら録音も打ち切る（前の欄のつもりで喋った内容を持ち越さない）
+        endVoice()
         noteComposingGone()
         clearUndo()
     }
 
     /** 接続が外れた。触れない接続なので記録だけ落とす。 */
     override fun onUnbindInput() {
+        endVoice()
         noteComposingGone()
         clearUndo()
         super.onUnbindInput()
@@ -323,6 +375,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         onDeviceOnly = Prefs.isOnDeviceOnly(this)
         netConvertAllowedHere = !isNoNetworkField(info)
         learningAllowedHere = !noPersonalizedLearning(info)
+        voiceAllowedHere = !isPasswordField(info)
+        syncVoiceAvailability()
         // 別プロセスで書き換わっていた場合に備えて読み直す（同一プロセスならシングルトンで既に最新）。
         personalStore.reloadIfChanged()
         prediction.reloadIfChanged()
@@ -406,6 +460,29 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     private fun noPersonalizedLearning(info: EditorInfo?): Boolean =
         ((info?.imeOptions ?: 0) and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0
 
+    /**
+     * パスワード欄か。
+     *
+     * 音声入力はここでは一切使わせない。端末内認識で外へ出ないとしても、
+     * 「パスワードを声に出す」こと自体が周囲に対して危ないため、
+     * エンジンの種類によらないハードな禁止として効かせる。
+     */
+    private fun isPasswordField(info: EditorInfo?): Boolean {
+        val type = info?.inputType ?: return false
+        val variation = type and InputType.TYPE_MASK_VARIATION
+        return when (type and InputType.TYPE_MASK_CLASS) {
+            InputType.TYPE_CLASS_TEXT ->
+                variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+                    variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+                    variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
+
+            InputType.TYPE_CLASS_NUMBER ->
+                variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD
+
+            else -> false
+        }
+    }
+
     /** 入力履歴に積む。学習が禁止された欄では何もしない。 */
     private fun recordHistory(reading: String, surface: String, now: Long) {
         if (!learningAllowedHere) return
@@ -433,6 +510,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        // 入力ビューを畳むときにマイクを掴んだままにしない
+        endVoice()
         flushComposing()
         super.onFinishInputView(finishingInput)
     }
@@ -454,6 +533,9 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         // トレーニング画面などが書いた新しい内容を巻き戻してしまう。
         // 変更時に都度 save() 済みなので何もしない。
         handler.removeCallbacks(liveSuggestRunnable)
+        handler.removeCallbacks(voiceNoticeRunnable)
+        handler.removeCallbacks(voiceRestartRunnable)
+        voice.release()
         converter.shutdown()
         onDevice?.shutdown()
         super.onDestroy()
@@ -503,6 +585,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
     private fun resetAll() {
         if (::learner.isInitialized) learner.onOther(System.currentTimeMillis())
+        endVoice()
         handler.removeCallbacks(liveSuggestRunnable)
         cancelConversion(restoreKana = false)
         clearLiveSuggest()
@@ -522,6 +605,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
     override fun onSymbol(symbol: String, stroke: List<Pt>, zone: Zone) {
         val ic = currentInputConnection ?: return
+        stopVoiceForOtherInput()
         // 確定アンドゥが効くのは「確定の直後のバックスペース」だけ。
         // 他のストロークが 1 つでも挟まったら、以降は普通のバックスペースに戻す。
         if (symbol != StrokeTemplates.BACKSPACE) clearUndo()
@@ -1532,6 +1616,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
     /** abc ⇄ かな のトグル（カタカナへはかなモード中のシフトストロークで）。 */
     override fun onModeToggle() {
+        stopVoiceForOtherInput()
         learner.onOther(System.currentTimeMillis())
         finishConversionIfAny()
         clearUndo()
@@ -1547,6 +1632,15 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     }
 
     override fun onCursorMove(forward: Boolean) {
+        stopVoiceForOtherInput()
+        moveCursor(forward)
+    }
+
+    /**
+     * カーソルを 1 つ動かす。
+     * ボイスコマンドからも呼ぶので、音声入力を止める処理は呼び出し側に置く。
+     */
+    private fun moveCursor(forward: Boolean) {
         // 合成中はカーソル移動と競合するので、先に確定してから動かす
         finishConversionIfAny()
         clearUndo()
@@ -1565,6 +1659,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      */
     override fun onSelectLastCommit() {
         val ic = currentInputConnection ?: return
+        stopVoiceForOtherInput()
         finishConversionIfAny()
         // 長押しの前にすでに選択が残っていれば、そこで消す（タップと同じ扱い）
         if (deleteOwnSelection(ic)) {
@@ -1611,6 +1706,15 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      * 全選択のつもりが消去になって取り返しがつかないため。
      */
     override fun onSelectAll() {
+        stopVoiceForOtherInput()
+        selectAllOrDelete()
+    }
+
+    /**
+     * 全選択（すでに選択されていれば削除）。
+     * ボイスコマンドからも呼ぶので、音声入力を止める処理は呼び出し側に置く。
+     */
+    private fun selectAllOrDelete() {
         val ic = currentInputConnection ?: return
         finishConversionIfAny()
         flushComposing()
@@ -1641,6 +1745,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     }
 
     override fun onCandidateSelected(index: Int) {
+        stopVoiceForOtherInput()
         if (!converting) {
             // 自動候補は全文確定
             if (index in liveCandidates.indices) commitLiveCandidate(liveCandidates[index])
@@ -1658,6 +1763,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     }
 
     override fun onOpenSettings() {
+        // 設定画面へ移るあいだ録音を続けない
+        stopVoiceForOtherInput()
         // IME サービスからの起動なので NEW_TASK が必須
         startActivity(
             Intent(this, SettingsActivity::class.java)
@@ -1666,12 +1773,320 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     }
 
     override fun onSegmentStep(forward: Boolean) {
+        stopVoiceForOtherInput()
         if (!converting) return
         val next = activeSegment + if (forward) 1 else -1
         if (next !in segments.indices) return
         activeSegment = next
         updateConversionComposing()
         syncCandidateBar()
+    }
+
+    // ------------------------------------------------------------- 音声入力
+
+    /**
+     * 手書きゾーンに「長押しで音声入力」を出すか（＝長押しを受け付けるか）。
+     *
+     * 設定・入力欄・端末の対応状況の 3 つが揃ったときだけ出す。
+     * 使えない端末で案内だけ出しても、長押ししたユーザーを空振りさせるだけなので出さない。
+     */
+    private fun syncVoiceAvailability() {
+        inputView?.voiceAvailable =
+            Prefs.isVoiceInputEnabled(this) && voiceAllowedHere && voiceUsableOnThisDevice()
+    }
+
+    /** この端末・この設定で音声認識を始められるか（マイクの許可はここでは見ない）。 */
+    private fun voiceUsableOnThisDevice(): Boolean =
+        voice.onDeviceAvailable() ||
+            (!Prefs.isVoiceOnDeviceOnly(this) && voice.serviceAvailable())
+
+    /** 手書きゾーンの長押し。 */
+    override fun onVoiceStart() {
+        if (voiceActive) return
+        if (currentInputConnection == null) return
+        if (!Prefs.isVoiceInputEnabled(this)) return
+        if (!voiceAllowedHere) {
+            showVoiceNotice(getString(R.string.voice_blocked_field))
+            return
+        }
+        when (voice.check()) {
+            VoiceInput.Ready.ON_DEVICE -> beginVoice(onDevice = true)
+
+            VoiceInput.Ready.SERVICE ->
+                // 音声を端末外へ出す経路は、ネット変換とまったく同じ基準で欄ごとに止める
+                if (netConvertAllowedHere) {
+                    beginVoice(onDevice = false)
+                } else {
+                    showVoiceNotice(getString(R.string.voice_blocked_field_service))
+                }
+
+            VoiceInput.Ready.NEED_PERMISSION -> {
+                showVoiceNotice(getString(R.string.voice_need_permission))
+                requestMicPermission()
+            }
+
+            VoiceInput.Ready.NO_ON_DEVICE -> showVoiceNotice(getString(R.string.voice_no_ondevice))
+            VoiceInput.Ready.NO_SERVICE -> showVoiceNotice(getString(R.string.voice_no_service))
+        }
+    }
+
+    /**
+     * 録音を始める。書きかけは先に確定させてから始めるので、
+     * 音声で入った文字列がローマ字合成の途中に割り込むことはない。
+     */
+    private fun beginVoice(onDevice: Boolean) {
+        learner.onOther(System.currentTimeMillis())
+        if (converting) finishConversionIfAny() else flushComposing()
+        handler.removeCallbacks(liveSuggestRunnable)
+        clearLiveSuggest()
+        clearUndo()
+        inputView?.hideOverlay()
+        symbolMode = SymbolMode.NORMAL
+        tempLatin = TempLatin.NONE
+        syncView()
+
+        voiceActive = true
+        voiceOnDevice = onDevice
+        voiceContinuous = Prefs.isVoiceContinuous(this)
+        voiceSilentRounds = 0
+        lastVoiceCommit = null
+        inputView?.voiceContinuous = voiceContinuous
+        showVoiceBanner(UniStrokeView.VoiceState.LISTENING, listeningMessage())
+        voice.start(voiceCallback)
+    }
+
+    /** いま録音中であることの表示。どのエンジンで聞いているかを必ず出す。 */
+    private fun listeningMessage(): String = getString(
+        when {
+            voiceOnDevice && voiceContinuous -> R.string.voice_listening_ondevice_continuous
+            voiceOnDevice -> R.string.voice_listening_ondevice
+            voiceContinuous -> R.string.voice_listening_service_continuous
+            else -> R.string.voice_listening_service
+        },
+    )
+
+    private val voiceCallback = object : VoiceInput.Callback {
+
+        override fun onVoiceReady() = Unit
+
+        /** 端末内で始めたが端末のサービスへ切り替わった。表示も実態に合わせる。 */
+        override fun onVoiceEngineChanged(onDevice: Boolean) {
+            if (!voiceActive) return
+            voiceOnDevice = onDevice
+            showVoiceBanner(UniStrokeView.VoiceState.LISTENING, listeningMessage())
+        }
+
+        override fun onVoiceLevel(rms: Float) {
+            inputView?.setVoiceLevel(rms)
+        }
+
+        override fun onVoicePartial(text: String) {
+            if (!voiceActive) return
+            // 聞き取り途中は未確定表示（下線付き）で見せるだけ。確定は onVoiceResult のみ。
+            currentInputConnection?.let { showComposing(it, text) }
+        }
+
+        override fun onVoiceWorking() {
+            if (!voiceActive) return
+            showVoiceBanner(
+                UniStrokeView.VoiceState.WORKING,
+                getString(R.string.voice_working),
+            )
+        }
+
+        override fun onVoiceResult(text: String) {
+            val ic = currentInputConnection
+            if (ic == null) {
+                // 入力欄がもう無い。合成領域の記録だけ落として捨てる。
+                voiceActive = false
+                noteComposingGone()
+                hideVoiceBanner()
+                return
+            }
+            voiceSilentRounds = 0
+
+            // 発話まるごとがコマンドなら、文字にせず操作として実行する
+            val command = if (Prefs.isVoiceCommandsEnabled(this@UniStrokeIME)) {
+                VoiceCommands.match(text)
+            } else {
+                null
+            }
+            if (command != null) {
+                // 聞き取り途中に出していた未確定表示（コマンドの読み）は残さない
+                clearComposing(ic)
+                inputView?.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                if (runVoiceCommand(command, ic)) return
+                continueOrFinishVoice()
+                return
+            }
+
+            // 音声認識の結果は既に変換済みの文字列で、対応する読みが無い。
+            // 確定アンドゥ（バックスペース 1 回で戻す）には載せられないので載せない。
+            commitFinal(ic, text)
+            lastVoiceCommit = text
+            endWord()
+            syncView()
+            continueOrFinishVoice()
+        }
+
+        override fun onVoiceFailed(message: String, silent: Boolean) {
+            val hadPartial = voiceActive
+            if (hadPartial) currentInputConnection?.let { clearComposing(it) }
+            // 連続入力で「まだ何も話していない」だけなら、黙って聞き直す。
+            // ただし続くようならマイクを開けたままにせず自動で終わる。
+            if (hadPartial && voiceContinuous && silent &&
+                ++voiceSilentRounds < MAX_VOICE_SILENT_ROUNDS
+            ) {
+                continueOrFinishVoice()
+                return
+            }
+            voiceActive = false
+            if (hadPartial && voiceContinuous && silent) {
+                // 黙ったまま終わったので、エラーではなく「終わりました」と伝える
+                showVoiceNotice(getString(R.string.voice_finished))
+            } else {
+                showVoiceNotice(message)
+            }
+        }
+    }
+
+    /**
+     * ボイスコマンドを実行する。
+     *
+     * @return 音声入力そのものを終えたら true（呼び出し側はそこで打ち切る）
+     */
+    private fun runVoiceCommand(command: VoiceCommands.Command, ic: InputConnection): Boolean {
+        when (command) {
+            VoiceCommands.Command.ENTER -> onReturn(ic)
+            VoiceCommands.Command.SPACE -> onSpace(ic)
+            VoiceCommands.Command.CONVERT -> requestConversion()
+            VoiceCommands.Command.COMMIT -> {
+                finishConversionIfAny()
+                flushComposing()
+            }
+
+            VoiceCommands.Command.BACKSPACE -> {
+                onBackspace(ic)
+                // 1 文字消したので、まるごと取り消す対象としては当てにできない
+                lastVoiceCommit = null
+            }
+
+            VoiceCommands.Command.UNDO -> undoVoiceCommit(ic)
+            VoiceCommands.Command.SELECT_ALL -> selectAllOrDelete()
+            VoiceCommands.Command.CURSOR_LEFT -> moveCursor(false)
+            VoiceCommands.Command.CURSOR_RIGHT -> moveCursor(true)
+            VoiceCommands.Command.STOP -> {
+                // それまでに入れた内容は残したまま終わる
+                endVoice()
+                showVoiceNotice(getString(R.string.voice_finished))
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * 直前に音声で入れた文字列をまるごと消す。
+     *
+     * 消すのは「いまカーソルの直前がその文字列そのものだった」ときだけ。
+     * ずれていたら何もしない（[undoLastCommit] と同じく、消しすぎを防ぐため）。
+     */
+    private fun undoVoiceCommit(ic: InputConnection): Boolean {
+        val text = lastVoiceCommit ?: return false
+        lastVoiceCommit = null
+        if (text.isEmpty()) return false
+        val before = ic.getTextBeforeCursor(text.length, 0)
+        if (before?.toString() != text) return false
+        return ic.deleteSurroundingText(text.length, 0)
+    }
+
+    /** 連続入力なら次の発話を聞きに行き、そうでなければセッションを終える。 */
+    private fun continueOrFinishVoice() {
+        if (!voiceActive) return
+        if (!voiceContinuous) {
+            voiceActive = false
+            hideVoiceBanner()
+            return
+        }
+        showVoiceBanner(UniStrokeView.VoiceState.LISTENING, listeningMessage())
+        handler.removeCallbacks(voiceRestartRunnable)
+        handler.postDelayed(voiceRestartRunnable, VOICE_RESTART_MS)
+    }
+
+    /** 連続入力で次の発話を聞き始める。入力欄が無くなっていたら終わる。 */
+    private fun restartVoiceListening() {
+        if (!voiceActive) return
+        if (currentInputConnection == null) {
+            endVoice()
+            return
+        }
+        voice.start(voiceCallback)
+    }
+
+    /**
+     * バナーの ✕（案内表示ならタップ）。聞き取った内容は捨てる。
+     *
+     * 話し終わりの判定は認識器に任せてあるので、確定のための操作は無い。
+     * 黙ったところで [VoiceInput.Callback.onVoiceResult] が来て自動で確定する。
+     */
+    override fun onVoiceCancel() = endVoice()
+
+    /**
+     * 音声入力を打ち切る。マイクを手放し、聞き取り途中の未確定表示も消す。
+     * 何も動いていないときは何もしない（通常の合成領域に触れてはいけない）。
+     */
+    private fun endVoice() {
+        handler.removeCallbacks(voiceRestartRunnable)
+        if (!voiceActive && !voice.isListening && !voiceBannerShown) return
+        val hadPartial = voiceActive
+        voiceActive = false
+        voiceContinuous = false
+        voiceSilentRounds = 0
+        lastVoiceCommit = null
+        voice.cancel()
+        // 未確定表示を出しているのは音声のときだけ確実に分かる。
+        // それ以外（ローマ字合成中）の合成領域には絶対に触らない。
+        if (hadPartial) currentInputConnection?.let { clearComposing(it) }
+        hideVoiceBanner()
+    }
+
+    /** 手書きやボタン操作が入ったら音声入力は打ち切る（マイクを掴んだままにしない）。 */
+    private fun stopVoiceForOtherInput() {
+        endVoice()
+    }
+
+    private fun showVoiceBanner(state: UniStrokeView.VoiceState, message: String) {
+        handler.removeCallbacks(voiceNoticeRunnable)
+        voiceBannerShown = true
+        inputView?.showVoice(state, message)
+    }
+
+    /** 案内・エラーの表示。一定時間で自動的に閉じる（タップでも閉じる）。 */
+    private fun showVoiceNotice(message: String) {
+        voiceActive = false
+        voiceBannerShown = true
+        inputView?.showVoice(UniStrokeView.VoiceState.NOTICE, message)
+        handler.removeCallbacks(voiceNoticeRunnable)
+        handler.postDelayed(voiceNoticeRunnable, VOICE_NOTICE_MS)
+    }
+
+    private fun hideVoiceBanner() {
+        handler.removeCallbacks(voiceNoticeRunnable)
+        voiceBannerShown = false
+        inputView?.showVoice(UniStrokeView.VoiceState.OFF, "")
+    }
+
+    /**
+     * マイクの許可を求める。
+     *
+     * IME サービスは自分で権限ダイアログを出せないので、透明な Activity を
+     * 一瞬だけ経由する。許可されても勝手に録音は始めない（もう一度長押ししてもらう）。
+     */
+    private fun requestMicPermission() {
+        startActivity(
+            Intent(this, VoicePermissionActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+        )
     }
 
     // ----------------------------------------------------------------- label
@@ -1764,6 +2179,21 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
         /** 自動アルファベット化中の状態チップ。 */
         const val AUTO_LATIN_CHIP = "abc自動"
+
+        /** 音声入力の案内・エラー表示を自動で閉じるまでの時間。 */
+        const val VOICE_NOTICE_MS = 4_000L
+
+        /**
+         * 連続入力で次の発話を聞き始めるまでの間。
+         * 認識器を作り直すので、詰めすぎると取りこぼす。
+         */
+        const val VOICE_RESTART_MS = 250L
+
+        /**
+         * 連続入力で「何も話されなかった」が続いたら自動で終える回数。
+         * ハンズフリーでも、黙っているあいだにマイクが開き続けることはない。
+         */
+        const val MAX_VOICE_SILENT_ROUNDS = 2
 
         /**
          * かなモードで合成へ足す全角の日本語記号。

@@ -15,6 +15,7 @@ import android.graphics.Typeface
 import android.os.SystemClock
 import android.util.AttributeSet
 import android.util.Log
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import kotlin.math.abs
@@ -70,6 +71,23 @@ class UniStrokeView @JvmOverloads constructor(
 
         /** [?] の長押し。設定画面を開く。 */
         fun onOpenSettings()
+
+        /**
+         * 手書きゾーンの長押し。音声入力を始める。
+         *
+         * 長押しが成立した時点で書きかけのストロークは捨てられているので、
+         * 実装側は「何も書かれなかった」ものとして扱ってよい。
+         */
+        fun onVoiceStart() = Unit
+
+        /**
+         * 音声入力の ✕、または案内表示のタップ。
+         *
+         * 話し終わりは認識器が自動で判定して確定するので、途中で止める操作は
+         * 「やめる（聞き取った内容を捨てる）」だけ。誤タップで話を切らないよう、
+         * 録音中のゾーンのタップは何も起こさない。
+         */
+        fun onVoiceCancel() = Unit
 
         /**
          * 大画面でパネルをドラッグして置き直した（指を離して位置が確定した）。
@@ -156,6 +174,89 @@ class UniStrokeView @JvmOverloads constructor(
         }
 
     private val layout = PanelLayout()
+
+    // -------------------------------------------------------------- 音声入力
+
+    /**
+     * 音声入力の表示状態。実体（マイク・認識）は IME 側が握っていて、
+     * ビューは「いまどの状態か」を見せることと、止める操作を拾うことだけを担う。
+     */
+    enum class VoiceState {
+        /** 使っていない。 */
+        OFF,
+
+        /** 録音中。 */
+        LISTENING,
+
+        /** 話し終わって認識結果を待っている。 */
+        WORKING,
+
+        /** 案内・エラーの表示（タップで閉じる）。 */
+        NOTICE,
+    }
+
+    private var voiceState = VoiceState.OFF
+    private var voiceMessage = ""
+    private var voiceLevel = 0f
+
+    /** バナー右上の ✕。押した場所の判定に使う。 */
+    private val voiceCancelRect = RectF()
+
+    /** 押し始めが ✕ の上だったか（ボタンと同じく、押し始めた場所で決める）。 */
+    private var voiceCancelHit = false
+
+    /** バナーを出しているあいだは手書きを受け付けない。 */
+    private val voiceActive: Boolean get() = voiceState != VoiceState.OFF
+
+    /**
+     * 音声入力が使えるか（設定でオン、かつこの入力欄で許される）。IME が与える。
+     * false のあいだは長押ししても何も起きず、ゾーンの案内も出さない。
+     */
+    var voiceAvailable: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+
+    /**
+     * いまのセッションが連続入力か。IME が開始時に与える。
+     * バナー下段の案内を「音声終了と言えば終わる」に変えるためだけに使う。
+     */
+    var voiceContinuous: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+
+    /** 音声入力の表示を切り替える。[VoiceState.OFF] で消える。 */
+    fun showVoice(state: VoiceState, message: String) {
+        if (voiceState == state && voiceMessage == message) return
+        voiceState = state
+        voiceMessage = message
+        if (state != VoiceState.LISTENING) voiceLevel = 0f
+        if (state != VoiceState.OFF) {
+            // バナーへ切り替わる瞬間に書きかけが残っていると、
+            // 指を離したときにストロークとして流れてしまう
+            cancelLongPresses()
+            clearStroke()
+        }
+        invalidate()
+    }
+
+    /** 入力レベル（dB）。バナーのメーターを動かして「拾えている」ことを見せる。 */
+    fun setVoiceLevel(rms: Float) {
+        if (voiceState != VoiceState.LISTENING) return
+        val norm = ((rms - RMS_MIN_DB) / (RMS_MAX_DB - RMS_MIN_DB)).coerceIn(0f, 1f)
+        // 跳ねすぎると読み取れないので、前の値へ寄せて均す
+        val next = voiceLevel * 0.6f + norm * 0.4f
+        if (abs(next - voiceLevel) < 0.02f) return
+        voiceLevel = next
+        invalidate()
+    }
 
     /** 認識に使うテンプレートセット。 */
     var symbolMode: SymbolMode = SymbolMode.NORMAL
@@ -410,6 +511,22 @@ class UniStrokeView @JvmOverloads constructor(
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
     }
 
+    /** 音声入力バナーの見出し（「聞いています…」など）。 */
+    private val voiceTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = context.getColor(R.color.pad_text)
+        textSize = dp(16f)
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+    }
+
+    /** バナーの補足行と、ゾーンに出す「長押しで音声入力」の案内。 */
+    private val voiceHintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = context.getColor(R.color.pad_hint)
+        textSize = dp(11f)
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+    }
+
     // 見本オーバーレイ用
     private val samplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -460,7 +577,7 @@ class UniStrokeView @JvmOverloads constructor(
 
     private enum class UiTarget {
         NONE, BTN_MODE, BTN_LEFT, BTN_RIGHT, BTN_SELECT, BTN_HELP,
-        CANDIDATES, SEG_PREV, SEG_NEXT, OVERLAY, DRAG,
+        CANDIDATES, SEG_PREV, SEG_NEXT, OVERLAY, DRAG, VOICE,
     }
 
     private var uiTarget = UiTarget.NONE
@@ -487,6 +604,19 @@ class UniStrokeView @JvmOverloads constructor(
         selectLongPressFired = true
         setPressedTarget(UiTarget.NONE)
         listener?.onSelectLastCommit()
+    }
+
+    /**
+     * 手書きゾーンの長押しで音声入力を始める。
+     *
+     * 発火した時点で書きかけのストロークは捨てる（[clearStroke] が [tracking] を落とすので、
+     * 指を離しても認識は走らない）。判定は [VOICE_LONG_PRESS_MS] ＞ [TAP_MAX_MS] なので、
+     * 「タップ = Punctuation Shift」を取りこぼすことはない。
+     */
+    private val voiceLongPressRunnable = Runnable {
+        clearStroke()
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        listener?.onVoiceStart()
     }
 
     private val repeatRunnable = object : Runnable {
@@ -711,6 +841,18 @@ class UniStrokeView @JvmOverloads constructor(
         canvas.drawText(zoneHint(), (layout.alphaLeft + layout.alphaRight) / 2f, hintY, hintPaint)
         canvas.drawText("123", (layout.numberLeft + layout.numberRight) / 2f, hintY, hintPaint)
 
+        // 長押しで音声入力できることは、透かし文字の下に小さく出しておく
+        // （隠しジェスチャーにすると誰も気付かない）。使えないときは出さない。
+        if (voiceAvailable && !voiceActive) {
+            voiceHintPaint.textSize = min(dp(11f), zoneH * 0.07f)
+            canvas.drawText(
+                VOICE_ZONE_HINT,
+                (layout.alphaLeft + layout.alphaRight) / 2f,
+                hintY + hintPaint.textSize * 0.85f,
+                voiceHintPaint,
+            )
+        }
+
         drawStatusIndicator(canvas, layout.zoneRight, top)
 
         if (!fadingPath.isEmpty && strokeAlpha > 0f) {
@@ -720,6 +862,115 @@ class UniStrokeView @JvmOverloads constructor(
         if (!activePath.isEmpty) {
             canvas.drawPath(activePath, strokePaint)
         }
+
+        // 音声入力中の表示はいちばん上（手書きゾーンを覆う）
+        if (voiceActive) drawVoiceBanner(canvas, top, bottom)
+    }
+
+    /**
+     * 音声入力のバナー。手書きゾーンを覆い、いま何をしているかを出す。
+     *
+     * 録音中は枠を光らせて音量メーターを振らせる。「マイクが開きっぱなしなのか
+     * 分からない」状態を作らないための表示なので、状態ごとに必ず見た目を変える。
+     */
+    private fun drawVoiceBanner(canvas: Canvas, zoneTopY: Float, zoneBottomY: Float) {
+        val rect = RectF(
+            layout.zoneLeft + dp(10f), zoneTopY + dp(10f),
+            layout.zoneRight - dp(10f), zoneBottomY - dp(10f),
+        )
+        val radius = dp(12f)
+        fillPaint.color = context.getColor(R.color.pad_status)
+        canvas.drawRoundRect(rect, radius, radius, fillPaint)
+        solidLinePaint.color = context.getColor(
+            if (voiceState == VoiceState.LISTENING) R.color.pad_ink else R.color.pad_divider,
+        )
+        canvas.drawRoundRect(rect, radius, radius, solidLinePaint)
+        // 他の線と共用の Paint なので色を戻しておく
+        solidLinePaint.color = context.getColor(R.color.pad_divider)
+
+        val stopping = voiceState == VoiceState.LISTENING || voiceState == VoiceState.WORKING
+        if (stopping) {
+            val size = dp(30f)
+            val pad = dp(7f)
+            voiceCancelRect.set(
+                rect.right - pad - size, rect.top + pad,
+                rect.right - pad, rect.top + pad + size,
+            )
+            fillPaint.color = context.getColor(R.color.pad_zone_alpha)
+            canvas.drawRoundRect(voiceCancelRect, dp(6f), dp(6f), fillPaint)
+            labelPaint.textSize = dp(15f)
+            canvas.drawText(
+                LABEL_VOICE_CANCEL,
+                voiceCancelRect.centerX(),
+                voiceCancelRect.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2f,
+                labelPaint,
+            )
+        } else {
+            voiceCancelRect.setEmpty()
+        }
+
+        voiceTitlePaint.textSize = if (voiceState == VoiceState.NOTICE) dp(13f) else dp(16f)
+        val lines = wrapText(voiceMessage, voiceTitlePaint, rect.width() - dp(72f), MAX_VOICE_LINES)
+        val lineH = voiceTitlePaint.descent() - voiceTitlePaint.ascent()
+        val meterH = if (voiceState == VoiceState.LISTENING) dp(20f) else 0f
+        val footer = when {
+            voiceState == VoiceState.NOTICE -> VOICE_FOOTER_NOTICE
+            voiceState == VoiceState.WORKING -> VOICE_FOOTER_WORKING
+            voiceContinuous -> VOICE_FOOTER_CONTINUOUS
+            else -> VOICE_FOOTER_LISTENING
+        }
+        voiceHintPaint.textSize = dp(11f)
+        val footerH = voiceHintPaint.descent() - voiceHintPaint.ascent()
+        val gap = dp(10f)
+
+        var y = rect.centerY() - (lines.size * lineH + meterH + gap + footerH) / 2f
+        for (line in lines) {
+            canvas.drawText(line, rect.centerX(), y - voiceTitlePaint.ascent(), voiceTitlePaint)
+            y += lineH
+        }
+        if (meterH > 0f) {
+            drawVoiceMeter(canvas, rect.centerX(), y + meterH / 2f, rect.width() - dp(48f))
+            y += meterH
+        }
+        y += gap
+        canvas.drawText(footer, rect.centerX(), y - voiceHintPaint.ascent(), voiceHintPaint)
+    }
+
+    /** 音量メーター。拾えていることが分かればいいので、細い横棒 1 本で出す。 */
+    private fun drawVoiceMeter(canvas: Canvas, cx: Float, cy: Float, maxWidth: Float) {
+        val w = min(dp(170f), maxWidth)
+        val h = dp(6f)
+        val track = RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f)
+        fillPaint.color = context.getColor(R.color.pad_zone_alpha)
+        canvas.drawRoundRect(track, h / 2f, h / 2f, fillPaint)
+        val lit = w * voiceLevel.coerceIn(0f, 1f)
+        if (lit > h) {
+            fillPaint.color = context.getColor(R.color.pad_ink)
+            canvas.drawRoundRect(
+                RectF(track.left, track.top, track.left + lit, track.bottom),
+                h / 2f, h / 2f, fillPaint,
+            )
+        }
+    }
+
+    /**
+     * 日本語には単語の区切りが無いので、文字単位で折り返す。
+     * [maxLines] に収まらない分は末尾を「…」に畳む。
+     */
+    private fun wrapText(text: String, paint: Paint, maxWidth: Float, maxLines: Int): List<String> {
+        if (text.isEmpty() || maxWidth <= 0f) return emptyList()
+        val lines = ArrayList<String>(maxLines)
+        var start = 0
+        while (start < text.length && lines.size < maxLines) {
+            val count = paint.breakText(text, start, text.length, true, maxWidth, null)
+                .coerceAtLeast(1)
+            lines += text.substring(start, start + count)
+            start += count
+        }
+        if (start < text.length) {
+            lines[lines.size - 1] = lines.last().dropLast(1) + "…"
+        }
+        return lines
     }
 
     /**
@@ -1046,6 +1297,7 @@ class UniStrokeView @JvmOverloads constructor(
     private fun cancelLongPresses() {
         removeCallbacks(helpLongPressRunnable)
         removeCallbacks(selectLongPressRunnable)
+        removeCallbacks(voiceLongPressRunnable)
     }
 
     private fun stopRepeat() {
@@ -1148,6 +1400,16 @@ class UniStrokeView @JvmOverloads constructor(
                 // 展開時のパネル外（非アクティブ領域）では手書きを受け付けない
                 if (!layout.isInPanel(x, y)) return false
 
+                // 音声入力中は手書きを受け付けない。
+                // どこを触っても止まる（✕ なら聞き取った内容を捨てる）ので、
+                // 「喋りかけたけどやめたい」がその場の 1 タップで済む。
+                if (voiceActive) {
+                    uiTarget = UiTarget.VOICE
+                    voiceCancelHit = voiceCancelRect.contains(x, y)
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    return true
+                }
+
                 // 本方式は完全な一筆書きで、離した時点で認識まで済んでいる。
                 // したがって前のストロークのフェードが残っていても待つ必要はない。
                 // 抑制時間は一切設けず、消えかけの軌跡だけ捨てて即座に書き始める。
@@ -1166,6 +1428,9 @@ class UniStrokeView @JvmOverloads constructor(
                 strokeFade.cancel()
                 strokeAlpha = 0f
                 fadingPath.reset()
+                // その場で止まったままなら音声入力へ回す。
+                // 書き始めれば MOVE 側で取り下げるので、手書きの邪魔にはならない。
+                if (voiceAvailable) postDelayed(voiceLongPressRunnable, VOICE_LONG_PRESS_MS)
                 invalidate()
                 return true
             }
@@ -1194,6 +1459,11 @@ class UniStrokeView @JvmOverloads constructor(
                     }
                     UiTarget.NONE -> {
                         if (!tracking) return true
+                        // 少しでも書き始めたら長押し（音声入力）は取り下げる。
+                        // 判定はタップと同じ 10dp なので、書くつもりの動きなら必ず抜ける。
+                        if (hypot(x - downX, y - downY) > tapMaxSize) {
+                            removeCallbacks(voiceLongPressRunnable)
+                        }
                         // 速く書くと 1 フレーム分のサンプルが 1 つの MOVE にまとめられる。
                         // 履歴サンプルを取り込まないと軌跡が粗くなり、認識率が落ちる
                         // （= 速書きで「取りこぼした」ように見える）。必ず先に消化する。
@@ -1261,6 +1531,21 @@ class UniStrokeView @JvmOverloads constructor(
                             }
                         }
                     }
+                    UiTarget.VOICE -> {
+                        when {
+                            // 案内・エラーの表示はどこを触っても閉じる
+                            voiceState == VoiceState.NOTICE -> listener?.onVoiceCancel()
+                            // ✕ はボタンと同じく、押し始めた場所で行き先を決める
+                            voiceCancelHit && voiceCancelRect.contains(x, y) ->
+                                listener?.onVoiceCancel()
+                            // 録音中のゾーンのタップは無視する。
+                            // 話し終わりは認識器が自動で判定するので、
+                            // 誤って触れたせいで話の途中で切れることがあってはいけない。
+                            else -> Unit
+                        }
+                        voiceCancelHit = false
+                        performClick()
+                    }
                     UiTarget.OVERLAY -> Unit
                     UiTarget.NONE -> {
                         if (tracking) {
@@ -1282,6 +1567,7 @@ class UniStrokeView @JvmOverloads constructor(
 
             MotionEvent.ACTION_CANCEL -> {
                 stopRepeat()
+                voiceCancelHit = false
                 // 途中で取り消されても宙ぶらりんにはせず、いまの位置で確定させる
                 if (uiTarget == UiTarget.DRAG) settlePanel()
                 uiTarget = UiTarget.NONE
@@ -1391,6 +1677,9 @@ class UniStrokeView @JvmOverloads constructor(
 
     private fun finishStroke() {
         tracking = false
+        // ストロークとして確定した以上、待機中の長押し（音声入力）は無効。
+        // 2 本目の指で確定したときは ACTION_UP を通らないので、ここで必ず落とす。
+        removeCallbacks(voiceLongPressRunnable)
         // デバッグログ用に、点を捨てる前に控えておく
         val pointCount = points.size
 
@@ -1483,6 +1772,8 @@ class UniStrokeView @JvmOverloads constructor(
 
     private fun clearStroke() {
         tracking = false
+        // 書きかけが無くなったのだから、待機中の長押しも意味を失う
+        removeCallbacks(voiceLongPressRunnable)
         points.clear()
         activePath.reset()
         fadingPath.reset()
@@ -1522,6 +1813,21 @@ class UniStrokeView @JvmOverloads constructor(
         /** 候補が端末内辞書だけで作られたことを示すチップの文字。 */
         private const val LABEL_ON_DEVICE = "端末内"
         private const val HELP_HINT = "ジェスチャー見本 — [?] で閉じる／上下スクロール"
+
+        /** 音声入力バナーの ✕ と、状態ごとの操作案内。 */
+        private const val LABEL_VOICE_CANCEL = "✕"
+        private const val VOICE_ZONE_HINT = "長押しで音声入力"
+        private const val VOICE_FOOTER_LISTENING = "話し終わると自動で確定 ／ ✕ でやめる"
+        private const val VOICE_FOOTER_CONTINUOUS = "話し終わると自動で確定 ／「音声終了」か ✕ で終わる"
+        private const val VOICE_FOOTER_WORKING = "✕ でやめる"
+        private const val VOICE_FOOTER_NOTICE = "タップで閉じる"
+
+        /** バナーに出す本文の最大行数。 */
+        private const val MAX_VOICE_LINES = 3
+
+        /** 音量メーターの下限・上限（SpeechRecognizer が返す RMS の実用域）。 */
+        private const val RMS_MIN_DB = -2f
+        private const val RMS_MAX_DB = 10f
 
         private val OVERLAY_BG = Color.argb(246, 22, 28, 24)
 
@@ -1567,6 +1873,14 @@ class UniStrokeView @JvmOverloads constructor(
 
         /** [?] の長押し判定。 */
         private const val LONG_PRESS_MS = 500L
+
+        /**
+         * 手書きゾーンの長押し（音声入力）の判定。
+         *
+         * [TAP_MAX_MS] より必ず長くしておくこと。短くすると「ゆっくりしたタップ」が
+         * Punctuation Shift ではなく音声入力になり、既存の入力を奪ってしまう。
+         */
+        private const val VOICE_LONG_PRESS_MS = 700L
 
         /** カーソルボタンの長押しリピート。 */
         private const val REPEAT_DELAY_MS = 400L

@@ -44,6 +44,44 @@ class SettingsActivity : Activity() {
         netOff.setOnClickListener { Prefs.setNetworkConvertEnabled(this, false) }
         netOn.setOnClickListener { Prefs.setNetworkConvertEnabled(this, true) }
 
+        // 音声入力。既定オンだが、実際に録音するのは手書きゾーンを長押ししたときだけ。
+        findViewById<CheckBox>(R.id.check_voice_input).apply {
+            isChecked = Prefs.isVoiceInputEnabled(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on ->
+                Prefs.setVoiceInputEnabled(this@SettingsActivity, on)
+                refreshVoiceState()
+            }
+        }
+
+        // ボイスコマンドと連続音声入力（ハンズフリー）。どちらも既定オン。
+        findViewById<CheckBox>(R.id.check_voice_commands).apply {
+            isChecked = Prefs.isVoiceCommandsEnabled(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on ->
+                Prefs.setVoiceCommandsEnabled(this@SettingsActivity, on)
+            }
+        }
+        findViewById<CheckBox>(R.id.check_voice_continuous).apply {
+            isChecked = Prefs.isVoiceContinuous(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on ->
+                Prefs.setVoiceContinuous(this@SettingsActivity, on)
+            }
+        }
+
+        // 音声認識エンジン。既定は端末内のみ（音声を端末から出さない）。
+        val voiceOnDevice = findViewById<RadioButton>(R.id.voice_engine_ondevice)
+        val voiceAuto = findViewById<RadioButton>(R.id.voice_engine_auto)
+        val voiceOnDeviceOnly = Prefs.isVoiceOnDeviceOnly(this)
+        voiceOnDevice.isChecked = voiceOnDeviceOnly
+        voiceAuto.isChecked = !voiceOnDeviceOnly
+        voiceOnDevice.setOnClickListener {
+            Prefs.setVoiceEngine(this, Prefs.VOICE_ONDEVICE)
+            refreshVoiceState()
+        }
+        voiceAuto.setOnClickListener {
+            Prefs.setVoiceEngine(this, Prefs.VOICE_AUTO)
+            refreshVoiceState()
+        }
+
         // 変換エンジン。ネット変換がオフのときは、どちらを選んでも端末内で変換する。
         val engineAuto = findViewById<RadioButton>(R.id.engine_auto)
         val engineOnDevice = findViewById<RadioButton>(R.id.engine_ondevice)
@@ -176,8 +214,26 @@ class SettingsActivity : Activity() {
         }
     }
 
+    /**
+     * この端末で音声入力が使えるかを、選んだエンジンに即して出す。
+     *
+     * 端末内認識は Android 13 以降の対応端末だけなので、
+     * 「設定はオンなのに長押ししても何も起きない」を画面上で説明できるようにする。
+     */
+    private fun refreshVoiceState() {
+        val voice = VoiceInput(this)
+        val state = when {
+            voice.onDeviceAvailable() -> R.string.voice_state_ondevice
+            !voice.serviceAvailable() -> R.string.voice_state_none
+            Prefs.isVoiceOnDeviceOnly(this) -> R.string.voice_state_blocked
+            else -> R.string.voice_state_service
+        }
+        findViewById<TextView>(R.id.text_voice_state).setText(state)
+    }
+
     private fun refresh() {
         store.reloadIfChanged()
+        refreshVoiceState()
 
         // 拡張辞書の状態。入っていれば版を出し、無ければコア辞書である旨を出す。
         val version = DictionaryUpdater.installedVersion(this)

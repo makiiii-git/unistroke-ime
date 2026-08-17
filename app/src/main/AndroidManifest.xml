@@ -12,6 +12,24 @@
     <!-- 更新 APK をシステムのインストーラーへ渡すために要る -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!--
+        音声入力（入力枠の長押し）のマイク。
+        録音するのは長押しで始めたセッションのあいだだけで、終わったら
+        認識器ごと破棄してマイクを手放す。既定では端末内音声認識だけを使うので、
+        音声も認識結果も端末から出ない（設定で明示的に切り替えたときを除く）。
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!--
+        Android 11 以降は、問い合わせる相手を宣言しないと
+        SpeechRecognizer から音声認識サービスが「無い」ものとして見える。
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -51,6 +69,17 @@
             android:label="@string/training_activity_label"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
+
+        <!--
+            マイクの許可を求めるためだけの透明な画面（IME サービスからは権限を
+            要求できないため）。履歴にも残さず、可否が決まったら即座に閉じる。
+        -->
+        <activity
+            android:name=".VoicePermissionActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <service
             android:name=".UniStrokeIME"
