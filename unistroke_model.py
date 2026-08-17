@@ -37,6 +37,7 @@ SRC: Dict[str, str] = {
         "UniStrokeIME",
         "GoogleConvertClient",
         "TrainingSession",
+        "VoiceCommands",
     )
 }
 
@@ -669,3 +670,59 @@ CONTEXT_BONUS = float_const(SRC["StrokeRecognizer"], "CONTEXT_BONUS")
 
 def expected_for(pending: str) -> Set[str]:
     return Romaji.expected_next(pending)
+
+
+# ------------------------------------------------------- 音声コマンド
+
+class VoiceCmd:
+    """VoiceCommands.kt の移植（対応表は Kotlin から読む）。
+
+    Kotlin 側の言い回しを増やしたら、こちらは何もしなくても追随する。
+    """
+
+    _SRC = SRC["VoiceCommands"]
+
+    IGNORED = re.search(r'IGNORED = "([^"]*)"', _SRC).group(1)
+
+    @staticmethod
+    def _table(src: str, name: str) -> Dict[str, List[str]]:
+        """`private val NAME ... listOf(Command.X to listOf("…", …), …)` を読む。"""
+        body = src.split("val %s: List<Pair<Command, List<String>>>" % name, 1)[1]
+        body = body.split("private val", 1)[0]
+        out: Dict[str, List[str]] = {}
+        for cmd, words in re.findall(
+            r"Command\.(\w+)\s+to\s+listOf\(([^)]*)\)", body, re.S
+        ):
+            out.setdefault(cmd, []).extend(
+                re.findall(r'"((?:[^"\\]|\\.)*)"', words))
+        return out
+
+    @classmethod
+    def normalize(cls, text: str) -> str:
+        out = []
+        for ch in text:
+            if ch.isspace() or ch in cls.IGNORED:
+                continue
+            code = ord(ch)
+            if 0x30A1 <= code <= 0x30F6:      # カタカナ -> ひらがな
+                out.append(chr(code - 0x60))
+            elif "A" <= ch <= "Z":
+                out.append(chr(code + 0x20))
+            else:
+                out.append(ch)
+        return "".join(out)
+
+    @classmethod
+    def match(cls, text: str) -> Optional[str]:
+        return cls.TABLE.get(cls.normalize(text))
+
+
+# 一覧に出す言い回しと、認識器がかなで返したとき用の読み（Kotlin と同じ二段構え）
+VoiceCmd.PHRASES = VoiceCmd._table(VoiceCmd._SRC, "PHRASES")
+VoiceCmd.READINGS = VoiceCmd._table(VoiceCmd._SRC, "READINGS")
+VoiceCmd.TABLE = {
+    VoiceCmd.normalize(word): cmd
+    for table in (VoiceCmd.PHRASES, VoiceCmd.READINGS)
+    for cmd, words in table.items()
+    for word in words
+}

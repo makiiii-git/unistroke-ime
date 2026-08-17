@@ -19,6 +19,7 @@ SUITES = [
     ("test_romaji.py", "ローマ字 -> かな"),
     ("test_ime_sequence.py", "IME のストローク割当てシーケンス"),
     ("test_charset.py", "レスポンスの文字コード（◆ 対策）"),
+    ("test_voice_commands.py", "音声コマンドの対応表と正規化"),
     ("test_recognition.py", "認識器の自己テスト（K/X の字形を含む）"),
     ("test_context_bias.py", "かなモードの文脈バイアス"),
     ("test_dictionary.py", "オンデバイス辞書バイナリの整合"),

@@ -137,6 +137,11 @@ MEMBER_RE = re.compile(
     r"\b(?:fun|val|var)\s+(?:<[^>]*>\s*)?(\w+)")
 ENUM_BODY_RE = re.compile(r"\benum\s+class\s+\w+[^{]*\{([^}]*)\}", re.S)
 
+# import 行は「型のメンバ参照」ではないので参照検査から外す。
+# 外さないと android.Manifest.permission.X のようなフレームワークの import が、
+# 同名の自作型（DictionaryUpdater.Manifest）への参照と誤認される。
+IMPORT_RE = re.compile(r"^\s*import\s+.*$", re.M)
+
 
 # enum / object / data class が暗黙に持つメンバ
 IMPLICIT = {
@@ -187,7 +192,7 @@ def main():
     bad = []
     refs = 0
     for name, src in SRCS.items():
-        code = strip_kotlin(src)
+        code = IMPORT_RE.sub("", strip_kotlin(src))
         for m in re.finditer(r"\b([A-Z]\w+)\.(\w+)", code):
             tname, member = m.group(1), m.group(2)
             owners = types.get(tname)
@@ -297,6 +302,51 @@ def main():
     t = SRCS["StrokeTemplates"]
     check("SampleStrokes.loopGlyph" in t or "同じ式" in t,
           "認識テンプレート側に生成元の式が明記されている")
+
+    print("\n=== 8. 音声入力 ===")
+    manifest = read(os.path.join(ROOT, "app", "src", "main", "AndroidManifest.xml"))
+    check("android.permission.RECORD_AUDIO" in manifest, "マイク権限を宣言している")
+    check("android.speech.RecognitionService" in manifest,
+          "音声認識サービスへの queries がある（Android 11 以降で必要）")
+    check(".VoicePermissionActivity" in manifest, "権限要求用の Activity を宣言している")
+
+    tap_ms = int(re.search(r"TAP_MAX_MS = (\d+)L", v).group(1))
+    voice_ms = int(re.search(r"VOICE_LONG_PRESS_MS = (\d+)L", v).group(1))
+    check(voice_ms > tap_ms,
+          "長押し判定 %dms がタップ上限 %dms より長い（Punctuation Shift を奪わない）"
+          % (voice_ms, tap_ms))
+    check("if (voiceAvailable) postDelayed(voiceLongPressRunnable" in v,
+          "音声入力が使えるときだけ長押しを受け付ける")
+    check("removeCallbacks(voiceLongPressRunnable)" in v,
+          "書き始めたら長押しを取り下げる（手書きの邪魔をしない）")
+
+    vi = SRCS["VoiceInput"]
+    check("createOnDeviceSpeechRecognizer" in vi, "端末内音声認識を使う経路がある")
+    check("Build.VERSION_CODES.TIRAMISU" in vi, "端末内認識を API レベルでガードしている")
+    check("!Prefs.isVoiceOnDeviceOnly(context)" in vi,
+          "「端末内のみ」設定では端末外のサービスへ落とさない")
+    check(vi.count("destroy()") >= 2,
+          "セッションの終わりに認識器を破棄している（マイクを掴んだままにしない）")
+    check("getString(KEY_VOICE_ENGINE, VOICE_ONDEVICE)" in SRCS["Prefs"],
+          "音声認識エンジンの既定が端末内のみ")
+
+    ime = SRCS["UniStrokeIME"]
+    check("voiceAllowedHere = !isPasswordField(info)" in ime,
+          "パスワード欄では音声入力そのものを無効にしている")
+    check("MAX_VOICE_SILENT_ROUNDS" in ime,
+          "連続入力は無音が続けば自動で終わる（マイクを開けっぱなしにしない）")
+    check("Prefs.isVoiceCommandsEnabled" in ime,
+          "ボイスコマンドは設定でオフにできる")
+    # コマンドは「発話まるごと一致」だけ。部分一致に緩めると普通の発話を奪う。
+    vc = SRCS["VoiceCommands"]
+    check("TABLE[normalize(text)]" in vc,
+          "コマンド判定は発話まるごとの完全一致のみ")
+    check("startsWith" not in vc and "contains" not in vc,
+          "コマンド判定に部分一致を使っていない")
+    check("netConvertAllowedHere" in ime.split("Ready.SERVICE ->")[1][:400],
+          "端末外へ音声を出す経路はネット変換と同じ欄制限を通す")
+    check("endVoice()" in ime[ime.find("override fun onFinishInputView"):][:300],
+          "入力ビューを畳むときに録音を打ち切っている")
 
     print()
     if FAILURES:
