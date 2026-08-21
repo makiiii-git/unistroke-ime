@@ -539,9 +539,12 @@ class UniStrokeView @JvmOverloads constructor(
         style = Paint.Style.FILL
         color = context.getColor(R.color.pad_ink)
     }
+    /** 見本セルの正解ラベルの基準サイズ。長い名前はここから縮めて収める。 */
+    private val sampleLabelTextSize = dp(16f)
+
     private val sampleLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.pad_text)
-        textSize = dp(11f)
+        textSize = sampleLabelTextSize
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
     }
@@ -1236,9 +1239,9 @@ class UniStrokeView @JvmOverloads constructor(
         canvas.drawText(buildStamp, layout.zoneRight - dp(6f), h - dp(5f), buildStampPaint)
 
         val sections = sampleSections ?: return
-        // K/X のループが潰れないだけのセルサイズを確保する
+        // K/X のループが潰れない字形サイズと、正解ラベルの一行ぶんを確保する
         val cellW = dp(62f)
-        val cellH = dp(66f)
+        val cellH = dp(72f)
         val padL = left + dp(6f)
         val cols = max(1, ((layout.zoneRight - padL - dp(6f)) / cellW).toInt())
 
@@ -1270,7 +1273,7 @@ class UniStrokeView @JvmOverloads constructor(
     }
 
     private fun drawSampleCell(cell: SampleCell, canvas: Canvas, x: Float, y: Float, cw: Float, ch: Float) {
-        val glyphH = ch - dp(14f)
+        val glyphH = ch - dp(20f)
         val pad = dp(7f)
         val side = min(cw - pad * 2, glyphH - pad)
         StrokeArt.draw(
@@ -1278,7 +1281,16 @@ class UniStrokeView @JvmOverloads constructor(
             x + (cw - side) / 2f, y + pad / 2f, side,
             samplePaint, sampleDotPaint, samplePath, dp(3f), dp(6f),
         )
-        canvas.drawText(cell.label, x + cw / 2f, y + ch - dp(2f), sampleLabelPaint)
+        // 正解ラベル。1 文字を大きく見せつつ、長い名前（shift/A・カナ/ext 等）は
+        // セル幅に収まるまで縮める（前のセルの縮小を引きずらないよう毎回戻す）
+        val base = sampleLabelTextSize
+        sampleLabelPaint.textSize = base
+        val maxW = cw - dp(4f)
+        val labelW = sampleLabelPaint.measureText(cell.label)
+        if (labelW > maxW) {
+            sampleLabelPaint.textSize = max(dp(10f), base * maxW / labelW)
+        }
+        canvas.drawText(cell.label, x + cw / 2f, y + ch - dp(4f), sampleLabelPaint)
         // 個人テンプレートを持つ文字には印を付ける
         if (cell.label in learnedSymbols) {
             canvas.drawCircle(x + cw - dp(8f), y + dp(7f), dp(2.6f), sampleDotPaint)
