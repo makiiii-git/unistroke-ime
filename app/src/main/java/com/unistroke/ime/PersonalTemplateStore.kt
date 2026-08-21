@@ -236,6 +236,21 @@ class PersonalTemplateStore internal constructor(private val file: File) {
     }
 
     /**
+     * 指定した文字の学習データだけを削除する（全セット横断）。
+     * 昇格済みテンプレートと昇格待ち候補の両方を消す。候補を残すと、
+     * リセット後の 1 回の書き直しで古い書き方が復活してしまう。
+     */
+    fun resetSymbols(symbols: Collection<String>) {
+        if (symbols.isEmpty()) return
+        for (map in listOf(templates, candidates)) {
+            for ((_, bySymbol) in map) {
+                for (s in symbols) bySymbol.remove(s)
+            }
+        }
+        save()
+    }
+
+    /**
      * ファイルが自分の知らないうちに書き換わっていたら読み直す。
      * @return 読み直したら true
      */

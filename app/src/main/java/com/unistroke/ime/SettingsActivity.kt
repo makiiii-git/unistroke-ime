@@ -1,7 +1,6 @@
 package com.unistroke.ime
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
@@ -127,47 +126,14 @@ class SettingsActivity : Activity() {
         findViewById<Button>(R.id.btn_training).setOnClickListener {
             startActivity(Intent(this, TrainingActivity::class.java))
         }
-        // 学習リセットは取り返しがつかないうえ、直後に認識精度が落ちて
-        // 「IME が壊れた」と誤解されやすい。何が失われるかを出してから消す。
+        // 学習リセットは文字単位で選べる専用画面で行う（全文字リセットもそこから）
         findViewById<Button>(R.id.btn_reset_learning).setOnClickListener {
-            confirmResetLearning()
+            startActivity(Intent(this, ResetLearningActivity::class.java))
         }
         findViewById<Button>(R.id.btn_reset_history).setOnClickListener {
             prediction.reset()
             refresh()
         }
-    }
-
-    /**
-     * 学習リセットの確認 -> 実行 -> トレーニングへの誘導。
-     *
-     * リセット直後は個人テンプレートが無くなるぶん認識精度が確実に落ちる。
-     * それを事前に伝え、終わったらその場で復旧手段（トレーニング）へ繋ぐ。
-     */
-    private fun confirmResetLearning() {
-        AlertDialog.Builder(this)
-            .setTitle(R.string.reset_learning_title)
-            .setMessage(R.string.reset_learning_body)
-            // 破壊的な操作なので、既定の位置（positive）にはキャンセルを置く
-            .setPositiveButton(R.string.reset_learning_cancel, null)
-            .setNegativeButton(R.string.reset_learning_ok) { _, _ ->
-                store.reset()
-                refresh()
-                promptTrainingAfterReset()
-            }
-            .show()
-    }
-
-    /** リセット後の復旧導線。ここから直接トレーニングへ入れる。 */
-    private fun promptTrainingAfterReset() {
-        AlertDialog.Builder(this)
-            .setTitle(R.string.reset_done_title)
-            .setMessage(R.string.reset_done_body)
-            .setPositiveButton(R.string.reset_done_training) { _, _ ->
-                startActivity(Intent(this, TrainingActivity::class.java))
-            }
-            .setNegativeButton(R.string.reset_done_later, null)
-            .show()
     }
 
     override fun onResume() {

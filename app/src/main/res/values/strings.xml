@@ -205,6 +205,16 @@
     <string name="learning_empty">まだ学習していません</string>
     <string name="btn_reset_learning">学習データをリセット</string>
 
+    <!-- 文字単位リセットの選択画面 -->
+    <string name="reset_activity_label">学習データのリセット</string>
+    <string name="reset_select_body">リセットする文字を選んでください。選んだ文字の学習データ（自動学習した書き方と「書き方トレーニング」で登録した字形 ★）が削除され、その文字は標準の字形だけで認識するようになります。</string>
+    <string name="reset_select_all">全て選択</string>
+    <string name="btn_reset_selected">選択した文字をリセット</string>
+    <string name="btn_reset_all">全ての文字をリセット</string>
+    <string name="reset_selected_title">選択した文字をリセットしますか？</string>
+    <string name="reset_selected_body">%1$s\n\n上記 %2$d 文字の学習データを削除します。元に戻せません。</string>
+    <string name="reset_selected_done">選択した文字の学習データを削除しました</string>
+
     <!-- 学習リセットの確認。取り返しがつかないので、影響をはっきり書く。 -->
     <string name="reset_learning_title">学習データをリセットしますか？</string>
     <string name="reset_learning_body">学習した書き方が全て削除されます。認識精度が下がる場合があります。\n\n削除されるのは、自動学習した個人テンプレートと「書き方トレーニング」で登録した字形（★）です。標準の字形だけで認識するようになるため、A・K・X・Y・B など癖の出やすい文字が認識されにくくなることがあります。\n\nリセット後は「書き方トレーニング」をやり直すと、短時間で精度を戻せます。</string>

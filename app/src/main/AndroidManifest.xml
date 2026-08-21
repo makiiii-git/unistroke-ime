@@ -70,6 +70,12 @@
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- 学習データを文字単位で選んでリセットする画面（設定から入る） -->
+        <activity
+            android:name=".ResetLearningActivity"
+            android:exported="false"
+            android:label="@string/reset_activity_label" />
+
         <!--
             マイクの許可を求めるためだけの透明な画面（IME サービスからは権限を
             要求できないため）。履歴にも残さず、可否が決まったら即座に閉じる。

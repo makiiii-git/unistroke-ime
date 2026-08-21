@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/app_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/reset_select_body"
+            android:textColor="@color/app_text"
+            android:textSize="14sp" />
+
+        <!-- 学習データが 1 つも無いときだけ見せる -->
+        <TextView
+            android:id="@+id/text_reset_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/learning_empty"
+            android:textColor="@color/app_text"
+            android:textSize="15sp"
+            android:visibility="gone" />
+
+        <CheckBox
+            android:id="@+id/check_select_all"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="48dp"
+            android:text="@string/reset_select_all"
+            android:textColor="@color/app_text"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <!-- 学習済み文字のチェックボックスをコードで並べる -->
+        <LinearLayout
+            android:id="@+id/list_symbols"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <Button
+            android:id="@+id/btn_reset_selected"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/btn_reset_selected" />
+
+        <Button
+            android:id="@+id/btn_reset_all"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="24dp"
+            android:text="@string/btn_reset_all" />
+
+    </LinearLayout>
+</ScrollView>
