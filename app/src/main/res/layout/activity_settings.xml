@@ -98,6 +98,51 @@
                 android:textSize="16sp" />
         </RadioGroup>
 
+        <!-- 変換エンジンはネット変換と表裏の設定なので、隣に並べる -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/engine_title"
+            android:textColor="@color/app_text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/engine_body"
+            android:textColor="@color/app_text"
+            android:textSize="14sp" />
+
+        <RadioGroup
+            android:id="@+id/engine_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/engine_auto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/engine_auto"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <RadioButton
+                android:id="@+id/engine_ondevice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/engine_ondevice"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+        </RadioGroup>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -292,50 +337,6 @@
             android:text="@string/dict_auto_update_note"
             android:textColor="@color/app_text"
             android:textSize="13sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/engine_title"
-            android:textColor="@color/app_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:lineSpacingExtra="3dp"
-            android:text="@string/engine_body"
-            android:textColor="@color/app_text"
-            android:textSize="14sp" />
-
-        <RadioGroup
-            android:id="@+id/engine_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="vertical">
-
-            <RadioButton
-                android:id="@+id/engine_auto"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:text="@string/engine_auto"
-                android:textColor="@color/app_text"
-                android:textSize="16sp" />
-
-            <RadioButton
-                android:id="@+id/engine_ondevice"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:text="@string/engine_ondevice"
-                android:textColor="@color/app_text"
-                android:textSize="16sp" />
-        </RadioGroup>
 
         <TextView
             android:layout_width="wrap_content"
