@@ -122,8 +122,8 @@ android {
         targetSdk = 35
         // 端末上での識別用。APK を差し替えたら versionCode を上げる。
         // versionName は「メジャー.マイナー.パッチ」の 3 段階で管理する。
-        versionCode = 6
-        versionName = "1.2.2"
+        versionCode = 7
+        versionName = "1.2.3"
 
         // 「バージョン: 1.0 (build 2026-08-11 10:43)」の build 部分。
         buildConfigField("String", "BUILD_TIME", "\"${sourceBuildStamp()}\"")
