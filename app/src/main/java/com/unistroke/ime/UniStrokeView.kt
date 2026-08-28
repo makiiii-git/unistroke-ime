@@ -300,6 +300,15 @@ class UniStrokeView @JvmOverloads constructor(
      * @param withSegmentNav 両端に文節送りボタンを出すか。
      */
     fun setCandidates(items: List<String>, selected: Int, withSegmentNav: Boolean) {
+        // 手書きの最中にバーが出たり消えたりするとビューの高さが変わり、
+        // onSizeChanged が書きかけのストロークを捨ててしまう（浮動時は座標もずれる）。
+        // 連続で書くと前の文字の変換候補が非同期で届くのがちょうど次の筆跡の途中なので、
+        // ストロークが終わるまで更新を保留する。
+        if (tracking) {
+            pendingCandidates = PendingCandidates(items, selected, withSegmentNav)
+            return
+        }
+        pendingCandidates = null
         val wasVisible = candidates.isNotEmpty()
         candidates = items
         candidateIndex = selected
@@ -311,6 +320,21 @@ class UniStrokeView @JvmOverloads constructor(
         invalidate()
     }
 
+    /** 手書き中に届いた候補バー更新の控え。ストローク確定後に適用する。 */
+    private class PendingCandidates(
+        val items: List<String>,
+        val selected: Int,
+        val withSegmentNav: Boolean,
+    )
+
+    private var pendingCandidates: PendingCandidates? = null
+
+    private fun flushPendingCandidates() {
+        val p = pendingCandidates ?: return
+        pendingCandidates = null
+        setCandidates(p.items, p.selected, p.withSegmentNav)
+    }
+
     fun setCandidateSelection(index: Int) {
         candidateIndex = index
         ensureCandidateVisible()
@@ -318,6 +342,12 @@ class UniStrokeView @JvmOverloads constructor(
     }
 
     fun clearCandidates() {
+        // setCandidates と同じ理由で、手書き中はバーの消去（= 高さ変更）も保留する
+        if (tracking) {
+            pendingCandidates = PendingCandidates(emptyList(), 0, false)
+            return
+        }
+        pendingCandidates = null
         if (candidates.isEmpty()) return
         candidates = emptyList()
         candidateIndex = 0
@@ -1734,6 +1764,10 @@ class UniStrokeView @JvmOverloads constructor(
         strokeFade.cancel()
         strokeFade.start()
 
+        // ストロークが終わったので、保留していた候補バーの更新をここで反映する。
+        // このあと listener 側が新しい候補を出せば、そちらがさらに上書きする。
+        flushPendingCandidates()
+
         listener?.onSymbol(symbol, raw, zone)
         invalidate()
     }
@@ -1784,6 +1818,8 @@ class UniStrokeView @JvmOverloads constructor(
 
     private fun clearStroke() {
         tracking = false
+        // 書きかけを捨てたときも、保留中の候補バー更新は取り残さない
+        flushPendingCandidates()
         // 書きかけが無くなったのだから、待機中の長押しも意味を失う
         removeCallbacks(voiceLongPressRunnable)
         points.clear()

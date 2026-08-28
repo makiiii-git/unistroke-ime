@@ -649,7 +649,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
                     flushComposing()
                     commitFinal(ic, "\t")
                 }
-                else -> emitSymbol(ic, symbol, extended = mode == SymbolMode.EXTENDED)
+                else -> emitSymbol(ic, symbol)
             }
             syncView()
             return
@@ -698,25 +698,14 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         else PersonalTemplateStore.SET_ALPHA
 
     /** 記号（punctuation / extended）をアプリへ送る。 */
-    private fun emitSymbol(ic: InputConnection, symbol: String, extended: Boolean = false) {
+    private fun emitSymbol(ic: InputConnection, symbol: String) {
         learner.onOther(System.currentTimeMillis())
+        // どちらの入力窓で書いたかで全角/半角を切り分ける。
+        //   数字窓: 数字と同じ扱い。半角のまま確定し、変換にも関わらせない。
+        //   かな窓: 全角にする。
         // 自動英字化中の単語は ASCII として扱っているので、記号も半角のままにする。
-        val kanaMode = !extended && inputMode != InputMode.LATIN && !autoLatin
-        val text = if (kanaMode) {
-            when (symbol) {
-                "." -> "。"
-                "," -> "、"
-                "-" -> "ー"
-                "?" -> "？"
-                "!" -> "！"
-                // 波ダッシュ U+301C。全角チルダ U+FF5E ではない
-                // （[KANA_COMPOSING_SYMBOLS] に入っているのが U+301C なので合わせる）
-                "~" -> "〜"
-                else -> symbol
-            }
-        } else {
-            symbol
-        }
+        val kanaMode = inputMode != InputMode.LATIN && !autoLatin && lastZone != Zone.NUMBER
+        val text = if (kanaMode) toZenkakuSymbol(symbol) else symbol
         // かなモードの全角記号は「読みの一部」。確定させず合成へ足す。
         // 「ー」は読みそのもの（こーひー -> コーヒー）だし、
         // 「、」「。」「？」「！」も付けたまま変換できるのが普通の日本語 IME の動き。
@@ -727,6 +716,30 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         finishConversionIfAny()
         flushComposing()
         commitFinal(ic, text)
+    }
+
+    /**
+     * かな窓で書いた記号の全角形。
+     *
+     * 日本語の記号として別字になるもの（。、ー？！〜）は専用の対応で、
+     * それ以外の ASCII 記号は機械的に全角形（U+FF01〜）へ写す。
+     * 全角形を持たない記号（Extended の ° × ÷ など）はそのまま。
+     */
+    private fun toZenkakuSymbol(symbol: String): String = when (symbol) {
+        "." -> "。"
+        "," -> "、"
+        "-" -> "ー"
+        "?" -> "？"
+        "!" -> "！"
+        // 波ダッシュ U+301C。全角チルダ U+FF5E ではない
+        // （[KANA_COMPOSING_SYMBOLS] に入っているのが U+301C なので合わせる）
+        "~" -> "〜"
+        else ->
+            if (symbol.length == 1 && symbol[0].code in 0x21..0x7E) {
+                (symbol[0].code + 0xFEE0).toChar().toString()
+            } else {
+                symbol
+            }
     }
 
     /**
@@ -749,9 +762,9 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     /**
      * かなモードで合成に足してよい全角の日本語記号か。
      *
-     * いま実際に出るのは「。」「、」「ー」の 3 つ（Punctuation の . , - がかなモードで化ける）。
-     * 残りは、将来かなモードの記号割り当てを増やしたときに同じ扱いになるよう先に並べてある。
-     * 半角記号（Extended 経由を含む）はここに入れない ―― 従来どおり確定して挿入する。
+     * かな窓で書いた記号は [toZenkakuSymbol] で全角になるので、
+     * ここに並んだものは読みの一部として合成に残る（こーひー、〜？！ など）。
+     * ここに無い全角記号（＠＃＄ など）と半角記号は従来どおり確定して挿入する。
      */
     private fun isKanaComposingSymbol(text: String): Boolean =
         text.length == 1 && KANA_COMPOSING_SYMBOLS.indexOf(text[0]) >= 0
