@@ -786,12 +786,23 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         }
 
         // かなモード中の一時アルファベット入力（上スワイプ 1 回 = 大文字 / 2 回 = 小文字）。
-        // 1 文字入れたら自動でかな入力へ戻る。
+        // 小文字は 1 文字入れたら自動でかな入力へ戻る。
+        // 大文字は「英単語の書き始め」とみなす特例で、この単語が終わるまで
+        // アルファベットのまま続ける（固有名詞・商品名の頭文字を想定）。
         if (tempLatin != TempLatin.NONE) {
             val upper = tempLatin == TempLatin.UPPER
             tempLatin = TempLatin.NONE
             flushComposing()
             val text = if (upper) symbol.uppercase() else symbol.lowercase()
+            if (upper) {
+                wordRaw.append(text)
+                autoLatin = true
+                updateComposing()
+                noteCharacterTyped(symbol)
+                scheduleLiveSuggest()
+                syncView()
+                return
+            }
             commitFinal(ic, text)
             noteCharacterTyped(symbol)
             syncView()
@@ -851,6 +862,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      * abc モードでは従来どおり Caps シフトの 3 段階トグル。
      * かなモードでは「一時アルファベット入力」の切替
      * （1 回 = 次の 1 文字を大文字 / 2 回 = 小文字 / 3 回 = 解除）。
+     * 大文字で書き始めた場合は英単語の開始とみなし、
+     * その単語が終わるまでアルファベット入力を続ける（onCharacter 参照）。
      */
     private fun onShiftStroke() {
         if (inputMode == InputMode.LATIN) {
@@ -922,9 +935,13 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         if (autoLatin) {
             // 自動英字化中は生の綴りを 1 文字だけ戻す。
             // 戻した結果もう「日本語として無理」でなくなったら、かな解釈へ復帰する。
+            // 大文字で書き始めた英単語は誤判定ではなく明示的な選択なので、
+            // 綴りが残っている限りかなへは戻さない。
             if (wordRaw.isNotEmpty()) wordRaw.setLength(wordRaw.length - 1)
             learner.onUndoLastCharacter(System.currentTimeMillis())
-            if (wordRaw.isEmpty() || !RomajiConverter.looksNonJapanese(wordRaw.toString())) {
+            if (wordRaw.isEmpty() ||
+                (!isCapsLatinWord() && !RomajiConverter.looksNonJapanese(wordRaw.toString()))
+            ) {
                 revertAutoLatin()
             } else {
                 updateComposing()
@@ -934,8 +951,22 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         }
         if (romaji.isNotEmpty()) {
             // ローマ字 1 文字 = 直前のストローク 1 つぶん。訂正として追跡できる。
+            // 生の綴り（wordRaw）が今の合成（kana + romaji）と対応しているなら、
+            // 1 文字戻した綴り全体を変換し直す。回復処理で英字のまま kana 側へ
+            // 落ちた子音（"kt" -> 「k」+ 保留 "t"）も、戻せば再び変換対象へ復帰する。
+            val katakana = inputMode == InputMode.KATAKANA
+            val synced = wordRaw.isNotEmpty() &&
+                RomajiConverter.convert(wordRaw.toString(), katakana)
+                    .let { it.kana == kana.toString() && it.pending == romaji.toString() }
             romaji.setLength(romaji.length - 1)
             if (wordRaw.isNotEmpty()) wordRaw.setLength(wordRaw.length - 1)
+            if (synced) {
+                val r = RomajiConverter.convert(wordRaw.toString(), katakana)
+                kana.setLength(0)
+                kana.append(r.kana)
+                romaji.setLength(0)
+                romaji.append(r.pending)
+            }
             learner.onUndoLastCharacter(System.currentTimeMillis())
             updateComposing()
             scheduleLiveSuggest()
@@ -1033,6 +1064,16 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
     private fun composingLength(): Int =
         if (autoLatin) wordRaw.length else kana.length + romaji.length
+
+    /**
+     * 大文字で書き始めた英単語か（上スワイプ 1 回の大文字で開始した特例モード）。
+     *
+     * かなモードで大文字が入る経路は tempLatin の大文字だけなので、
+     * 生の綴りの先頭を見れば自動英字化（[RomajiConverter.looksNonJapanese] 由来）と
+     * 区別できる。こちらは明示的な選択なので、かな解釈への復帰・かな候補は出さない。
+     */
+    private fun isCapsLatinWord(): Boolean =
+        autoLatin && wordRaw.firstOrNull()?.isUpperCase() == true
 
     /**
      * 単語の区切り。生ローマ字の履歴と自動英字化の状態を捨てる。
@@ -1311,7 +1352,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
                 }
                 return
             }
-            val kanaRead = RomajiConverter.flush(raw)
+            // 大文字始まりの英単語にかな解釈は無意味（"Pあlm" のような候補になる）
+            val kanaRead = if (isCapsLatinWord()) "" else RomajiConverter.flush(raw)
             val cands = ArrayList<PredictionEngine.Candidate>(2)
             cands.add(PredictionEngine.Candidate(raw, raw, PredictionEngine.Source.RAW))
             if (kanaRead.isNotEmpty() && kanaRead != raw) {
