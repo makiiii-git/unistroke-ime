@@ -60,6 +60,15 @@ object Prefs {
     /** 大画面でのパネル上下位置（0 = 最上 / 1 = 最下）。 */
     const val KEY_PANEL_Y = "panel_y"
 
+    /** プレミアムを購入済みか。書くのは PremiumGate（Google Play の答え）だけ。 */
+    const val KEY_PREMIUM_PURCHASED = "premium_purchased"
+
+    /** 試用が始まった時刻（ms）。0 = まだ始まっていない。 */
+    const val KEY_TRIAL_START = "trial_start"
+
+    /** これまでに見た最も遅い時刻（ms）。時計を巻き戻して試用を延ばせないようにする。 */
+    const val KEY_TRIAL_LAST_SEEN = "trial_last_seen"
+
     const val HAND_RIGHT = "right"
     const val HAND_LEFT = "left"
 
@@ -122,7 +131,8 @@ object Prefs {
      * 変換・予測は履歴と内蔵辞書だけで動く。
      */
     fun isNetworkConvertEnabled(context: Context): Boolean =
-        of(context).getBoolean(KEY_NET_CONVERT, false)
+        // ネット変換を提供しない配布（Google Play 版）では、保存値が何であれ無効
+        NetConvertGate.SUPPORTED && of(context).getBoolean(KEY_NET_CONVERT, false)
 
     /** 可否を記録する。尋ねた事実も同時に立てるので、初回プロンプトは二度出ない。 */
     fun setNetworkConvertEnabled(context: Context, enabled: Boolean) {
@@ -133,7 +143,8 @@ object Prefs {
     }
 
     fun wasNetworkConvertAsked(context: Context): Boolean =
-        of(context).getBoolean(KEY_NET_CONVERT_ASKED, false)
+        // 提供しない配布では尋ねること自体が無い（＝尋ね済みとして扱う）
+        !NetConvertGate.SUPPORTED || of(context).getBoolean(KEY_NET_CONVERT_ASKED, false)
 
     /**
      * 拡張辞書の更新を自動で確認するか。既定は false。

@@ -1,5 +1,7 @@
 package com.unistroke.ime
 
+import android.os.Build
+import android.view.WindowInsets
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
@@ -213,6 +215,20 @@ class UniStrokeView @JvmOverloads constructor(
      * false のあいだは長押ししても何も起きず、ゾーンの案内も出さない。
      */
     var voiceAvailable: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+
+    /**
+     * 試用期間が終わって未購入のとき、手書きゾーンの背景にプレミアムの案内を出す。IME が与える。
+     *
+     * 描くだけで、レイアウトもタッチの扱いも変えない（案内の上からそのまま書ける）。
+     * 候補バーなどの寸法を動かすとストロークを壊すので、案内は必ず背景の透かしで出す。
+     */
+    var premiumNotice: Boolean = false
         set(value) {
             if (field != value) {
                 field = value
@@ -706,7 +722,34 @@ class UniStrokeView @JvmOverloads constructor(
         get() = dp(HEIGHT_DP) + if (candidateBarVisible) candidateHeight else 0f
 
     /** パネル上端が動ける範囲（0 のときは動かせない）。 */
-    private val panelYRange: Float get() = max(0f, height - panelHeight - gripHeight)
+    private val panelYRange: Float
+        get() = max(0f, height - navInset - panelHeight - gripHeight)
+
+    /**
+     * 画面下端のナビゲーションバー（ジェスチャーバー、IME 切替ボタンの帯）の高さ。
+     *
+     * Android 15 以降は IME のウィンドウも画面の下端まで広がり、システムは余白を
+     * 取ってくれない。何もしないとパネル最下段のボタンがバーと重なって押せなくなる。
+     * そこで、ドッキング時はビューをこのぶんだけ下へ伸ばしてパネルをバーの上に載せ、
+     * 浮動時はパネルの可動範囲から除く。**パネルの中の座標は一切変わらない**
+     * （パネル上端が原点のまま）ので、ストロークの扱いには影響しない。
+     */
+    private var navInset = 0
+
+    override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
+        val bottom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+        } else {
+            @Suppress("DEPRECATION")
+            insets.systemWindowInsetBottom
+        }
+        if (bottom != navInset) {
+            navInset = bottom
+            requestLayout()
+            invalidate()
+        }
+        return super.onApplyWindowInsets(insets)
+    }
 
     /** 浮動時のパネル幅。1 画面のスマホと同じ書き心地になる幅で頭打ちにする。 */
     private val panelWidth: Float
@@ -783,7 +826,8 @@ class UniStrokeView @JvmOverloads constructor(
         val h = if (floating) {
             max(panelH + gripHeight, availableHeight(heightMeasureSpec))
         } else {
-            panelH
+            // ナビゲーションバーのぶんだけ下へ伸ばす（パネルはバーの上に載る）
+            panelH + navInset
         }
         setMeasuredDimension(width, h.toInt())
     }
@@ -823,6 +867,12 @@ class UniStrokeView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         relayout()
         layoutButtons()
+
+        // ドッキング時、ナビゲーションバーの下はパネルと同じ色で埋めておく
+        if (!floating && navInset > 0) {
+            fillPaint.color = context.getColor(R.color.pad_bezel)
+            canvas.drawRect(0f, panelHeight, width.toFloat(), height.toFloat(), fillPaint)
+        }
 
         // 以降はパネル座標（パネル上端 = 0）で描く。浮動していてもいなくても同じ絵。
         val save = canvas.save()
@@ -884,6 +934,26 @@ class UniStrokeView @JvmOverloads constructor(
                 hintY + hintPaint.textSize * 0.85f,
                 voiceHintPaint,
             )
+        }
+
+        // 試用が終わって未購入のあいだは、同じ場所にプレミアムの案内を出す
+        // （このとき音声入力は閉じているので、上の案内とは重ならない）。
+        if (premiumNotice && !voiceActive) {
+            val centerX = (layout.alphaLeft + layout.alphaRight) / 2f
+            val maxW = (layout.alphaRight - layout.alphaLeft) * 0.94f
+            var size = min(dp(11f), zoneH * 0.07f)
+            voiceHintPaint.textSize = size
+            // 狭い端末でもゾーンからはみ出さないように、長い方の行に合わせて縮める
+            val widest = PREMIUM_NOTICE_LINES.maxOf { voiceHintPaint.measureText(it) }
+            if (widest > maxW) {
+                size *= maxW / widest
+                voiceHintPaint.textSize = size
+            }
+            var y = hintY + hintPaint.textSize * 0.85f
+            for (line in PREMIUM_NOTICE_LINES) {
+                canvas.drawText(line, centerX, y, voiceHintPaint)
+                y += size * 1.45f
+            }
         }
 
         drawStatusIndicator(canvas, layout.zoneRight, top)
@@ -1865,6 +1935,12 @@ class UniStrokeView @JvmOverloads constructor(
         /** 音声入力バナーの ✕ と、状態ごとの操作案内。 */
         private const val LABEL_VOICE_CANCEL = "✕"
         private const val VOICE_ZONE_HINT = "長押しで音声入力"
+
+        /** 試用終了後の案内（手書きゾーンの背景）。基本の入力は使えることを先に言う。 */
+        private val PREMIUM_NOTICE_LINES = listOf(
+            "試用期間は終了しました（入力はこのまま使えます）",
+            "音声入力・拡張辞書・学習はプレミアム ▶ アプリの設定",
+        )
         private const val VOICE_FOOTER_LISTENING = "話し終わると自動で確定 ／ ✕ でやめる"
         private const val VOICE_FOOTER_CONTINUOUS = "話し終わると自動で確定 ／「音声終了」か ✕ で終わる"
         private const val VOICE_FOOTER_WORKING = "✕ でやめる"

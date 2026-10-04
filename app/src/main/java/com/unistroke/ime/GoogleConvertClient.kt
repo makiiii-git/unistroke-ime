@@ -66,6 +66,11 @@ class GoogleConvertClient {
      * キャッシュヒット時は通信せずその場で [onResult] を呼ぶ。
      */
     fun convert(reading: String, onResult: (List<Segment>?) -> Unit) {
+        // ネット変換を提供しない配布では絶対に通信しない（呼び出し側の判定とは別の歯止め）
+        if (!NetConvertGate.SUPPORTED) {
+            onResult(null)
+            return
+        }
         val seq = ++generation
         synchronized(cache) { cache[reading] }?.let {
             onResult(it)
@@ -102,6 +107,11 @@ class GoogleConvertClient {
      * 検索クエリ向けなのでノイズを含む。呼び出し側で最下位に置くこと。
      */
     fun suggest(reading: String, onResult: (List<String>?) -> Unit) {
+        // ネット変換を提供しない配布では絶対に通信しない（呼び出し側の判定とは別の歯止め）
+        if (!NetConvertGate.SUPPORTED) {
+            onResult(null)
+            return
+        }
         val seq = ++suggestGeneration
         synchronized(suggestCache) { suggestCache[reading] }?.let {
             onResult(it)

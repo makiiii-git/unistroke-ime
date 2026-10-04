@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.TextView
@@ -36,6 +37,10 @@ class MainActivity : Activity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
+        findViewById<TextView>(R.id.text_premium).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
         runSetupChain()
         maybeAutoCheckDictionary()
         maybeAutoCheckAppUpdate()
@@ -57,8 +62,8 @@ class MainActivity : Activity() {
      * 自動なので、更新が無いときも失敗したときも何も出さない。
      */
     private fun maybeAutoCheckAppUpdate() {
-        if (!AppUpdater.shouldAutoCheck(this, System.currentTimeMillis())) return
-        AppUpdateUi.checkAndOffer(this, manual = false)
+        // 配布形態で実体が変わる（play 版では何もしない）。AppUpdateGate を参照。
+        AppUpdateGate.autoCheck(this)
     }
 
     private fun maybeAutoCheckDictionary() {
@@ -68,6 +73,29 @@ class MainActivity : Activity() {
             // 成功したときだけ知らせる。失敗や「最新です」は黙っておく。
             if (p is DictionaryUpdater.Progress.Done) DictionaryStatus.toast(this, p)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        showPremiumState()
+        // 購入済みかを Google Play に確かめる（再インストール後の復元もこれで済む）。
+        // アプリの画面を開いたときだけ。IME サービスからは問い合わせない。
+        PremiumGate.refresh(this) {
+            if (!isFinishing && !isDestroyed) showPremiumState()
+        }
+    }
+
+    /** 試用の残り日数・終了の案内。購入済みと、購入が要らない配布では何も出さない。 */
+    private fun showPremiumState() {
+        val view = findViewById<TextView>(R.id.text_premium)
+        val text = when (Entitlement.state(this)) {
+            Entitlement.State.PREMIUM -> null
+            Entitlement.State.TRIAL ->
+                getString(R.string.premium_main_trial, Entitlement.trialDaysLeft(this))
+            Entitlement.State.EXPIRED -> getString(R.string.premium_main_expired)
+        }
+        view.text = text
+        view.visibility = if (text == null) View.GONE else View.VISIBLE
     }
 
     override fun onDestroy() {

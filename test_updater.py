@@ -16,6 +16,9 @@ import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 KT = os.path.join(ROOT, "app", "src", "main", "java", "com", "unistroke", "ime")
+# アプリ本体の自己更新は github フレーバーにだけある（Google Play 版には入れない）
+KT_GITHUB = os.path.join(ROOT, "app", "src", "github", "java", "com", "unistroke", "ime")
+KT_PLAY = os.path.join(ROOT, "app", "src", "play", "java", "com", "unistroke", "ime")
 MANIFEST = os.path.join(ROOT, "dictionary", "manifest.json")
 HEADER_SIZE = 80
 MAGIC = b"UNIDIC2\x00"
@@ -48,7 +51,7 @@ def kt_str(src, name):
 # ===================================================================== アプリ更新
 
 def _app_updater_src():
-    with open(os.path.join(KT, "AppUpdater.kt"), encoding="utf-8") as f:
+    with open(os.path.join(KT_GITHUB, "AppUpdater.kt"), encoding="utf-8") as f:
         return f.read()
 
 
@@ -177,15 +180,45 @@ def check_app_updater():
     ime = read_kt("UniStrokeIME.kt")
     check("AppUpdater" not in ime and "AppUpdateUi" not in ime,
           "IME サービスからは更新確認を呼ばない（入力中に通信しない）")
-    ui = read_kt("AppUpdateUi.kt")
+    ui = read(os.path.join(KT_GITHUB, "AppUpdateUi.kt"))
     check("FileProvider.getUriForFile" in ui, "APK は content:// で渡す")
     check("application/vnd.android.package-archive" in ui,
           "システムのインストーラーへ渡している")
     check("canRequestPackageInstalls" in ui, "不明なアプリのインストール許可を確認している")
     check("ACTION_MANAGE_UNKNOWN_APP_SOURCES" in ui, "未許可なら設定画面へ案内している")
-    manifest = read_manifest()
+    manifest = read_manifest("github")
     check("REQUEST_INSTALL_PACKAGES" in manifest, "インストール権限を宣言している")
     check("androidx.core.content.FileProvider" in manifest, "FileProvider を宣言している")
+
+    print("\n=== アプリ更新: 配布フレーバーの切り分け ===")
+    # Google Play は「アプリが自分で APK を取得してインストールさせる」ことを禁じている。
+    # 自己更新が main に漏れると play 版にも入ってしまうので、置き場所ごと固定する。
+    main_manifest = read_manifest("main")
+    check("REQUEST_INSTALL_PACKAGES" not in main_manifest and "FileProvider" not in main_manifest,
+          "共通マニフェストにインストール権限と FileProvider が無い（play 版に入らない）")
+    check(not os.path.exists(os.path.join(ROOT, "app", "src", "play", "AndroidManifest.xml"))
+          or "REQUEST_INSTALL_PACKAGES" not in read_manifest("play"),
+          "play フレーバーはインストール権限を宣言しない")
+    leaked = [f for f in sorted(os.listdir(KT)) if f.endswith(".kt")
+              and re.search(r"\bAppUpdater\b|\bAppUpdateUi\b",
+                            re.sub(r"/\*.*?\*/|//[^\n]*", "", read(os.path.join(KT, f)), flags=re.S))]
+    check(not leaked, "main は自己更新の実体を直接参照しない（AppUpdateGate 越しに呼ぶ）%s"
+          % ("" if not leaked else " -> " + ", ".join(leaked)))
+    play_srcs = "".join(read(os.path.join(KT_PLAY, f)) for f in sorted(os.listdir(KT_PLAY)))
+    check("package-archive" not in play_srcs and "HttpURLConnection" not in play_srcs,
+          "play フレーバーは APK を取得もインストールもしない")
+    gate_gh = read(os.path.join(KT_GITHUB, "AppUpdateGate.kt"))
+    gate_play = read(os.path.join(KT_PLAY, "AppUpdateGate.kt"))
+    check("const val SUPPORTED = true" in gate_gh and "const val SUPPORTED = false" in gate_play,
+          "自己更新は github で有効・play で無効")
+    sig = lambda src: sorted(re.findall(r"fun (\w+)\(", src))
+    check(sig(gate_gh) == sig(gate_play) and sig(gate_gh),
+          "AppUpdateGate の関数が両フレーバーで揃っている（片方だけだとビルドが割れる）")
+    check("AppUpdateGate.SUPPORTED" in read_kt("SettingsActivity.kt"),
+          "設定画面の「アプリの更新」節は自己更新が無い配布では隠す")
+    gradle = read(os.path.join(ROOT, "app", "build.gradle.kts"))
+    check('create("github")' in gradle and 'create("play")' in gradle,
+          "github / play のフレーバーが定義されている")
 
 
 def read_kt(name):
@@ -193,8 +226,8 @@ def read_kt(name):
         return f.read()
 
 
-def read_manifest():
-    with open(os.path.join(ROOT, "app", "src", "main", "AndroidManifest.xml"),
+def read_manifest(source_set="main"):
+    with open(os.path.join(ROOT, "app", "src", source_set, "AndroidManifest.xml"),
               encoding="utf-8") as f:
         return f.read()
 

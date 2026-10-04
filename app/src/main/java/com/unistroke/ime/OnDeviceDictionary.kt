@@ -263,7 +263,11 @@ class OnDeviceDictionary private constructor(private val buf: ByteBuffer) {
         fun open(context: Context): OnDeviceDictionary? {
             val app = context.applicationContext
             // 拡張辞書 -> コア辞書の順。拡張が壊れていても落ちずにコアで動き続ける。
-            mapFromFile(extFile(app))?.let { return it }
+            // 拡張辞書はプレミアム機能。試用が切れて未購入ならコア辞書で動く
+            // （ファイルは消さないので、購入すればそのまま戻る）。
+            if (Entitlement.isUnlocked(app)) {
+                mapFromFile(extFile(app))?.let { return it }
+            }
             mapFromAssets(app)?.let { return it }
             return mapFromCache(app)
         }

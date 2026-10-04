@@ -4,13 +4,11 @@
     <!--
         通信の用途は 2 つだけ。
           1. ネット変換（Google 日本語入力 CGI API）… 既定オフのオプトイン
-          2. アプリと拡張辞書の更新確認（GitHub）… アプリ画面を開いたときだけ
+          2. 拡張辞書の更新確認（GitHub）… アプリ画面を開いたときだけ
+             （github フレーバーではアプリ本体の更新確認も。src/github を参照）
         入力中（IME サービス）に外へ出るのは 1 を有効にした場合のみ。
     -->
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- 更新 APK をシステムのインストーラーへ渡すために要る -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!--
         音声入力（入力枠の長押し）のマイク。
@@ -68,7 +66,18 @@
             android:exported="false"
             android:label="@string/training_activity_label"
             android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustResize" />
+            android:windowSoftInputMode="adjustResize">
+            <!--
+                targetSdk 36（Android 16）では、大画面（最小幅 600dp 以上 = 折りたたみの
+                内側画面やタブレット）で screenOrientation が無視される。
+                この画面は縦向き前提のレイアウトなので、当面は従来の扱いを続けさせる。
+                この逃げ道は次の API レベルで無くなる。それまでに横向きでも崩れない
+                レイアウトへ直すこと。
+            -->
+            <property
+                android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+                android:value="true" />
+        </activity>
 
         <!-- 学習データを文字単位で選んでリセットする画面（設定から入る） -->
         <activity
@@ -99,17 +108,6 @@
                 android:name="android.view.im"
                 android:resource="@xml/method" />
         </service>
-
-        <!-- 更新 APK を content:// で渡す。cacheDir/updates だけを公開する。 -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
 
     </application>
 

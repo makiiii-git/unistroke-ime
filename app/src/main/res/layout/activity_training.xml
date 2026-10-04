@@ -9,6 +9,7 @@
     中央の見本だけが余った高さを吸収する（layout_weight=1）。
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fitsSystemWindows="true"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/app_background"

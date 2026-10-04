@@ -52,6 +52,7 @@
     <string name="dict_title">拡張辞書</string>
     <string name="dict_body">コア辞書（約 8 万語）は本体に内蔵されているので、拡張辞書が無くてもオフラインで変換できます。拡張辞書（約 22 万語）を入れると、固有名詞や専門語に強くなります。\n\n辞書ファイルを受け取るだけで、入力内容は送信しません。受け取ったファイルはハッシュ（SHA-256）を照合し、辞書として開けることを確かめてから差し替えます。壊れていた場合は捨てて、今の辞書のまま動き続けます。</string>
     <string name="dict_state_core">現在: コア辞書（約 8 万語・内蔵）</string>
+    <string name="dict_state_ext_locked">現在: コア辞書（約 8 万語・内蔵）\n拡張辞書 v%1$d は入っていますが、プレミアムで有効になります</string>
     <string name="dict_state_ext">現在: 拡張辞書 v%1$d（約 22 万語）</string>
     <string name="dict_btn_download">拡張辞書をダウンロード</string>
     <string name="dict_btn_check">更新を確認</string>
@@ -237,4 +238,22 @@
 
     <string name="ext_title">Extended Character mode（「＼」で入る／1ストロークで自動解除）</string>
     <string name="ext_body">左上→右下の斜線「＼」を書いてから、次の1ストロークが特殊文字になる。右から左への横線でキャンセル。\n\n※ abc モードでは左下→右上の「／」でも入れる。かなモードでは「／」を ひらがな ⇄ カタカナ の切替に使うので、Extended へは「＼」だけで入る。\n\n  • タップ                ° 丸\n  + 「∝」                 − 左→右の横線\n  × 右上→左下の斜線       ÷ 2つの輪を作って右上へ\n  ¡ 上げる（縦線）        = Z 字\n  £ 下ろして右へ（L）     ¿ 右下から左へ引いて上げる\n  ‘ 上げてから右へ        ’ 上げてから左へ\n  § S 字                  ß B 字\n  © C 字（上から下へ）     ¢ C 字（下から上へ）\n  € Ɛ（E と同じ）          ™ M 字      ® R 字\n  ¥ 左上から右下へ入り、下で輪を作って右上へ\n\n※ 認識器は「形そのものの性質」で明らかに違う候補を先に落としている。まっすぐなストロークでないものは直線系（I・スペース・バックスペース・リターン・シフト・＼／）にはならず、左右に 3 回折り返すストローク（E など）は F・L・T・C にはならない。おかげで E を縦長・幅狭に書いても I や F に化けにくい。\n\n※ K と X はループのある一筆書きが正式な字形。K は「右上から左下がりに入り、折れ角なしでそのまま時計回りにループして右下へ抜ける」連続曲線（X はその鏡像で反時計回り）。ループを省いた「＜」「＞」だけの形は判定が不安定になるので、見本どおりループを作って書くこと。見本は直線→270度の円弧→直線を接線で繋いだ数式で描いているので折れ角がなく、トレーニング画面では書かれていく順にアニメーションで再生する。\n※ 元となった方式にある Accent mode（アクセント付き文字）は実装していない。\n※ 元となった方式では X は「＼」＋「／」の2ストロークだが、本 IME では「＼」を Extended Shift に使うため、X は1ストローク版（K の左右反転）のみを採用している。</string>
+
+    <!-- プレミアム（試用 → 購入で解錠） -->
+    <string name="premium_title">プレミアム</string>
+    <string name="premium_body">次の機能はプレミアムです。試用期間中はすべて使えます。\n\n・音声入力とボイスコマンド\n・拡張辞書（約 22 万語）\n・書き癖の学習\n\n<b>基本の入力（一筆書き・ローマ字かな・コア辞書での変換）は、試用期間が終わってもそのまま使えます。</b>\n\n購入は一度きりで、同じ Google アカウントなら機種変更や再インストールのあとも「購入を復元」で戻せます。</string>
+    <string name="premium_state_owned">プレミアム: 有効（購入済み）</string>
+    <string name="premium_state_trial">試用中: あと %1$d 日（全機能が使えます）</string>
+    <string name="premium_state_expired">試用期間は終了しました（基本の入力は引き続き使えます）</string>
+    <string name="premium_buy">プレミアムを購入</string>
+    <string name="premium_buy_price">プレミアムを購入（%1$s）</string>
+    <string name="premium_restore">購入を復元</string>
+    <string name="premium_toast_purchased">プレミアムが有効になりました。ありがとうございます</string>
+    <string name="premium_toast_pending">お支払いの完了を待っています。完了すると有効になります</string>
+    <string name="premium_toast_unavailable">Google Play に接続できませんでした。時間をおいてもう一度お試しください</string>
+    <string name="premium_toast_failed">購入を完了できませんでした</string>
+    <string name="premium_toast_restored">購入を復元しました</string>
+    <string name="premium_toast_not_found">この Google アカウントでの購入が見つかりませんでした</string>
+    <string name="premium_main_trial">試用中: あと %1$d 日（全機能が使えます）　▶ 設定</string>
+    <string name="premium_main_expired">試用期間は終了しました。音声入力・拡張辞書・書き癖の学習はプレミアムで使えます　▶ 設定</string>
 </resources>

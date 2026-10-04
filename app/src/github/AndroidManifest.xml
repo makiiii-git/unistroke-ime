@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    github フレーバーだけに足すもの = アプリ本体の自己更新。
+    Google Play 版（play フレーバー）には入れない。Play では更新は Play が配り、
+    アプリが自分で APK を取得してインストールさせることは禁止されている。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 更新 APK をシステムのインストーラーへ渡すために要る -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+
+        <!-- 更新 APK を content:// で渡す。cacheDir/updates だけを公開する。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>

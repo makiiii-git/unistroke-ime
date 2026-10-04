@@ -25,6 +25,7 @@ SUITES = [
     ("test_dictionary.py", "オンデバイス辞書バイナリの整合"),
     ("test_ondevice.py", "オンデバイス変換エンジン（品質・統合）"),
     ("test_updater.py", "拡張辞書の配布マニフェストと受け入れ条件"),
+    ("test_entitlement.py", "プレミアムの鍵（試用・購入・配布フレーバー）"),
 ]
 
 

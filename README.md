@@ -41,6 +41,8 @@
 
 初回起動時に可否を尋ね、以後は 設定 → ネット変換 でいつでも変更できます。
 
+**Google Play 版には「ネット変換」がありません。** 入力中は一切通信せず、変換は端末内辞書だけで行います（[配布フレーバー](#配布フレーバー)）。
+
 ### 音声入力とマイク
 
 音声入力（手書きゾーンの長押し）を使うときだけマイクを開きます。
@@ -136,10 +138,44 @@ JDK 17 が必要です。`JAVA_HOME` が未設定の場合は `~/.gradle/gradle.
 `org.gradle.java.home` を書いてください（リポジトリ側には環境依存のパスを置いていません）。
 
 ```bash
-./gradlew assembleDebug
+./gradlew assembleGithubDebug
 ```
 
-出力は `app/build/outputs/apk/debug/app-debug.apk` です。デバッグ署名が付くので、そのまま端末にインストールできます。
+出力は `app/build/outputs/apk/github/debug/app-github-debug.apk` です。デバッグ署名が付くので、そのまま端末にインストールできます。
+
+#### 配布フレーバー
+
+配布経路ごとにフレーバーを分けています。
+
+| | `play` | `github` |
+| --- | --- | --- |
+| 配布先 | Google Play | GitHub Releases（APK・協力者向け） |
+| アプリケーション ID | `io.github.makiiii_git.unistroke` | `com.unistroke.ime` |
+| プレミアム機能 | 試用 5 日のあと、購入（買い切り）で解錠 | 全機能・制限なし |
+| ネット変換 | なし（入力中は一切通信しない） | あり（既定オフのオプトイン） |
+| アプリ本体の自己更新 | なし（更新は Play が配る） | あり |
+| 署名 | アップロード鍵（配布用の鍵は Play が持つ） | release 鍵 |
+
+ID が違うので、同じ端末に両方を入れておけます。
+
+Play 版はアプリ 1 本で、無料版・有料版には分かれていません。プレミアム機能は
+音声入力とボイスコマンド・拡張辞書・書き癖の学習です。**基本の入力（一筆書き・ローマ字かな・
+コア辞書での変換）は試用期間が終わってもそのまま使えます。**
+
+購入済みかどうかは、アプリの画面を開いたときにだけ Google Play へ問い合わせます。
+IME（入力中）からは問い合わせず、結果として端末内に残した設定を読むだけです。
+
+フレーバー固有のコードは `app/src/github`・`app/src/play` にあります。
+
+```bash
+./gradlew assemblePlayDebug      # Play 版（デバッグ）
+
+source tools/play-env.sh         # アップロード鍵のパスワードをキーチェーンから読む
+./gradlew bundlePlayRelease      # Play へ上げる App Bundle（署名済み）
+```
+
+App Bundle は `app/build/outputs/bundle/playRelease/app-play-release.aab` に出ます。
+アップロード鍵はリポジトリに含めていません（`tools/play-env.sh` を参照）。
 
 ### 辞書の再生成（任意）
 
@@ -166,7 +202,7 @@ IME の状態機械・文字コード処理を、実機ビルドなしで回帰�
 ### リリース APK の署名
 
 **リリース用 APK の署名は CI（GitHub Actions）で行います。** ローカルのビルドは
-デバッグ署名のみで、`./gradlew assembleDebug` の出力はそのまま端末に入りますが、
+デバッグ署名のみで、`./gradlew assembleGithubDebug` の出力はそのまま端末に入りますが、
 [Releases](https://github.com/makiiii-git/unistroke-ime/releases) に載るものとは別の署名です。
 
 CI は署名のたびに証明書の SHA-256 指紋を
@@ -187,7 +223,7 @@ apksigner verify --print-certs unistroke-ime-vX.Y.Z.apk
 
 ```bash
 gh run download <run-id>          # release-vX.Y.Z/ に APK が入っています
-adb install -r app-release.apk
+adb install -r app-github-release.apk
 ```
 
 `dry_run` ではビルド・署名・指紋の確認までは通常どおり行い、

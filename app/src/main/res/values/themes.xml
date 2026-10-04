@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.UniStroke" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:colorPrimary">@color/pad_zone_alpha</item>
         <item name="android:colorAccent">@color/pad_divider</item>
         <item name="android:windowBackground">@color/app_background</item>
         <item name="android:textColorPrimary">@color/app_text</item>
+        <!--
+            Android 15 以降は画面がステータスバーとナビゲーションバーの下まで広がる
+            （targetSdk 36 では避けられない）。各画面の最上位ビューに fitsSystemWindows を付けて
+            バーの分だけ内側へ寄せ、バーのアイコンは明るい背景で見える暗色にする。
+        -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
     </style>
 </resources>

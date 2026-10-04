@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fitsSystemWindows="true"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
@@ -10,6 +11,55 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="20dp">
+
+        <!-- プレミアム（試用 → 購入で解錠）。購入が要らない配布では節ごと隠す。 -->
+        <LinearLayout
+            android:id="@+id/section_premium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/premium_title"
+                android:textColor="@color/app_text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/text_premium_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/premium_body"
+                android:textColor="@color/app_text"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/btn_premium_buy"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/premium_buy" />
+
+            <Button
+                android:id="@+id/btn_premium_restore"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/premium_restore" />
+
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
@@ -54,94 +104,103 @@
                 android:textSize="16sp" />
         </RadioGroup>
 
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- ネット変換と変換エンジン。提供しない配布（Google Play 版）では節ごと隠す。 -->
+        <LinearLayout
+            android:id="@+id/section_net_convert"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="@string/net_convert_title"
-            android:textColor="@color/app_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:lineSpacingExtra="3dp"
-            android:text="@string/net_convert_body"
-            android:textColor="@color/app_text"
-            android:textSize="14sp" />
-
-        <RadioGroup
-            android:id="@+id/net_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:orientation="vertical">
 
-            <RadioButton
-                android:id="@+id/net_off"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/net_convert_title"
+                android:textColor="@color/app_text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:text="@string/net_convert_off"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/net_convert_body"
                 android:textColor="@color/app_text"
-                android:textSize="16sp" />
+                android:textSize="14sp" />
 
-            <RadioButton
-                android:id="@+id/net_on"
+            <RadioGroup
+                android:id="@+id/net_group"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:text="@string/net_convert_on"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/net_off"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/net_convert_off"
+                    android:textColor="@color/app_text"
+                    android:textSize="16sp" />
+
+                <RadioButton
+                    android:id="@+id/net_on"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/net_convert_on"
+                    android:textColor="@color/app_text"
+                    android:textSize="16sp" />
+            </RadioGroup>
+
+            <!-- 変換エンジンはネット変換と表裏の設定なので、隣に並べる -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/engine_title"
                 android:textColor="@color/app_text"
-                android:textSize="16sp" />
-        </RadioGroup>
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
-        <!-- 変換エンジンはネット変換と表裏の設定なので、隣に並べる -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/engine_title"
-            android:textColor="@color/app_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:lineSpacingExtra="3dp"
-            android:text="@string/engine_body"
-            android:textColor="@color/app_text"
-            android:textSize="14sp" />
-
-        <RadioGroup
-            android:id="@+id/engine_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="vertical">
-
-            <RadioButton
-                android:id="@+id/engine_auto"
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:text="@string/engine_auto"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/engine_body"
                 android:textColor="@color/app_text"
-                android:textSize="16sp" />
+                android:textSize="14sp" />
 
-            <RadioButton
-                android:id="@+id/engine_ondevice"
+            <RadioGroup
+                android:id="@+id/engine_group"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:text="@string/engine_ondevice"
-                android:textColor="@color/app_text"
-                android:textSize="16sp" />
-        </RadioGroup>
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/engine_auto"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/engine_auto"
+                    android:textColor="@color/app_text"
+                    android:textSize="16sp" />
+
+                <RadioButton
+                    android:id="@+id/engine_ondevice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/engine_ondevice"
+                    android:textColor="@color/app_text"
+                    android:textSize="16sp" />
+            </RadioGroup>
+
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
@@ -397,40 +456,49 @@
             android:layout_marginTop="8dp"
             android:text="@string/btn_reset_history" />
 
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- アプリ本体の自己更新。Google Play 版では節ごと隠す（AppUpdateGate.SUPPORTED）。 -->
+        <LinearLayout
+            android:id="@+id/section_app_update"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="@string/update_title"
-            android:textColor="@color/app_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:orientation="vertical">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:lineSpacingExtra="3dp"
-            android:text="@string/update_body"
-            android:textColor="@color/app_text"
-            android:textSize="14sp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/update_title"
+                android:textColor="@color/app_text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
-        <CheckBox
-            android:id="@+id/check_app_auto_update"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:minHeight="48dp"
-            android:text="@string/update_auto"
-            android:textColor="@color/app_text"
-            android:textSize="16sp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/update_body"
+                android:textColor="@color/app_text"
+                android:textSize="14sp" />
 
-        <Button
-            android:id="@+id/btn_update_check"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/update_check_now" />
+            <CheckBox
+                android:id="@+id/check_app_auto_update"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:minHeight="48dp"
+                android:text="@string/update_auto"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btn_update_check"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/update_check_now" />
+
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"

@@ -62,6 +62,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
                 Prefs.KEY_DEBUG_STROKES ->
                     inputView?.debugStrokes = Prefs.isDebugStrokes(this)
                 Prefs.KEY_VOICE_INPUT, Prefs.KEY_VOICE_ENGINE -> syncVoiceAvailability()
+                // 設定画面で購入・復元した直後に、入力欄を開き直さなくても鍵が開く
+                Prefs.KEY_PREMIUM_PURCHASED -> syncEntitlement()
             }
         }
     private var symbolMode = SymbolMode.NORMAL
@@ -196,6 +198,16 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      */
     private var onDevice: OnDeviceConverter? = null
 
+    /**
+     * プレミアム機能（音声入力・拡張辞書・書き癖の学習）を使ってよいか。
+     *
+     * 購入済みか試用中なら true。入力欄を開くたびに [syncEntitlement] で引き直す。
+     * ここで見るのは設定に残っている結果だけで、Google Play へは問い合わせない
+     * （問い合わせはアプリの画面側の仕事。入力中に通信しない方針は変わらない）。
+     * **基本の入力はこのフラグに関係なく常に動く。**
+     */
+    private var premiumUnlocked = true
+
     /** いま候補バーに出ている変換候補が端末内辞書由来か（「端末内」チップの出し分け）。 */
     private var candidatesFromOnDevice = false
 
@@ -309,6 +321,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         // プロセス内で共有する唯一のインスタンスを使う（トレーニング画面と同じ実体）
         personalStore = PersonalTemplateStore.get(this)
         prediction = PredictionEngine.get(this)
+        // 辞書を開く前に決めておく（拡張辞書を使うかどうかがこれで変わる）
+        premiumUnlocked = Entitlement.isUnlocked(this)
         // 辞書はメモリマップするだけなのでここで開いてよい（展開もパースもしない）
         onDevice = OnDeviceConverter.get(this)
         // 実体（認識器・マイク）は長押しで始めるまで作らない。
@@ -332,6 +346,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         view.personalTemplates = { setName -> personalStore.templatesFor(setName) }
         view.learnedSymbols = personalStore.learnedSymbols()
         view.debugStrokes = Prefs.isDebugStrokes(this)
+        view.premiumNotice = !premiumUnlocked
         inputView = view
         applyLayoutPrefs()
         makeWindowTransparent()
@@ -376,6 +391,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         netConvertAllowedHere = !isNoNetworkField(info)
         learningAllowedHere = !noPersonalizedLearning(info)
         voiceAllowedHere = !isPasswordField(info)
+        // 試用期間はこのあいだに切れているかもしれない。音声の可否より先に引き直す。
+        syncEntitlement()
         syncVoiceAvailability()
         // 別プロセスで書き換わっていた場合に備えて読み直す（同一プロセスならシングルトンで既に最新）。
         personalStore.reloadIfChanged()
@@ -687,6 +704,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     private fun noteCharacterTyped(symbol: String) {
         if (symbolMode != SymbolMode.NORMAL) return
         if (lastStroke.size < 2) return
+        // 新しい書き癖を覚えるのはプレミアム。覚え済みのものは引き続き認識に使う。
+        if (!premiumUnlocked) return
         learner.onCharacter(
             StrokeLearner.Input(symbol, lastStroke, learnerSetName()),
             System.currentTimeMillis(),
@@ -1846,8 +1865,25 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      * 使えない端末で案内だけ出しても、長押ししたユーザーを空振りさせるだけなので出さない。
      */
     private fun syncVoiceAvailability() {
-        inputView?.voiceAvailable =
+        inputView?.voiceAvailable = premiumUnlocked &&
             Prefs.isVoiceInputEnabled(this) && voiceAllowedHere && voiceUsableOnThisDevice()
+        // 試用が終わって未購入なら、手書きゾーンの背景にプレミアムの案内を出す
+        inputView?.premiumNotice = !premiumUnlocked
+    }
+
+    /**
+     * プレミアムの鍵を引き直す（試用切れ・購入・払い戻しの反映）。
+     *
+     * 開閉が切り替わったら辞書を開き直す。拡張辞書を使うかどうかは
+     * [OnDeviceDictionary.open] が鍵を見て決めるので、開き直すだけで入れ替わる。
+     */
+    private fun syncEntitlement() {
+        val unlocked = Entitlement.isUnlocked(this)
+        if (unlocked == premiumUnlocked) return
+        premiumUnlocked = unlocked
+        OnDeviceConverter.reset()
+        onDevice = OnDeviceConverter.get(this)
+        syncVoiceAvailability()
     }
 
     /** この端末・この設定で音声認識を始められるか（マイクの許可はここでは見ない）。 */
@@ -1859,6 +1895,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     override fun onVoiceStart() {
         if (voiceActive) return
         if (currentInputConnection == null) return
+        if (!premiumUnlocked) return
         if (!Prefs.isVoiceInputEnabled(this)) return
         if (!voiceAllowedHere) {
             showVoiceNotice(getString(R.string.voice_blocked_field))

@@ -44,11 +44,13 @@ jobs:
 
       # 署名鍵はリポジトリに無いので release は未署名 APK になる。
       # ここで見たいのは「コンパイルが通るか」なので debug で足りる。
+      # フレーバーは 2 つ（github = 自前配布、play = Google Play）。片方でしか
+      # 通らないコードを書くと配布時に初めて割れるので、両方コンパイルする。
       - name: assembleDebug
-        run: ./gradlew assembleDebug --console=plain
+        run: ./gradlew assembleGithubDebug assemblePlayDebug --console=plain
 
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/github/debug/app-github-debug.apk
           if-no-files-found: error

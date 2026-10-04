@@ -2,7 +2,7 @@
 # リリース署名用の環境変数を macOS キーチェーンから読み込む。
 #
 #   source tools/release-env.sh
-#   ./gradlew assembleRelease
+#   ./gradlew assembleGithubRelease
 #
 # 事前に一度だけ登録しておく（対話でパスワードを聞かれる。-w を最後に置くのが要点で、
 # こう書くとプロンプトになり、シェル履歴にもプロセス一覧にもパスワードが残らない）:

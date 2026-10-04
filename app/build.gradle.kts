@@ -92,9 +92,28 @@ if (!hasReleaseKey && missingSigningParts.size < signingParts.size) {
     )
 }
 
+/**
+ * Google Play へ上げる App Bundle の署名（アップロード鍵）。
+ *
+ * 配布用の署名（アプリ署名鍵）は Play が持ち、こちらが持つのは
+ * 「この AAB は開発者本人が上げた」と示すアップロード鍵だけ。
+ * GitHub 版の署名鍵（上の release）とは別の鍵にしてある ――
+ * 片方が漏れても、もう片方の配布経路に影響しない。
+ *
+ * 解決順は release と同じ（Gradle プロパティ → 環境変数 → keystore.properties）。
+ * `source tools/play-env.sh` で macOS のキーチェーンから環境変数へ読み込める。
+ * 揃っていなければ署名設定を作らず、bundlePlayRelease は未署名の AAB を出す。
+ */
+val uploadStoreFile = signingValue("unistrokeUploadStoreFile", "UNISTROKE_UPLOAD_STORE_FILE", "uploadStoreFile")
+val uploadStorePassword = signingValue("unistrokeUploadStorePassword", "UNISTROKE_UPLOAD_STORE_PASSWORD", "uploadStorePassword")
+val uploadKeyAlias = signingValue("unistrokeUploadKeyAlias", "UNISTROKE_UPLOAD_KEY_ALIAS", "uploadKeyAlias")
+val uploadKeyPassword = signingValue("unistrokeUploadKeyPassword", "UNISTROKE_UPLOAD_KEY_PASSWORD", "uploadKeyPassword")
+val hasUploadKey = listOf(uploadStoreFile, uploadStorePassword, uploadKeyAlias, uploadKeyPassword).all { it != null } &&
+    rootProject.file(uploadStoreFile!!).exists()
+
 android {
     namespace = "com.unistroke.ime"
-    compileSdk = 35
+    compileSdk = 36
 
     signingConfigs {
         if (hasReleaseKey) {
@@ -114,19 +133,60 @@ android {
                 enableV1Signing = false
             }
         }
+        if (hasUploadKey) {
+            create("playUpload") {
+                storeFile = rootProject.file(uploadStoreFile!!)
+                storePassword = uploadStorePassword
+                keyAlias = uploadKeyAlias
+                keyPassword = uploadKeyPassword
+            }
+        }
     }
 
     defaultConfig {
         applicationId = "com.unistroke.ime"
         minSdk = 26
-        targetSdk = 35
+        // Google Play は新規アプリに最新の API レベルを求める（Android 16 = 36）。
+        targetSdk = 36
         // 端末上での識別用。APK を差し替えたら versionCode を上げる。
         // versionName は「メジャー.マイナー.パッチ」の 3 段階で管理する。
-        versionCode = 8
-        versionName = "1.2.4"
+        versionCode = 9
+        versionName = "1.3.0"
 
         // 「バージョン: 1.0 (build 2026-08-11 10:43)」の build 部分。
         buildConfigField("String", "BUILD_TIME", "\"${sourceBuildStamp()}\"")
+    }
+
+    /**
+     * 配布経路ごとのフレーバー。
+     *
+     *   play   … Google Play で配る本体。**アプリは 1 本**で、無料版・有料版には分けない。
+     *            試用期間だけ全機能を開き、過ぎたらプレミアムの鍵（Play の購入）で解錠する
+     *            「キーオープン型」。更新は Play が配るので自己更新は入れない
+     *            （REQUEST_INSTALL_PACKAGES と APK 取得は Play のポリシーで不可）。
+     *   github … 協力者向けに GitHub Releases へ置く APK。全機能・試用制限なし・自己更新あり。
+     *            Play 版とは別物として扱う。
+     *
+     * フレーバー固有のコードは src/github・src/play に置き、main からは
+     * 同名のオブジェクト（AppUpdateGate・PremiumGate）越しに呼ぶ。
+     * 試用日数や購入の要否もそこにある（PremiumGate）。
+     */
+    flavorDimensions += "dist"
+    productFlavors {
+        create("github") {
+            dimension = "dist"
+            isDefault = true
+            // 鍵が無い環境では null のまま = 未署名 APK。ビルド自体は通す。
+            signingConfig = signingConfigs.findByName("release")
+        }
+        create("play") {
+            dimension = "dist"
+            // Play 上の ID は一度上げたら変えられない。github 版（com.unistroke.ime）とは
+            // 別の ID にしてあるので、同じ端末に両方を入れておける。
+            // クラスのパッケージ（namespace）は共通のまま。
+            applicationId = "io.github.makiiii_git.unistroke"
+            signingConfig = signingConfigs.findByName("playUpload")
+        }
     }
 
     buildFeatures {
@@ -143,8 +203,8 @@ android {
 
     buildTypes {
         release {
-            // 鍵が無い環境では null のまま = 未署名 APK。ビルド自体は通す。
-            signingConfig = signingConfigs.findByName("release")
+            // 署名はフレーバーごとに決める（github = release 鍵、play = アップロード鍵）。
+            // ここで指定するとフレーバー側の指定より優先されてしまうので、書かない。
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -165,4 +225,6 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
+    // Google Play の課金。play フレーバーにだけ入れる（github 版には課金のコードが入らない）。
+    "playImplementation"("com.android.billingclient:billing:8.0.0")
 }
