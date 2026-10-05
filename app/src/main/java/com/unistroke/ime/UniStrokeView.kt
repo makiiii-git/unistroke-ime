@@ -763,11 +763,25 @@ class UniStrokeView @JvmOverloads constructor(
 
     /** パネル本体（候補バー込み）の高さ。浮動時はビューの高さと一致しない。 */
     private val panelHeight: Float
-        get() = dp(HEIGHT_DP) + if (candidateBarVisible) candidateHeight else 0f
+        get() = bodyHeight + if (candidateBarVisible) candidateHeight else 0f
+
+    /**
+     * 候補バーを除いたパネル本体の高さ。
+     *
+     * ドッキング時は、下端の帯を [navInset] から [bottomReserve] へ広げたぶんだけ詰める。
+     * ビュー全体の高さ（= パネル上端の画面上の位置）は変えずに、下だけを明け渡す。
+     * 浮動時はパネルを詰めず、可動範囲のほうから除く。
+     */
+    private val bodyHeight: Float
+        get() {
+            val full = dp(HEIGHT_DP)
+            if (floating) return full
+            return max(min(full, dp(MIN_HEIGHT_DP)), full - (bottomReserve - navInset))
+        }
 
     /** パネル上端が動ける範囲（0 のときは動かせない）。 */
     private val panelYRange: Float
-        get() = max(0f, height - navInset - panelHeight - gripHeight)
+        get() = max(0f, height - bottomReserve - panelHeight - gripHeight)
 
     /**
      * 画面下端のナビゲーションバー（ジェスチャーバー、IME 切替ボタンの帯）の高さ。
@@ -780,15 +794,34 @@ class UniStrokeView @JvmOverloads constructor(
      */
     private var navInset = 0
 
+    /**
+     * パネルの下に空けておく帯の高さ。[navInset] 以上。
+     *
+     * ジェスチャーナビゲーションでは、ナビゲーションバーの余白（24dp）より上まで
+     * システムの当たり判定が伸びている。IME の窓の下端に載る「キーボードを閉じる」
+     * 「IME 切替」ボタンの帯（48dp）がそれで、captionBar のインセットとして届く。
+     * [navInset] だけを避けていると、最下段の「?」の下半分がこの帯に食われて
+     * 押すとキーボードが閉じてしまう。帯の高さまるごとをパネルの外へ出す。
+     */
+    private var bottomReserve = 0
+
     override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
-        val bottom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+        val nav: Int
+        val reserve: Int
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            nav = insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+            reserve = insets.getInsets(
+                WindowInsets.Type.systemBars() or WindowInsets.Type.tappableElement()
+            ).bottom
         } else {
             @Suppress("DEPRECATION")
-            insets.systemWindowInsetBottom
+            nav = insets.systemWindowInsetBottom
+            reserve = nav
         }
-        if (bottom != navInset) {
-            navInset = bottom
+        val newReserve = max(nav, reserve)
+        if (nav != navInset || newReserve != bottomReserve) {
+            navInset = nav
+            bottomReserve = newReserve
             requestLayout()
             invalidate()
         }
@@ -870,8 +903,8 @@ class UniStrokeView @JvmOverloads constructor(
         val h = if (floating) {
             max(panelH + gripHeight, availableHeight(heightMeasureSpec))
         } else {
-            // ナビゲーションバーのぶんだけ下へ伸ばす（パネルはバーの上に載る）
-            panelH + navInset
+            // システムの帯のぶんだけ下へ伸ばす（パネルは帯の上に載る）
+            panelH + bottomReserve
         }
         setMeasuredDimension(width, h.toInt())
     }
@@ -912,8 +945,8 @@ class UniStrokeView @JvmOverloads constructor(
         relayout()
         layoutButtons()
 
-        // ドッキング時、ナビゲーションバーの下はパネルと同じ色で埋めておく
-        if (!floating && navInset > 0) {
+        // ドッキング時、パネルの下（システムの帯）はパネルと同じ色で埋めておく
+        if (!floating && bottomReserve > 0) {
             fillPaint.color = context.getColor(R.color.pad_bezel)
             canvas.drawRect(0f, panelHeight, width.toFloat(), height.toFloat(), fillPaint)
         }
@@ -2108,8 +2141,14 @@ class UniStrokeView @JvmOverloads constructor(
          * 縦ボタン列が全高を 5 等分（1 ボタン約 47dp = 押しやすい大きさ）。
          * 描画ゾーンは候補バー無しで約 227dp、候補バー表示中でも約 185dp。
          * 最小ストローク/タップ判定は dp 基準の絶対値（14dp / 10dp）なので高さの影響を受けない。
+         *
+         * ジェスチャーナビゲーションの端末では、下端のシステムの帯を避けるぶん
+         * （48dp − 24dp = 24dp）詰まって約 211dp、1 ボタン約 42dp になる。
          */
         private const val HEIGHT_DP = 235f
+
+        /** システムの帯を避けて詰めるときの下限（1 ボタン 38dp）。これより先は上へ伸ばす。 */
+        private const val MIN_HEIGHT_DP = 190f
 
         /**
          * 認識済みストロークが消えるまでの時間。
