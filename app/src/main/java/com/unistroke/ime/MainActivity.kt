@@ -1,6 +1,5 @@
 package com.unistroke.ime
 
-import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
@@ -12,11 +11,12 @@ import android.widget.Button
 import android.widget.TextView
 
 /** デモ / 入口画面。学習データの管理は [SettingsActivity] に集約している。 */
-class MainActivity : Activity() {
+class MainActivity : LocalizedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        english = AppLanguage.isEnglish(this)
 
         // どのビルドが端末に入っているか（古い APK が残っていないかの確認用）
         findViewById<TextView>(R.id.text_build).text = BuildInfo.label(this)
@@ -40,6 +40,11 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.text_premium).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+
+        // 漢字変換の説明は日本語版だけ（英語版にかな入力は無い）
+        val kanji = if (english) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.text_kanji_title).visibility = kanji
+        findViewById<View>(R.id.text_kanji_body).visibility = kanji
 
         runSetupChain()
         maybeAutoCheckDictionary()
@@ -75,8 +80,16 @@ class MainActivity : Activity() {
         }
     }
 
+    /** 英語版として表示しているか（この画面を作った時点の言語）。 */
+    private var english = false
+
     override fun onResume() {
         super.onResume()
+        // 設定画面で言語を変えて戻ってきたら、新しい言語で作り直す
+        if (AppLanguage.isEnglish(this) != english) {
+            recreate()
+            return
+        }
         showPremiumState()
         // 購入済みかを Google Play に確かめる（再インストール後の復元もこれで済む）。
         // アプリの画面を開いたときだけ。IME サービスからは問い合わせない。
@@ -119,6 +132,12 @@ class MainActivity : Activity() {
      * すべて既定は「しない」側で、無視して使い始めても通信は起きない。
      */
     private fun runSetupChain() {
+        // 1 と 2 はかな漢字変換のための案内。英語版では尋ねない
+        // （尋ねた記録も付けないので、日本語版へ切り替えたときに改めて案内される）。
+        if (english) {
+            maybePromptTraining()
+            return
+        }
         if (!Prefs.wasNetworkConvertAsked(this)) {
             AlertDialog.Builder(this)
                 .setTitle(R.string.net_consent_title)

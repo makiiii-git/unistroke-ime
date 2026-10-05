@@ -1,6 +1,5 @@
 package com.unistroke.ime
 
-import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
@@ -15,7 +14,7 @@ import android.widget.Toast
  * 学習データ（個人テンプレート）を文字単位で選んでリセットする画面。
  * 設定の「学習データをリセット」から入る。全文字リセットもここから行う。
  */
-class ResetLearningActivity : Activity() {
+class ResetLearningActivity : LocalizedActivity() {
 
     private lateinit var store: PersonalTemplateStore
     private lateinit var listView: LinearLayout
@@ -116,7 +115,7 @@ class ResetLearningActivity : Activity() {
             .setMessage(
                 getString(
                     R.string.reset_selected_body,
-                    symbols.joinToString("・"),
+                    symbols.joinToString(getString(R.string.list_separator)),
                     symbols.size,
                 ),
             )

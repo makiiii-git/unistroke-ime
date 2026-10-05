@@ -1,6 +1,5 @@
 package com.unistroke.ime
 
-import android.app.Activity
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -13,7 +12,7 @@ import android.widget.TextView
  * うまく認識されなかったストロークは、衝突ガードを通れば
  * その場で個人テンプレートとして登録する（方式2 と同じ [PersonalTemplateStore]）。
  */
-class TrainingActivity : Activity() {
+class TrainingActivity : LocalizedActivity() {
 
     private lateinit var store: PersonalTemplateStore
     private lateinit var session: TrainingSession

@@ -21,6 +21,10 @@ signing.properties
 # 生成物 app/src/main/assets/ondevice.dic のほうはコミットする（ビルドに必要）。
 tools/mozc-src/
 
+# tools/build_english_dictionary.py --fetch が AOSP（LatinIME）から落としてくる
+# 英単語リスト（約 0.9 MB）。生成物 app/src/main/assets/english.dic はコミットする。
+tools/aosp-src/
+
 # --- Python 検証ハーネス ----------------------------------------------------
 __pycache__/
 *.py[cod]

@@ -125,8 +125,10 @@ def main() -> int:
     check(not missing, "すべてのコマンドが IME で実行されている%s"
           % ("" if not missing else " -> " + ", ".join(missing)))
 
+    # 日本語の言い回しは日本語版の文言（values-ja）に載る。
+    # 英語版（values）の一覧と英語の言い回しは test_english.py が見る。
     strings = open(
-        os.path.join(ROOT, "app", "src", "main", "res", "values", "strings.xml"),
+        os.path.join(ROOT, "app", "src", "main", "res", "values-ja", "strings.xml"),
         encoding="utf-8",
     ).read()
     listed = re.search(

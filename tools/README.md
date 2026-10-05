@@ -136,6 +136,60 @@ Mozc UT など **CC BY-SA の辞書は使っていない**（配布形態に制�
 共通接頭辞検索は「範囲を 1 バイトずつ狭める」方式。深くなるほど探索範囲が小さくなり、
 空になった時点で打ち切れるので、20 文字の読み全体でも数百回の比較で終わる。
 
+## 英語版の単語辞書（english.dic）
+
+英語版の単語予測（`EnglishPredictor`）が使う辞書。かな漢字変換の辞書とは別物で、
+「綴りの頭 → 続きを補った単語」を頻度順に引くだけの単純な作りになっている。
+
+```sh
+python3 tools/build_english_dictionary.py --fetch   # 初回のみ約 0.9 MB ダウンロード
+python3 test_english.py                             # バイナリ整合と予測のスモークテスト
+```
+
+生成物は `app/src/main/assets/english.dic`（約 7.7 万語 / 1.1 MB）。素材は `tools/aosp-src/` に
+置かれ、コミットしない。`--fetch` が証明書の検証で失敗する環境では、スクリプト冒頭の URL を
+`curl` で取得して `base64 -d` したものを同じ場所へ置けばよい（gitiles は base64 で返す）。
+
+| オプション | 既定 | 意味 |
+| --- | --- | --- |
+| `--src FILE` | `tools/aosp-src/en_wordlist.combined.gz` | combined 形式の単語リスト |
+| `--out FILE` | `app/src/main/assets/english.dic` | 出力先 |
+| `--min-freq N` | 50 | これ未満の頻度の語を落とす。サイズはほぼこれで決まる |
+| `--limit N` | 200000 | 語数の上限（足切りのあとに効く安全弁） |
+
+元データは AOSP の [LatinIME](https://android.googlesource.com/platform/packages/inputmethods/LatinIME/)
+の `dictionaries/en_wordlist.combined.gz`（**Apache License 2.0**）。約 16.4 万語に 0〜255 の
+頻度（対数目盛り）が付いている。`possibly_offensive` / `not_a_word` の印が付いた語は落とす。
+Apache-2.0 は著作権表示とライセンスの写しを添えることを求めるので、`NOTICE` と
+アプリの 設定 → ライセンス に載せている。
+
+**鍵は英小文字だけ**にしてある。アポストロフィは落とし、アクセント記号は外す
+（`don't` → `dont`、`café` → `cafe`）。一筆書きでは記号が 2 ストロークかかるので、
+英字だけ書けば記号つきの語が候補に出るようにするため。表記が鍵と違う語だけ、
+鍵のうしろに TAB で区切って表記を持つ。
+
+```
+ 0  char[8]  magic "UNIENG1\0"
+ 8  u32      formatVersion
+12  u32      wordCount
+16  u32      offsetTableOff
+20  u32      freqTableOff
+24  u32      blobOff
+28  u32      blobLen           ヘッダは 32 バイト固定
+
+オフセット表    (wordCount + 1) * 4   語のブロブ内オフセット（長さは次語との差分）
+頻度表          wordCount * 1         0〜255
+ブロブ          語を連結。1 語は「鍵」または「鍵 TAB 表記（UTF-8）」
+```
+
+語は鍵のバイト列の昇順、同じ鍵の中では頻度の高い順に並ぶ。接頭辞の範囲を二分探索で
+出し、その中から頻度表（1 語 1 バイト）だけを見て上位を選ぶので、1 文字の接頭辞
+（1 万語規模）でも並べ替えは要らない。読み取り側は `EnglishDictionary.kt` と
+`english_model.py` の 2 つ。
+
+足切りを 50 にしているのは、それより下が所有格（`Alain's`）や専門語ばかりになり、
+候補の質を上げないままサイズだけが増えるため（足切りなしだと 16 万語 / 2.4 MB）。
+
 ## APK での扱い
 
 `app/build.gradle.kts` の `androidResources { noCompress += "dic" }` で無圧縮にしている。

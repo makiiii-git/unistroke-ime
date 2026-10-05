@@ -989,7 +989,8 @@ def main():
     check("fun expectedSymbols(): Set<String> = emptySet()" in view_src,
           "UniStrokeView.Listener に既定実装がある")
     check("StrokeRecognizer.CONTEXT_BONUS" in view_src, "認識時に文脈バイアスを渡している")
-    check("EXT_SHIFT_ALT -> \"カナ/ext\"" in view_src, "見本オーバーレイのラベルがある")
+    check("StrokeTemplates.EXT_SHIFT_ALT ->" in view_src and '"カナ/ext"' in view_src,
+          "見本オーバーレイのラベルがある")
     # かなモードで tempLatin をクリアする箇所
     for where in ("resetAll", "onModeToggle"):
         idx = ime_src.find("fun %s(" % where)

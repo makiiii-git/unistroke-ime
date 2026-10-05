@@ -33,6 +33,7 @@ import kotlin.math.min
  * レイアウト
  *   - 最上段: ツールバー（モード表示 / 記号シフト / 文節インジケータ）
  *   - 左端:   縦ボタン列（モードトグル / ◀ / ▶ / 選択 / ?）
+ *             英語版ではモードトグルの場所が「単語削除」になる（[english]）
  *   - その右: 変換候補バー（変換中のみ）＋ 手書きゾーン（左 2/3 英字・右 1/3 数字）
  *   - [?] でジェスチャー見本オーバーレイ（テンプレートから直接描画）
  */
@@ -50,8 +51,14 @@ class UniStrokeView @JvmOverloads constructor(
          */
         fun onSymbol(symbol: String, stroke: List<Pt>, zone: Zone)
 
-        /** モードトグル（abc ⇄ かな）。 */
+        /** モードトグル（abc ⇄ かな）。日本語版の左上のボタン。 */
         fun onModeToggle()
+
+        /**
+         * 単語削除。英語版の左上のボタン（かな入力が無いので、トグルの場所を使う）。
+         * 押した時点で 1 回、押し続けるとゆっくり繰り返す。
+         */
+        fun onDeleteWord() = Unit
 
         /** カーソル移動。[forward] = true で右。 */
         fun onCursorMove(forward: Boolean)
@@ -118,6 +125,26 @@ class UniStrokeView @JvmOverloads constructor(
                 invalidate()
             }
         }
+
+    /**
+     * 英語版か。IME が設定の言語から与える。
+     *
+     * 左上のボタンが単語削除になり、パネル上の文言（全選択・音声入力の案内・
+     * ジェスチャー見本の見出しなど）が英語になる。ストロークの認識は変わらない。
+     */
+    var english: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                // 見本の見出しは言語ごとに作り直す
+                sampleSections = null
+                if (overlayVisible) sampleSections = buildSamples()
+                invalidate()
+            }
+        }
+
+    /** 言語に合わせた文言を選ぶ。 */
+    private fun t(ja: String, en: String): String = if (english) en else ja
 
     /**
      * 描画エリア右上に小さく出す状態インジケータ。
@@ -535,6 +562,15 @@ class UniStrokeView @JvmOverloads constructor(
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
     }
 
+    /** ボタンに描く絵（英語版の単語削除）の線。色は描くときに [buttonPaint] へ合わせる。 */
+    private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(1.7f)
+        strokeJoin = Paint.Join.ROUND
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val iconPath = Path()
+
     /** 「端末内」チップの文字。候補より一段小さく、目立ちすぎないようにする。 */
     private val chipTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.pad_text)
@@ -673,6 +709,14 @@ class UniStrokeView @JvmOverloads constructor(
             when (pressed) {
                 UiTarget.BTN_LEFT -> listener?.onCursorMove(false)
                 UiTarget.BTN_RIGHT -> listener?.onCursorMove(true)
+                // 単語削除は 1 回で大きく消えるので、カーソルよりずっとゆっくり繰り返す
+                UiTarget.BTN_MODE -> if (english) {
+                    listener?.onDeleteWord()
+                    postDelayed(this, WORD_REPEAT_INTERVAL_MS)
+                    return
+                } else {
+                    return
+                }
                 else -> return
             }
             postDelayed(this, REPEAT_INTERVAL_MS)
@@ -929,7 +973,7 @@ class UniStrokeView @JvmOverloads constructor(
         if (voiceAvailable && !voiceActive) {
             voiceHintPaint.textSize = min(dp(11f), zoneH * 0.07f)
             canvas.drawText(
-                VOICE_ZONE_HINT,
+                t(VOICE_ZONE_HINT, VOICE_ZONE_HINT_EN),
                 (layout.alphaLeft + layout.alphaRight) / 2f,
                 hintY + hintPaint.textSize * 0.85f,
                 voiceHintPaint,
@@ -943,14 +987,15 @@ class UniStrokeView @JvmOverloads constructor(
             val maxW = (layout.alphaRight - layout.alphaLeft) * 0.94f
             var size = min(dp(11f), zoneH * 0.07f)
             voiceHintPaint.textSize = size
+            val lines = if (english) PREMIUM_NOTICE_LINES_EN else PREMIUM_NOTICE_LINES
             // 狭い端末でもゾーンからはみ出さないように、長い方の行に合わせて縮める
-            val widest = PREMIUM_NOTICE_LINES.maxOf { voiceHintPaint.measureText(it) }
+            val widest = lines.maxOf { voiceHintPaint.measureText(it) }
             if (widest > maxW) {
                 size *= maxW / widest
                 voiceHintPaint.textSize = size
             }
             var y = hintY + hintPaint.textSize * 0.85f
-            for (line in PREMIUM_NOTICE_LINES) {
+            for (line in lines) {
                 canvas.drawText(line, centerX, y, voiceHintPaint)
                 y += size * 1.45f
             }
@@ -1017,10 +1062,10 @@ class UniStrokeView @JvmOverloads constructor(
         val lineH = voiceTitlePaint.descent() - voiceTitlePaint.ascent()
         val meterH = if (voiceState == VoiceState.LISTENING) dp(20f) else 0f
         val footer = when {
-            voiceState == VoiceState.NOTICE -> VOICE_FOOTER_NOTICE
-            voiceState == VoiceState.WORKING -> VOICE_FOOTER_WORKING
-            voiceContinuous -> VOICE_FOOTER_CONTINUOUS
-            else -> VOICE_FOOTER_LISTENING
+            voiceState == VoiceState.NOTICE -> t(VOICE_FOOTER_NOTICE, VOICE_FOOTER_NOTICE_EN)
+            voiceState == VoiceState.WORKING -> t(VOICE_FOOTER_WORKING, VOICE_FOOTER_WORKING_EN)
+            voiceContinuous -> t(VOICE_FOOTER_CONTINUOUS, VOICE_FOOTER_CONTINUOUS_EN)
+            else -> t(VOICE_FOOTER_LISTENING, VOICE_FOOTER_LISTENING_EN)
         }
         voiceHintPaint.textSize = dp(11f)
         val footerH = voiceHintPaint.descent() - voiceHintPaint.ascent()
@@ -1058,6 +1103,7 @@ class UniStrokeView @JvmOverloads constructor(
 
     /**
      * 日本語には単語の区切りが無いので、文字単位で折り返す。
+     * 空白のある文（英語）は、行に収まる最後の空白まで戻って単語の途中で切らない。
      * [maxLines] に収まらない分は末尾を「…」に畳む。
      */
     private fun wrapText(text: String, paint: Paint, maxWidth: Float, maxLines: Int): List<String> {
@@ -1065,9 +1111,13 @@ class UniStrokeView @JvmOverloads constructor(
         val lines = ArrayList<String>(maxLines)
         var start = 0
         while (start < text.length && lines.size < maxLines) {
-            val count = paint.breakText(text, start, text.length, true, maxWidth, null)
+            var count = paint.breakText(text, start, text.length, true, maxWidth, null)
                 .coerceAtLeast(1)
-            lines += text.substring(start, start + count)
+            if (start + count < text.length) {
+                val space = text.lastIndexOf(' ', start + count)
+                if (space > start) count = space - start + 1
+            }
+            lines += text.substring(start, start + count).trimEnd()
             start += count
         }
         if (start < text.length) {
@@ -1103,6 +1153,8 @@ class UniStrokeView @JvmOverloads constructor(
         SymbolMode.NORMAL -> when (modeLabel) {
             MODE_HIRAGANA -> "かな"
             MODE_KATAKANA -> "カナ"
+            // CapsLock 中だけは透かしも大文字にする（英語版は左上にモード表示が無いため）
+            MODE_CAPS -> "ABC"
             else -> "abc"
         }
     }
@@ -1133,7 +1185,7 @@ class UniStrokeView @JvmOverloads constructor(
         0 -> modeLabel
         1 -> LABEL_LEFT
         2 -> LABEL_RIGHT
-        3 -> LABEL_SELECT
+        3 -> t(LABEL_SELECT, LABEL_SELECT_EN)
         else -> LABEL_HELP
     }
 
@@ -1159,6 +1211,12 @@ class UniStrokeView @JvmOverloads constructor(
             )
             canvas.drawRoundRect(r, dp(6f), dp(6f), fillPaint)
 
+            // 英語版の左上は単語削除。文字ではなく絵で描く（drawWordDelete）
+            if (i == 0 && english) {
+                drawWordDelete(canvas, r)
+                continue
+            }
+
             val text = buttonLabel(i)
             // 64dp 幅に収まるよう、長いラベル（全選択）だけ少し小さくする
             buttonPaint.textSize = if (text.length >= 3) dp(14f) else dp(17f)
@@ -1168,6 +1226,43 @@ class UniStrokeView @JvmOverloads constructor(
 
         val edge = if (leftHanded) layout.columnLeft else layout.columnRight
         canvas.drawLine(edge, contentTop, edge, h, solidLinePaint)
+    }
+
+    /**
+     * 単語削除ボタンの絵。左向きの削除キー（⌫ の形）と、その下に小さく「word」。
+     *
+     * ⌫ の文字は端末のフォントによっては出ないので、形を自前で描く。
+     */
+    private fun drawWordDelete(canvas: Canvas, r: RectF) {
+        val h = min(r.height() * 0.34f, dp(15f))
+        val w = h * 1.7f
+        val cx = r.centerX()
+        val cy = r.centerY() - dp(6f)
+        val left = cx - w / 2f
+        val right = cx + w / 2f
+        val notch = h * 0.55f
+        iconPath.reset()
+        iconPath.moveTo(left, cy)
+        iconPath.lineTo(left + notch, cy - h / 2f)
+        iconPath.lineTo(right, cy - h / 2f)
+        iconPath.lineTo(right, cy + h / 2f)
+        iconPath.lineTo(left + notch, cy + h / 2f)
+        iconPath.close()
+        iconPaint.color = buttonPaint.color
+        canvas.drawPath(iconPath, iconPaint)
+        // 中の ×
+        val xr = h * 0.2f
+        val xc = left + notch + (right - left - notch) / 2f - h * 0.05f
+        canvas.drawLine(xc - xr, cy - xr, xc + xr, cy + xr, iconPaint)
+        canvas.drawLine(xc - xr, cy + xr, xc + xr, cy - xr, iconPaint)
+
+        buttonPaint.textSize = dp(11f)
+        canvas.drawText(
+            LABEL_WORD_DELETE,
+            cx,
+            cy + h / 2f + dp(5f) - buttonPaint.ascent(),
+            buttonPaint,
+        )
     }
 
     private fun drawCandidateBar(canvas: Canvas, w: Float) {
@@ -1220,7 +1315,7 @@ class UniStrokeView @JvmOverloads constructor(
     /** チップが占める幅（出していないときは 0）。 */
     private fun chipWidth(): Float {
         if (!onDeviceChip || segmentNav) return 0f
-        return chipTextPaint.measureText(LABEL_ON_DEVICE) + dp(14f)
+        return chipTextPaint.measureText(t(LABEL_ON_DEVICE, LABEL_ON_DEVICE_EN)) + dp(14f)
     }
 
     private fun drawOnDeviceChip(canvas: Canvas, top: Float, bottom: Float) {
@@ -1232,7 +1327,9 @@ class UniStrokeView @JvmOverloads constructor(
         canvas.drawRoundRect(rect, dp(4f), dp(4f), fillPaint)
         val baseline = rect.centerY() -
             (chipTextPaint.descent() + chipTextPaint.ascent()) / 2f
-        canvas.drawText(LABEL_ON_DEVICE, rect.centerX(), baseline, chipTextPaint)
+        canvas.drawText(
+            t(LABEL_ON_DEVICE, LABEL_ON_DEVICE_EN), rect.centerX(), baseline, chipTextPaint,
+        )
     }
 
     private fun layoutCandidates(w: Float) {
@@ -1300,9 +1397,10 @@ class UniStrokeView @JvmOverloads constructor(
         StrokeTemplates.SPACE -> "space"
         StrokeTemplates.BACKSPACE -> "b.sp"
         StrokeTemplates.RETURN -> "enter"
-        StrokeTemplates.SHIFT -> "shift/A"
+        StrokeTemplates.SHIFT -> if (english) "shift" else "shift/A"
         StrokeTemplates.EXT_SHIFT -> "ext ＼"
-        StrokeTemplates.EXT_SHIFT_ALT -> "カナ/ext"
+        // 英語版にカナ切替は無いので、この字形は Extended Shift だけ
+        StrokeTemplates.EXT_SHIFT_ALT -> if (english) "ext ／" else "カナ/ext"
         StrokeTemplates.TAB -> "tab"
         else -> symbol
     }
@@ -1319,11 +1417,14 @@ class UniStrokeView @JvmOverloads constructor(
             )
         }
         return listOf(
-            section("英字ゾーン", StrokeTemplates.letters),
-            section("共通コマンド", StrokeTemplates.commands),
-            section("数字ゾーン", StrokeTemplates.digits),
-            section("Punctuation（タップ後）", StrokeTemplates.punctuation),
-            section("Extended（＼ の後）", StrokeTemplates.extended),
+            section(t("英字ゾーン", "Letter zone"), StrokeTemplates.letters),
+            section(t("共通コマンド", "Commands (both zones)"), StrokeTemplates.commands),
+            section(t("数字ゾーン", "Number zone"), StrokeTemplates.digits),
+            section(
+                t("Punctuation（タップ後）", "Punctuation (after a tap)"),
+                StrokeTemplates.punctuation,
+            ),
+            section(t("Extended（＼ の後）", "Extended (after ＼)"), StrokeTemplates.extended),
         )
     }
 
@@ -1351,7 +1452,7 @@ class UniStrokeView @JvmOverloads constructor(
 
         var y = top + dp(4f)
         y += dp(13f)
-        canvas.drawText(HELP_HINT, padL, y, sampleTitlePaint)
+        canvas.drawText(t(HELP_HINT, HELP_HINT_EN), padL, y, sampleTitlePaint)
         y += dp(4f)
         for (sec in sections) {
             y += dp(13f)
@@ -1491,6 +1592,16 @@ class UniStrokeView @JvmOverloads constructor(
                         listener?.onCursorMove(uiTarget == UiTarget.BTN_RIGHT)
                         postDelayed(repeatRunnable, REPEAT_DELAY_MS)
                     }
+                    // 英語版の左上は単語削除。カーソルと同じく押した時点で 1 回効かせる
+                    // （見本を出しているあいだは、消さずに見本を閉じるだけにする）
+                    if (uiTarget == UiTarget.BTN_MODE && english) {
+                        if (overlayVisible) {
+                            hideOverlay()
+                        } else {
+                            listener?.onDeleteWord()
+                            postDelayed(repeatRunnable, WORD_REPEAT_DELAY_MS)
+                        }
+                    }
                     if (uiTarget == UiTarget.BTN_HELP) {
                         helpLongPressFired = false
                         postDelayed(helpLongPressRunnable, LONG_PRESS_MS)
@@ -1603,7 +1714,10 @@ class UniStrokeView @JvmOverloads constructor(
                         uiTarget = UiTarget.NONE
                         return true
                     }
-                    UiTarget.BTN_MODE -> if (buttonRects[0].contains(x, y)) {
+                    // 英語版（単語削除）は押下時に発火済みなので UP では何もしない
+                    UiTarget.BTN_MODE -> if (english) {
+                        performClick()
+                    } else if (buttonRects[0].contains(x, y)) {
                         hideOverlay()
                         listener?.onModeToggle()
                         performClick()
@@ -1924,17 +2038,24 @@ class UniStrokeView @JvmOverloads constructor(
         private const val LABEL_LEFT = "◀"
         private const val LABEL_RIGHT = "▶"
         private const val LABEL_SELECT = "全選択"
+        private const val LABEL_SELECT_EN = "All"
+
+        /** 英語版の左上のボタン（単語削除）の、絵の下に添える文字。 */
+        private const val LABEL_WORD_DELETE = "word"
         private const val LABEL_HELP = "?"
         private const val LABEL_SEG_PREV = "《"
         private const val LABEL_SEG_NEXT = "》"
 
         /** 候補が端末内辞書だけで作られたことを示すチップの文字。 */
         private const val LABEL_ON_DEVICE = "端末内"
+        private const val LABEL_ON_DEVICE_EN = "on-device"
         private const val HELP_HINT = "ジェスチャー見本 — [?] で閉じる／上下スクロール"
+        private const val HELP_HINT_EN = "Stroke chart — tap [?] to close / drag to scroll"
 
         /** 音声入力バナーの ✕ と、状態ごとの操作案内。 */
         private const val LABEL_VOICE_CANCEL = "✕"
         private const val VOICE_ZONE_HINT = "長押しで音声入力"
+        private const val VOICE_ZONE_HINT_EN = "Hold for voice input"
 
         /** 試用終了後の案内（手書きゾーンの背景）。基本の入力は使えることを先に言う。 */
         private val PREMIUM_NOTICE_LINES = listOf(
@@ -1945,6 +2066,16 @@ class UniStrokeView @JvmOverloads constructor(
         private const val VOICE_FOOTER_CONTINUOUS = "話し終わると自動で確定 ／「音声終了」か ✕ で終わる"
         private const val VOICE_FOOTER_WORKING = "✕ でやめる"
         private const val VOICE_FOOTER_NOTICE = "タップで閉じる"
+
+        private val PREMIUM_NOTICE_LINES_EN = listOf(
+            "Your trial has ended (typing still works)",
+            "Voice input & stroke learning are Premium ▶ app settings",
+        )
+        private const val VOICE_FOOTER_LISTENING_EN = "Commits when you stop talking / ✕ to cancel"
+        private const val VOICE_FOOTER_CONTINUOUS_EN =
+            "Commits when you pause / say \"stop listening\" or tap ✕ to finish"
+        private const val VOICE_FOOTER_WORKING_EN = "✕ to cancel"
+        private const val VOICE_FOOTER_NOTICE_EN = "Tap to dismiss"
 
         /** バナーに出す本文の最大行数。 */
         private const val MAX_VOICE_LINES = 3
@@ -2009,5 +2140,12 @@ class UniStrokeView @JvmOverloads constructor(
         /** カーソルボタンの長押しリピート。 */
         private const val REPEAT_DELAY_MS = 400L
         private const val REPEAT_INTERVAL_MS = 50L
+
+        /**
+         * 単語削除ボタンの長押しリピート。
+         * 1 回で 1 単語消えるので、止めたいところで止められる速さにしておく。
+         */
+        private const val WORD_REPEAT_DELAY_MS = 500L
+        private const val WORD_REPEAT_INTERVAL_MS = 220L
     }
 }

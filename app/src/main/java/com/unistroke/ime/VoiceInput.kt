@@ -60,7 +60,7 @@ class VoiceInput(private val context: Context) {
         fun onVoiceResult(text: String)
 
         /**
-         * 認識できなかった／始められなかった。[message] はそのまま表示できる日本語。
+         * 認識できなかった／始められなかった。[message] はそのまま表示できる文言。
          *
          * @param silent 「何も話されなかった」だけか。連続入力では、これが true の
          *               あいだは黙って聞き直してよい（エラー表示を出さない）。
@@ -139,7 +139,7 @@ class VoiceInput(private val context: Context) {
         if (r == null) {
             finish()
             callback?.onVoiceFailed(
-                context.getString(R.string.voice_error_unavailable),
+                message(R.string.voice_error_unavailable),
                 silent = false,
             )
             this.callback = null
@@ -152,7 +152,7 @@ class VoiceInput(private val context: Context) {
         runCatching { r.startListening(recognizerIntent()) }.onFailure {
             finish()
             callback?.onVoiceFailed(
-                context.getString(R.string.voice_error_client),
+                message(R.string.voice_error_client),
                 silent = false,
             )
             this.callback = null
@@ -168,7 +168,13 @@ class VoiceInput(private val context: Context) {
     }.getOrNull()
 
     /**
-     * 認識のパラメータ。言語は端末の言語設定に従う。
+     * 利用者に見せる文言。アプリの言語（日本語版 / 英語版）で引く。
+     * 常駐する IME サービスの Context は端末の言語のままなので、引くたびに差し替える。
+     */
+    private fun message(id: Int): String = AppLanguage.wrap(context).getString(id)
+
+    /**
+     * 認識のパラメータ。言語はアプリの言語（日本語版 / 英語版）に従う。
      *
      * EXTRA_PARTIAL_RESULTS を立てているのは、聞き取り中の文字列を未確定表示で
      * 見せるため。確定するのは onResults の内容だけ。
@@ -185,12 +191,8 @@ class VoiceInput(private val context: Context) {
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
         }
 
-    private fun language(): String {
-        val locale = context.resources.configuration.locales.let {
-            if (it.isEmpty) null else it[0]
-        }
-        return locale?.toLanguageTag() ?: "ja-JP"
-    }
+    /** 聞き取る言語。端末の言語と同じなら地域（en-GB など）もそのまま使う。 */
+    private fun language(): String = AppLanguage.speechTag(context)
 
     /** やめる。聞き取り中の内容は捨て、マイクを手放す。 */
     fun cancel() {
@@ -248,7 +250,7 @@ class VoiceInput(private val context: Context) {
             val cb = callback
             finish()
             callback = null
-            cb?.onVoiceFailed(context.getString(messageFor(error)), silent = isSilence(error))
+            cb?.onVoiceFailed(message(messageFor(error)), silent = isSilence(error))
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
@@ -262,7 +264,7 @@ class VoiceInput(private val context: Context) {
             finish()
             callback = null
             if (text.isEmpty()) {
-                cb?.onVoiceFailed(context.getString(R.string.voice_error_no_match), silent = true)
+                cb?.onVoiceFailed(message(R.string.voice_error_no_match), silent = true)
             } else {
                 cb?.onVoiceResult(text)
             }

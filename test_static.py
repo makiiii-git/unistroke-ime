@@ -9,6 +9,7 @@
   4. レイアウト XML が指すカスタム View クラスの実在
   5. XML の well-formed 検証
   6. 入力パイプライン（速書き対応）の実装確認
+  9. 英語版（values）と日本語版（values-ja）の文言の突き合わせ
 """
 
 from __future__ import annotations
@@ -234,7 +235,7 @@ def main():
 
     xml_missing = []
     xml_files = []
-    for sub in ("layout", "values", "xml", "drawable"):
+    for sub in ("layout", "values", "values-ja", "xml", "drawable"):
         d = os.path.join(RES, sub)
         xml_files += [os.path.join(d, f) for f in os.listdir(d) if f.endswith(".xml")]
     xml_files.append(os.path.join(ROOT, "app", "src", "main", "AndroidManifest.xml"))
@@ -347,6 +348,37 @@ def main():
           "端末外へ音声を出す経路はネット変換と同じ欄制限を通す")
     check("endVoice()" in ime[ime.find("override fun onFinishInputView"):][:300],
           "入力ビューを畳むときに録音を打ち切っている")
+
+    print("\n=== 9. 英語版と日本語版の文言 ===")
+    # 既定（values）が英語、values-ja が日本語。片方にしか無い名前があると、
+    # 日本語の画面に英語が混じる（またはその逆）ので、名前の集合を揃えておく。
+    string_re = re.compile(r'<string name="([^"]+)"[^>]*>(.*?)</string>', re.S)
+    en = dict(string_re.findall(read(os.path.join(RES, "values", "strings.xml"))))
+    ja = dict(string_re.findall(read(os.path.join(RES, "values-ja", "strings.xml"))))
+    only_en = sorted(set(en) - set(ja))
+    only_ja = sorted(set(ja) - set(en))
+    check(not only_en and not only_ja, "文言の名前 %d 件が 2 つの言語で揃っている%s"
+          % (len(en), "" if not (only_en or only_ja)
+             else " -> 英語のみ: %s / 日本語のみ: %s" % (only_en[:6], only_ja[:6])))
+    # 書式指定子（%1$d など）が食い違うと、片方の言語でだけ実行時に落ちる
+    spec_re = re.compile(r"%(?:\d+\$)?[,.\d]*[sdf]")
+    mismatched = sorted(
+        k for k in en if k in ja and sorted(spec_re.findall(en[k])) != sorted(spec_re.findall(ja[k]))
+        and "formatted=\"false\"" not in read(os.path.join(RES, "values", "strings.xml"))
+        .split('name="%s"' % k, 1)[1].split(">", 1)[0])
+    check(not mismatched, "書式指定子が 2 つの言語で一致している%s"
+          % ("" if not mismatched else " -> " + ", ".join(mismatched[:6])))
+    # Android の文字列リソースでは、素のアポストロフィはエスケープが要る
+    raw_quote = sorted(k for k, v in en.items() if re.search(r"(?<!\\)'", v))
+    check(not raw_quote, "英語の文言にエスケープ漏れのアポストロフィが無い%s"
+          % ("" if not raw_quote else " -> " + ", ".join(raw_quote[:6])))
+    japanese = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
+    # 言語の選択肢だけは、どちらの言語で開いても読めるように両方の言語で書いてある
+    bilingual = {"language_title", "language_body", "language_auto", "language_ja",
+                 "kanji_body"}
+    leaked = sorted(k for k, v in en.items() if k not in bilingual and japanese.search(v))
+    check(not leaked, "英語の文言に日本語が混じっていない%s"
+          % ("" if not leaked else " -> " + ", ".join(leaked[:6])))
 
     print()
     if FAILURES:

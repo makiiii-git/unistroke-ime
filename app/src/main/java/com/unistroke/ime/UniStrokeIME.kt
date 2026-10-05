@@ -27,6 +27,11 @@ import android.view.inputmethod.InputConnection
  *
  * シフト状態（Caps / Punctuation / Extended）、入力モード（abc / かな / カナ）、
  * ローマ字合成と漢字変換の状態は、すべてここに集約する。
+ *
+ * 言語の設定（[AppLanguage]）が英語のときは「英語版」として動く。
+ * かな入力は持たず常に abc で、書いている単語を合成領域に置いて
+ * 候補バーへ英単語の予測を出す（[EnglishPredictor]）。英語版に固有の分岐は
+ * 各ハンドラの入口で [english] を見て分けてあり、日本語版の経路には触れない。
  */
 class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
@@ -52,6 +57,58 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
     private val prefs: SharedPreferences by lazy { Prefs.of(this) }
 
+    // ---------------------------------------------------------------- 英語版
+
+    /** 英語版として動いているか（設定の言語。入力欄を開くたびに引き直す）。 */
+    private var english = false
+
+    /**
+     * 英語版で書いている途中の単語（打った綴りそのまま）。
+     * 合成領域（下線付き）に出しておき、空白・記号・候補のタップで確定する。
+     */
+    private val enWord = StringBuilder()
+
+    /**
+     * この入力欄で単語の予測（合成 + 候補バー）を使うか。
+     * パスワード・メール・URL・数値の欄や、アプリが候補を断っている欄では使わず、
+     * 書いた文字を 1 文字ずつそのまま確定する。
+     */
+    private var enPredictHere = false
+
+    /** 設定で文頭の自動大文字がオンか。 */
+    private var enAutoCap = true
+
+    /**
+     * 候補の確定で自動的に入れた空白が、カーソルの直前に残っているか。
+     *
+     * 立っているあいだに「.」「,」などを書いたら空白の前へ詰め（word. ）、
+     * スペースを書いたら二重にしない。それ以外の操作が挟まったら落とす。
+     */
+    private var autoSpaced = false
+
+    /** いまのシフト（次の 1 文字を大文字）が文頭の自動大文字で立ったものか。 */
+    private var shiftAuto = false
+
+    /**
+     * 自動で立った大文字をシフトストロークで取り消したか。
+     * 次に文字を入れるか確定するまで、自動では立て直さない。
+     */
+    private var autoCapSuppressed = false
+
+    /** 英語辞書はここで初めて開く（日本語版では一度も触らない）。 */
+    private val enPredictor: EnglishPredictor by lazy { EnglishPredictor.get(this) }
+
+    /**
+     * 表示用の文字列を引く Context（言語を差し替えたもの）。
+     * サービス自身の Context は差し替えないので、文字列だけここから引く。
+     */
+    private var l10n: Context? = null
+
+    private fun str(id: Int): String {
+        val context = l10n ?: AppLanguage.wrap(this).also { l10n = it }
+        return context.getString(id)
+    }
+
     /** 設定画面での変更を即座に反映する（入力欄を開き直さなくても効く）。 */
     private val prefsListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -64,6 +121,13 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
                 Prefs.KEY_VOICE_INPUT, Prefs.KEY_VOICE_ENGINE -> syncVoiceAvailability()
                 // 設定画面で購入・復元した直後に、入力欄を開き直さなくても鍵が開く
                 Prefs.KEY_PREMIUM_PURCHASED -> syncEntitlement()
+                Prefs.KEY_LANGUAGE -> onLanguageChanged()
+                Prefs.KEY_EN_AUTO_CAP, Prefs.KEY_EN_PREDICT -> if (english) {
+                    // 予測を切り替える前に、書きかけの単語は確定しておく
+                    flushComposing()
+                    applyEnglishPrefs(currentInputEditorInfo)
+                    updateAutoShift()
+                }
             }
         }
     private var symbolMode = SymbolMode.NORMAL
@@ -177,6 +241,15 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         val before = ic.getTextBeforeCursor(undo.surface.length, 0)
         if (before?.toString() != undo.surface) return false
         if (!ic.deleteSurroundingText(undo.surface.length, 0)) return false
+        if (english) {
+            // 候補で確定した単語を、打っていた綴りの合成へ戻す
+            enWord.setLength(0)
+            enWord.append(undo.reading)
+            updateComposing()
+            scheduleLiveSuggest()
+            updateAutoShift()
+            return true
+        }
         kana.setLength(0)
         kana.append(undo.reading)
         romaji.setLength(0)
@@ -308,6 +381,9 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     /** 音声で最後に確定した文字列（「取り消し」で消す対象）。 */
     private var lastVoiceCommit: String? = null
 
+    /** 聞き取った発話の前に置く文字（英語版の空白。[voiceLeadHere]）。 */
+    private var voiceLead = ""
+
     /** 案内バナーを一定時間で閉じるためのタイマー。 */
     private val voiceNoticeRunnable = Runnable { hideVoiceBanner() }
 
@@ -321,6 +397,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         // プロセス内で共有する唯一のインスタンスを使う（トレーニング画面と同じ実体）
         personalStore = PersonalTemplateStore.get(this)
         prediction = PredictionEngine.get(this)
+        english = AppLanguage.isEnglish(this)
         // 辞書を開く前に決めておく（拡張辞書を使うかどうかがこれで変わる）
         premiumUnlocked = Entitlement.isUnlocked(this)
         // 辞書はメモリマップするだけなのでここで開いてよい（展開もパースもしない）
@@ -347,6 +424,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         view.learnedSymbols = personalStore.learnedSymbols()
         view.debugStrokes = Prefs.isDebugStrokes(this)
         view.premiumNotice = !premiumUnlocked
+        view.english = english
         inputView = view
         applyLayoutPrefs()
         makeWindowTransparent()
@@ -380,9 +458,13 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        // 言語は設定画面で変えられる。入力欄を開くたびに引き直す。
+        syncLanguage()
         // 入力欄の種類に応じて開始モードを決める。
         // かなに向かない欄（パスワード・メール・URL・数値など）は英字で開く。
-        inputMode = if (isLatinOnlyField(info)) InputMode.LATIN else savedMode()
+        // 英語版はかな入力を持たないので常に英字。
+        inputMode = if (english || isLatinOnlyField(info)) InputMode.LATIN else savedMode()
+        applyEnglishPrefs(info)
         // 通信と学習の可否は入力欄ごとに引き直す（前の欄の判定を持ち越さない）。
         // 入力欄が変わったら前の欄の確定は取り消せない
         clearUndo()
@@ -397,6 +479,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         // 別プロセスで書き換わっていた場合に備えて読み直す（同一プロセスならシングルトンで既に最新）。
         personalStore.reloadIfChanged()
         prediction.reloadIfChanged()
+        if (english) enPredictor.reloadIfChanged()
         inputView?.debugStrokes = Prefs.isDebugStrokes(this)
         // 認識器のキャッシュは必ず作り直す。データが同じ実体でも、
         // UniStrokeView 側は古いテンプレートで組んだ認識器を握ったままなので、
@@ -405,6 +488,132 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         applyLayoutPrefs()
         makeWindowTransparent()
         resetAll()
+        // 文頭で開いた欄なら、最初の 1 文字を大文字にする
+        updateAutoShift()
+    }
+
+    // ------------------------------------------------------- 英語版の切り替え
+
+    /**
+     * 言語（日本語版 / 英語版）を引き直してビューへ渡す。変わっていたら true。
+     * 文字列を引く Context も言語ごとに作り直すので、ここで捨てておく。
+     */
+    private fun syncLanguage(): Boolean {
+        val now = AppLanguage.isEnglish(this)
+        l10n = null
+        inputView?.english = now
+        if (now == english) return false
+        english = now
+        return true
+    }
+
+    /** 設定画面で言語が切り替えられた。 */
+    private fun onLanguageChanged() {
+        // 書きかけは、切り替える前の言語のまま確定しておく（かなの合成と英単語の合成は別物）
+        finishConversionIfAny()
+        flushComposing()
+        if (!syncLanguage()) return
+        val info = currentInputEditorInfo
+        inputMode = if (english || isLatinOnlyField(info)) InputMode.LATIN else savedMode()
+        applyEnglishPrefs(info)
+        resetAll()
+        updateAutoShift()
+    }
+
+    /** 英語版の設定と、この入力欄で単語の予測を使ってよいかを引き直す。 */
+    private fun applyEnglishPrefs(info: EditorInfo?) {
+        enAutoCap = Prefs.isEnglishAutoCap(this)
+        enPredictHere = english && Prefs.isEnglishPrediction(this) && allowsPrediction(info)
+    }
+
+    /**
+     * 単語の予測を出してよい入力欄か。
+     *
+     * 英単語が入るとは限らない欄（パスワード・メール・URL・数値など）と、
+     * アプリが候補を断っている欄（[InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS]）、
+     * 素性の分からない欄では出さない。そこでは書いた文字をそのまま確定する。
+     */
+    private fun allowsPrediction(info: EditorInfo?): Boolean {
+        val type = info?.inputType ?: return false
+        if (type == InputType.TYPE_NULL) return false
+        if (isLatinOnlyField(info)) return false
+        return (type and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) == 0
+    }
+
+    /**
+     * 英語版の文頭の自動大文字。カーソル位置を見て、シフト（次の 1 文字を大文字）を
+     * 立てたり下ろしたりする。確定・カーソル移動・入力欄の切り替えのたびに呼ぶ。
+     *
+     * 手で立てたシフトと CapsLock には触らない。大文字にするかどうかの判断は
+     * 入力欄の指定に従う（[cursorWantsCaps]）。
+     */
+    private fun updateAutoShift() {
+        if (!english) return
+        if (shift == Shift.LOCK) return
+        if (shift == Shift.ONCE && !shiftAuto) return
+        val want = enAutoCap && !autoCapSuppressed && cursorWantsCaps()
+        if (want == (shift == Shift.ONCE)) return
+        shift = if (want) Shift.ONCE else Shift.OFF
+        shiftAuto = want
+        syncView()
+    }
+
+    /**
+     * いまのカーソル位置で、次の 1 文字を大文字にすべきか。
+     *
+     * 入力欄が「文頭を大文字に」などを指定しているときだけ真になる
+     * （ユーザー名やメールアドレスの欄で勝手に大文字にしない）。
+     * 単語の途中では、すべて大文字を求める欄を除いて偽。
+     */
+    private fun cursorWantsCaps(): Boolean {
+        val type = currentInputEditorInfo?.inputType ?: return false
+        if ((type and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT) return false
+        if ((type and InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS) != 0) return true
+        if (enWord.isNotEmpty()) return false
+        val ic = currentInputConnection ?: return false
+        return runCatching { ic.getCursorCapsMode(type) }.getOrDefault(0) != 0
+    }
+
+    /**
+     * カーソルが動いた。英語版でだけ使う。
+     *
+     *   合成が無い … 文頭の自動大文字を引き直す
+     *   合成中     … カーソルが合成中の単語の末尾から離れたら（＝アプリ側で別の場所を
+     *                タップされたら）、その単語はそこで確定したものとして手放す。
+     *                持ち続けると、次の 1 文字で離れた場所の単語を書き換えてしまう。
+     */
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int,
+    ) {
+        super.onUpdateSelection(
+            oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd,
+        )
+        if (!english) return
+        if (enWord.isEmpty()) {
+            updateAutoShift()
+            return
+        }
+        if (candidatesEnd >= 0 && (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)) {
+            abandonEnglishWord()
+        }
+    }
+
+    /** 合成中の英単語を、いまある場所にそのまま確定させて手放す。 */
+    private fun abandonEnglishWord() {
+        enWord.setLength(0)
+        handler.removeCallbacks(liveSuggestRunnable)
+        clearLiveSuggest()
+        currentInputConnection?.let { if (composingShownOn(it)) it.finishComposingText() }
+        noteComposingGone()
+        clearUndo()
+        autoSpaced = false
+        learner.onOther(System.currentTimeMillis())
+        updateAutoShift()
     }
 
     /**
@@ -540,6 +749,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        // 端末の言語が変わったかもしれない（言語の設定が「端末に合わせる」のとき）
+        if (AppLanguage.isEnglish(this) != english) onLanguageChanged() else l10n = null
         // 折りたたみ / 展開の切り替えでパネル配置が変わる
         applyLayoutPrefs()
     }
@@ -609,6 +820,10 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         inputView?.hideOverlay()
         romaji.setLength(0)
         kana.setLength(0)
+        enWord.setLength(0)
+        autoSpaced = false
+        shiftAuto = false
+        autoCapSuppressed = false
         endWord()
         clearUndo()
         shift = Shift.OFF
@@ -719,6 +934,10 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     /** 記号（punctuation / extended）をアプリへ送る。 */
     private fun emitSymbol(ic: InputConnection, symbol: String) {
         learner.onOther(System.currentTimeMillis())
+        if (english) {
+            emitEnglishSymbol(ic, symbol)
+            return
+        }
         // どちらの入力窓で書いたかで全角/半角を切り分ける。
         //   数字窓: 数字と同じ扱い。半角のまま確定し、変換にも関わらせない。
         //   かな窓: 全角にする。
@@ -735,6 +954,35 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         finishConversionIfAny()
         flushComposing()
         commitFinal(ic, text)
+    }
+
+    /**
+     * 英語版の記号。
+     *
+     *   アポストロフィ … 単語の途中なら綴りの一部として合成に残す（don't）
+     *   . , ! ? : ;    … 候補の確定で入れた空白が直前にあれば、その前へ詰める。
+     *                    「word 」に「.」で「word. 」（空白は記号のうしろへ回る）
+     *   それ以外       … 書きかけの単語を確定してから、そのまま入れる
+     */
+    private fun emitEnglishSymbol(ic: InputConnection, symbol: String) {
+        if (symbol == EnglishText.APOSTROPHE && enWord.isNotEmpty()) {
+            enWord.append(symbol)
+            updateComposing()
+            scheduleLiveSuggest()
+            return
+        }
+        val tight = autoSpaced && symbol.length == 1 &&
+            EnglishText.TIGHT_PUNCTUATION.indexOf(symbol[0]) >= 0
+        autoSpaced = false
+        flushComposing()
+        // 消す前に、直前が本当に空白か確かめる（記録とアプリ側の実体がずれていたら触らない）
+        if (tight && ic.getTextBeforeCursor(1, 0)?.toString() == " ") {
+            ic.deleteSurroundingText(1, 0)
+            commitFinal(ic, "$symbol ")
+            autoSpaced = true
+            return
+        }
+        commitFinal(ic, symbol)
     }
 
     /**
@@ -794,13 +1042,26 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         finishConversionIfAny()
 
         if (inputMode == InputMode.LATIN) {
+            if (english) {
+                if (enPredictHere && symbol.length == 1 && symbol[0].isLetter()) {
+                    onEnglishLetter(symbol)
+                    return
+                }
+                // 数字などは単語の一部にしない。書きかけの単語を確定してから入れる。
+                flushComposing()
+                autoSpaced = false
+                autoCapSuppressed = false
+            }
             val text = if (shift == Shift.OFF) symbol else symbol.uppercase()
-            commitFinal(ic, text)
-            noteCharacterTyped(symbol)
+            // シフトは確定より先に下ろす（英語版では確定のたびに自動大文字を引き直すので、
+            // あとから下ろすと立て直したシフトまで消してしまう）
             if (shift == Shift.ONCE) {
                 shift = Shift.OFF
+                shiftAuto = false
                 syncView()
             }
+            commitFinal(ic, text)
+            noteCharacterTyped(symbol)
             return
         }
 
@@ -870,6 +1131,108 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         scheduleLiveSuggest()
     }
 
+    /**
+     * 英語版で英字が 1 つ書かれた。確定せず、書いている単語として合成に足す。
+     * 綴りが変わるたびに候補バーの予測を作り直す。
+     */
+    private fun onEnglishLetter(symbol: String) {
+        val text = if (shift == Shift.OFF) symbol else symbol.uppercase()
+        autoSpaced = false
+        autoCapSuppressed = false
+        enWord.append(text)
+        if (shift == Shift.ONCE) {
+            shift = Shift.OFF
+            shiftAuto = false
+            syncView()
+        }
+        updateComposing()
+        noteCharacterTyped(symbol)
+        scheduleLiveSuggest()
+        // すべて大文字を求める欄では、単語の途中でも立て直す
+        updateAutoShift()
+    }
+
+    /**
+     * 書いている英単語を確定する。[suffix] は続けて入れる文字（空白など）。
+     * 打った綴りのまま確定するだけで、勝手に別の語へ直すことはしない。
+     */
+    private fun commitEnglishWord(ic: InputConnection, suffix: String) {
+        val word = enWord.toString()
+        enWord.setLength(0)
+        handler.removeCallbacks(liveSuggestRunnable)
+        clearLiveSuggest()
+        recordEnglish(word)
+        commitFinal(ic, word + suffix)
+    }
+
+    /** 候補バーの英単語をタップした。単語と空白を確定する。 */
+    private fun commitEnglishCandidate(ic: InputConnection, word: String) {
+        val typed = enWord.toString()
+        enWord.setLength(0)
+        handler.removeCallbacks(liveSuggestRunnable)
+        liveCandidates = emptyList()
+        // 候補のタップはストロークではないので、訂正の追跡はここで切る
+        learner.onOther(System.currentTimeMillis())
+        recordEnglish(word)
+        // 戻す先は打っていた綴り。直後のバックスペース 1 回で確定前へ戻せる。
+        commitFinal(ic, "$word ", typed)
+        autoSpaced = true
+        syncCandidateBar()
+    }
+
+    /** 確定した英単語を履歴に積む。学習が禁止された欄では何もしない。 */
+    private fun recordEnglish(word: String) {
+        if (!learningAllowedHere) return
+        enPredictor.record(word, System.currentTimeMillis())
+    }
+
+    /** 英語版の候補バーを、いまの綴りから作り直す。端末内で即答できるので待たない。 */
+    private fun rebuildEnglishCandidates() {
+        val typed = enWord.toString()
+        val words = if (typed.isEmpty() || !enPredictHere) {
+            emptyList()
+        } else {
+            enPredictor.predict(typed, System.currentTimeMillis())
+        }
+        liveCandidates = words.map {
+            PredictionEngine.Candidate(typed, it, PredictionEngine.Source.DICTIONARY)
+        }
+        candidatesFromOnDevice = false
+        syncCandidateBar()
+    }
+
+    /**
+     * 左上のボタン（英語版）。カーソルの手前の単語をまとめて消す。
+     *
+     * 一筆書きのバックスペースは 1 ストロークで 1 文字なので、単語を消すには
+     * 文字数ぶん書く必要がある。語を空白で区切る英語では、単語ごと消せると速い。
+     * 書きかけの単語があればそれを、選択範囲があればそれを先に消す。
+     */
+    override fun onDeleteWord() {
+        if (!english) return
+        val ic = currentInputConnection ?: return
+        stopVoiceForOtherInput()
+        learner.onOther(System.currentTimeMillis())
+        clearUndo()
+        autoSpaced = false
+        autoCapSuppressed = false
+        if (enWord.isNotEmpty()) {
+            enWord.setLength(0)
+            updateComposing()
+            scheduleLiveSuggest()
+            updateAutoShift()
+            return
+        }
+        if (!ic.getSelectedText(0).isNullOrEmpty()) {
+            commitFinal(ic, "")
+            return
+        }
+        val before = ic.getTextBeforeCursor(WORD_DELETE_LOOKBACK, 0) ?: return
+        val length = EnglishText.wordDeleteLength(before)
+        if (length > 0) ic.deleteSurroundingText(length, 0)
+        updateAutoShift()
+    }
+
     private fun enterExtended() {
         symbolMode = SymbolMode.EXTENDED
         syncView()
@@ -886,11 +1249,18 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      */
     private fun onShiftStroke() {
         if (inputMode == InputMode.LATIN) {
-            shift = when (shift) {
-                Shift.OFF -> Shift.ONCE
-                Shift.ONCE -> Shift.LOCK
-                Shift.LOCK -> Shift.OFF
+            if (shiftAuto && shift == Shift.ONCE) {
+                // 文頭で自動的に立った大文字を取り消す（小文字で書き始めたいとき）
+                shift = Shift.OFF
+                autoCapSuppressed = true
+            } else {
+                shift = when (shift) {
+                    Shift.OFF -> Shift.ONCE
+                    Shift.ONCE -> Shift.LOCK
+                    Shift.LOCK -> Shift.OFF
+                }
             }
+            shiftAuto = false
             syncView()
             return
         }
@@ -920,6 +1290,19 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     }
 
     private fun onSpace(ic: InputConnection) {
+        if (english) {
+            if (enWord.isNotEmpty()) {
+                commitEnglishWord(ic, " ")
+                return
+            }
+            // 候補の確定で入れた空白がすでにある。二重にしない。
+            if (autoSpaced) {
+                autoSpaced = false
+                return
+            }
+            commitFinal(ic, " ")
+            return
+        }
         if (converting) {
             cycleCandidate()
             return
@@ -938,6 +1321,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     }
 
     private fun onBackspace(ic: InputConnection) {
+        autoSpaced = false
+        autoCapSuppressed = false
         if (converting) {
             cancelConversion(restoreKana = true)
             return
@@ -1001,12 +1386,22 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
             scheduleLiveSuggest()
             return
         }
+        if (enWord.isNotEmpty()) {
+            // 英語版: 書いている単語の末尾 1 文字 = 直前のストローク 1 つぶん
+            enWord.setLength(enWord.length - 1)
+            learner.onUndoLastCharacter(System.currentTimeMillis())
+            updateComposing()
+            scheduleLiveSuggest()
+            updateAutoShift()
+            return
+        }
         val selected = ic.getSelectedText(0)
         if (!selected.isNullOrEmpty()) {
             commitFinal(ic, "")
             learner.onOther(System.currentTimeMillis())
         } else {
             ic.deleteSurroundingText(1, 0)
+            updateAutoShift()
             // 英字モードは 1 コミット = 1 ストロークなので訂正として追跡できる
             if (inputMode == InputMode.LATIN) {
                 learner.onUndoLastCharacter(System.currentTimeMillis())
@@ -1026,6 +1421,14 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      * 「1 回目で確定、2 回目で改行」が期待される動作。
      */
     private fun onReturn(ic: InputConnection) {
+        autoSpaced = false
+        if (english) {
+            // 英語版の合成は「いま書いている単語」でしかない。
+            // 確定と改行（送信・検索）を 1 回で済ませる（一般的な英語キーボードと同じ）。
+            flushComposing()
+            sendEnter(ic)
+            return
+        }
         if (converting) {
             // 変換中のリターンは「全文節を現在の選択で確定」
             finishConversionIfAny()
@@ -1081,8 +1484,11 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         kana.toString() +
             RomajiConverter.settledPending(romaji.toString(), inputMode == InputMode.KATAKANA)
 
-    private fun composingLength(): Int =
-        if (autoLatin) wordRaw.length else kana.length + romaji.length
+    private fun composingLength(): Int = when {
+        english -> enWord.length
+        autoLatin -> wordRaw.length
+        else -> kana.length + romaji.length
+    }
 
     /**
      * 大文字で書き始めた英単語か（上スワイプ 1 回の大文字で開始した特例モード）。
@@ -1196,6 +1602,10 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
     private fun updateComposing() {
         val ic = currentInputConnection ?: return
+        if (english) {
+            showComposing(ic, enWord.toString())
+            return
+        }
         // 自動英字化中は打った ASCII をそのまま見せる（かなには一切触らない）
         val text = if (autoLatin) {
             wordRaw.toString()
@@ -1229,6 +1639,11 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         } else {
             noteCommit(text.toString(), undoReading)
         }
+        if (english) {
+            // 確定で文脈が変わった（文末の「. 」のあとなど）。自動大文字を引き直す。
+            autoCapSuppressed = false
+            updateAutoShift()
+        }
     }
 
     /** 合成中の文字列をそのまま確定する。 */
@@ -1236,6 +1651,11 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         val ic = currentInputConnection ?: return
         handler.removeCallbacks(liveSuggestRunnable)
         clearLiveSuggest()
+        if (english) {
+            // 英語版: 書いている単語を、打った綴りのまま確定する（空白は足さない）
+            if (enWord.isEmpty()) clearComposing(ic) else commitEnglishWord(ic, "")
+            return
+        }
         if (composingLength() == 0) {
             clearComposing(ic)
             endWord()
@@ -1272,6 +1692,10 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      */
     private fun scheduleLiveSuggest() {
         handler.removeCallbacks(liveSuggestRunnable)
+        if (english) {
+            rebuildEnglishCandidates()
+            return
+        }
         clearLiveSuggest()
         // 自動候補はひらがなモードのみ。文節編集中は出さない。
         if (inputMode != InputMode.HIRAGANA || converting) return
@@ -1452,6 +1876,10 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     /** 自動候補をタップしたときの全文確定。 */
     private fun commitLiveCandidate(candidate: PredictionEngine.Candidate) {
         val ic = currentInputConnection ?: return
+        if (english) {
+            commitEnglishCandidate(ic, candidate.surface)
+            return
+        }
         // 自動英字化を誤判定だったと訂正するタップ。確定せずにかな入力へ戻す。
         if (autoLatin && candidate.surface != wordRaw.toString()) {
             revertAutoLatin()
@@ -1690,6 +2118,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
     /** abc ⇄ かな のトグル（カタカナへはかなモード中のシフトストロークで）。 */
     override fun onModeToggle() {
+        // 英語版にかな入力は無い（左上のボタンは単語削除になっている）
+        if (english) return
         stopVoiceForOtherInput()
         learner.onOther(System.currentTimeMillis())
         finishConversionIfAny()
@@ -1718,6 +2148,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         // 合成中はカーソル移動と競合するので、先に確定してから動かす
         finishConversionIfAny()
         clearUndo()
+        autoSpaced = false
         flushComposing()
         sendDownUpKeyEvents(
             if (forward) KeyEvent.KEYCODE_DPAD_RIGHT else KeyEvent.KEYCODE_DPAD_LEFT,
@@ -1735,6 +2166,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         val ic = currentInputConnection ?: return
         stopVoiceForOtherInput()
         finishConversionIfAny()
+        autoSpaced = false
         // 長押しの前にすでに選択が残っていれば、そこで消す（タップと同じ扱い）
         if (deleteOwnSelection(ic)) {
             clearUndo()
@@ -1791,6 +2223,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     private fun selectAllOrDelete() {
         val ic = currentInputConnection ?: return
         finishConversionIfAny()
+        autoSpaced = false
         flushComposing()
         // 選択の判定は clearUndo より先に行う（clearUndo が ownSelection を捨てるため）
         val deleted = deleteOwnSelection(ic)
@@ -1898,7 +2331,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         if (!premiumUnlocked) return
         if (!Prefs.isVoiceInputEnabled(this)) return
         if (!voiceAllowedHere) {
-            showVoiceNotice(getString(R.string.voice_blocked_field))
+            showVoiceNotice(str(R.string.voice_blocked_field))
             return
         }
         when (voice.check()) {
@@ -1909,16 +2342,16 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
                 if (netConvertAllowedHere) {
                     beginVoice(onDevice = false)
                 } else {
-                    showVoiceNotice(getString(R.string.voice_blocked_field_service))
+                    showVoiceNotice(str(R.string.voice_blocked_field_service))
                 }
 
             VoiceInput.Ready.NEED_PERMISSION -> {
-                showVoiceNotice(getString(R.string.voice_need_permission))
+                showVoiceNotice(str(R.string.voice_need_permission))
                 requestMicPermission()
             }
 
-            VoiceInput.Ready.NO_ON_DEVICE -> showVoiceNotice(getString(R.string.voice_no_ondevice))
-            VoiceInput.Ready.NO_SERVICE -> showVoiceNotice(getString(R.string.voice_no_service))
+            VoiceInput.Ready.NO_ON_DEVICE -> showVoiceNotice(str(R.string.voice_no_ondevice))
+            VoiceInput.Ready.NO_SERVICE -> showVoiceNotice(str(R.string.voice_no_service))
         }
     }
 
@@ -1942,13 +2375,15 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         voiceContinuous = Prefs.isVoiceContinuous(this)
         voiceSilentRounds = 0
         lastVoiceCommit = null
+        autoSpaced = false
+        voiceLead = voiceLeadHere()
         inputView?.voiceContinuous = voiceContinuous
         showVoiceBanner(UniStrokeView.VoiceState.LISTENING, listeningMessage())
         voice.start(voiceCallback)
     }
 
     /** いま録音中であることの表示。どのエンジンで聞いているかを必ず出す。 */
-    private fun listeningMessage(): String = getString(
+    private fun listeningMessage(): String = str(
         when {
             voiceOnDevice && voiceContinuous -> R.string.voice_listening_ondevice_continuous
             voiceOnDevice -> R.string.voice_listening_ondevice
@@ -1975,14 +2410,14 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         override fun onVoicePartial(text: String) {
             if (!voiceActive) return
             // 聞き取り途中は未確定表示（下線付き）で見せるだけ。確定は onVoiceResult のみ。
-            currentInputConnection?.let { showComposing(it, text) }
+            currentInputConnection?.let { showComposing(it, voiceLead + text) }
         }
 
         override fun onVoiceWorking() {
             if (!voiceActive) return
             showVoiceBanner(
                 UniStrokeView.VoiceState.WORKING,
-                getString(R.string.voice_working),
+                str(R.string.voice_working),
             )
         }
 
@@ -1999,7 +2434,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
             // 発話まるごとがコマンドなら、文字にせず操作として実行する
             val command = if (Prefs.isVoiceCommandsEnabled(this@UniStrokeIME)) {
-                VoiceCommands.match(text)
+                VoiceCommands.match(text, english)
             } else {
                 null
             }
@@ -2014,8 +2449,10 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
             // 音声認識の結果は既に変換済みの文字列で、対応する読みが無い。
             // 確定アンドゥ（バックスペース 1 回で戻す）には載せられないので載せない。
-            commitFinal(ic, text)
-            lastVoiceCommit = text
+            // 英語版では、前の語とくっつかないように空白を先に置く（[voiceLead]）
+            val spoken = voiceLead + text
+            commitFinal(ic, spoken)
+            lastVoiceCommit = spoken
             endWord()
             syncView()
             continueOrFinishVoice()
@@ -2035,7 +2472,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
             voiceActive = false
             if (hadPartial && voiceContinuous && silent) {
                 // 黙ったまま終わったので、エラーではなく「終わりました」と伝える
-                showVoiceNotice(getString(R.string.voice_finished))
+                showVoiceNotice(str(R.string.voice_finished))
             } else {
                 showVoiceNotice(message)
             }
@@ -2070,7 +2507,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
             VoiceCommands.Command.STOP -> {
                 // それまでに入れた内容は残したまま終わる
                 endVoice()
-                showVoiceNotice(getString(R.string.voice_finished))
+                showVoiceNotice(str(R.string.voice_finished))
                 return true
             }
         }
@@ -2112,7 +2549,20 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
             endVoice()
             return
         }
+        voiceLead = voiceLeadHere()
         voice.start(voiceCallback)
+    }
+
+    /**
+     * これから聞き取る発話の前に置く文字（英語版の空白）。
+     *
+     * 英語は語を空白で区切るので、文の途中から話し始めたときは空白を 1 つ先に置く。
+     * 聞き取り途中の未確定表示を出す前（＝カーソル直前が確定済みの文字のあいだ）に決める。
+     */
+    private fun voiceLeadHere(): String {
+        if (!english) return ""
+        val before = currentInputConnection?.getTextBeforeCursor(1, 0)
+        return if (EnglishText.needsSpaceBefore(before?.lastOrNull())) " " else ""
     }
 
     /**
@@ -2271,6 +2721,9 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
 
         /** 自動アルファベット化中の状態チップ。 */
         const val AUTO_LATIN_CHIP = "abc自動"
+
+        /** 単語削除でカーソルの手前を見る長さ（これより長い語は無い）。 */
+        const val WORD_DELETE_LOOKBACK = 64
 
         /** 音声入力の案内・エラー表示を自動で閉じるまでの時間。 */
         const val VOICE_NOTICE_MS = 4_000L

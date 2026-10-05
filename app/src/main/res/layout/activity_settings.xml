@@ -12,6 +12,63 @@
         android:orientation="vertical"
         android:padding="20dp">
 
+        <!--
+            言語（日本語版 / 英語版）。表示だけでなく IME の動きも切り替わる。
+            どちらの言語で開いても見つけられるよう、見出しと選択肢は両方の言語で書く。
+        -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/language_title"
+            android:textColor="@color/app_text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/language_body"
+            android:textColor="@color/app_text"
+            android:textSize="14sp" />
+
+        <RadioGroup
+            android:id="@+id/language_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="24dp"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/language_auto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/language_auto"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <RadioButton
+                android:id="@+id/language_ja"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/language_ja"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <RadioButton
+                android:id="@+id/language_en"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/language_en"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+        </RadioGroup>
+
         <!-- プレミアム（試用 → 購入で解錠）。購入が要らない配布では節ごと隠す。 -->
         <LinearLayout
             android:id="@+id/section_premium"
@@ -104,7 +161,55 @@
                 android:textSize="16sp" />
         </RadioGroup>
 
-        <!-- ネット変換と変換エンジン。提供しない配布（Google Play 版）では節ごと隠す。 -->
+        <!-- 英語版だけの設定（単語の予測・文頭の自動大文字）。日本語版では節ごと隠す。 -->
+        <LinearLayout
+            android:id="@+id/section_english"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/english_title"
+                android:textColor="@color/app_text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/english_body"
+                android:textColor="@color/app_text"
+                android:textSize="14sp" />
+
+            <CheckBox
+                android:id="@+id/check_en_predict"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:minHeight="48dp"
+                android:text="@string/english_predict"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <CheckBox
+                android:id="@+id/check_en_auto_cap"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/english_auto_cap"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <!--
+            ネット変換と変換エンジン。提供しない配布（Google Play 版）と、
+            かな漢字変換を持たない英語版では節ごと隠す。
+        -->
         <LinearLayout
             android:id="@+id/section_net_convert"
             android:layout_width="match_parent"
@@ -338,64 +443,72 @@
                 android:textSize="16sp" />
         </RadioGroup>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/dict_title"
-            android:textColor="@color/app_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
+        <!-- 拡張辞書（かな漢字変換の辞書）。英語版では使わないので節ごと隠す。 -->
+        <LinearLayout
+            android:id="@+id/section_dict"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:lineSpacingExtra="3dp"
-            android:text="@string/dict_body"
-            android:textColor="@color/app_text"
-            android:textSize="14sp" />
+            android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/text_dict_state"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:fontFamily="monospace"
-            android:textColor="@color/app_text"
-            android:textSize="15sp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/dict_title"
+                android:textColor="@color/app_text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btn_dict_action"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/dict_btn_download" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/dict_body"
+                android:textColor="@color/app_text"
+                android:textSize="14sp" />
 
-        <Button
-            android:id="@+id/btn_dict_remove"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/dict_btn_remove" />
+            <TextView
+                android:id="@+id/text_dict_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/app_text"
+                android:textSize="15sp" />
 
-        <CheckBox
-            android:id="@+id/check_dict_auto"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:minHeight="48dp"
-            android:text="@string/dict_auto_update"
-            android:textColor="@color/app_text"
-            android:textSize="16sp" />
+            <Button
+                android:id="@+id/btn_dict_action"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/dict_btn_download" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:lineSpacingExtra="3dp"
-            android:text="@string/dict_auto_update_note"
-            android:textColor="@color/app_text"
-            android:textSize="13sp" />
+            <Button
+                android:id="@+id/btn_dict_remove"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/dict_btn_remove" />
+
+            <CheckBox
+                android:id="@+id/check_dict_auto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:minHeight="48dp"
+                android:text="@string/dict_auto_update"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/dict_auto_update_note"
+                android:textColor="@color/app_text"
+                android:textSize="13sp" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"

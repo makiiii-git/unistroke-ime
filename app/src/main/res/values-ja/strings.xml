@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Uni-Stroke IME</string>
+    <string name="ime_name">Uni-Stroke IME</string>
+    <string name="subtype_label">Uni-Stroke</string>
+
+    <!--
+        日本語版の文言。英語版（既定）は values/strings.xml にある。
+        名前は 2 つのファイルで必ず揃えること（test_static.py が突き合わせる）。
+    -->
+    <string name="title">Uni-Stroke IME</string>
+    <string name="subtitle">1990 年代の PDA で使われた一筆書き入力方式に着想を得たストローク入力メソッド（日本語対応）</string>
+
+    <string name="btn_enable">IME を有効化</string>
+    <string name="btn_switch">IME を切替</string>
+
+    <string name="test_hint">ここで入力を試す</string>
+
+    <string name="usage_title">使い方</string>
+    <string name="usage_body">1. 「IME を有効化」で Uni-Stroke IME をオンにする\n2. 「IME を切替」で入力メソッドとして選択する\n3. 下のテキスト欄をタップすると入力エリアが開く\n\n入力エリアは左 2/3 が英字ゾーン、右 1/3 が数字ゾーン。ゾーンをまたいだ判定は行わないので、数字は必ず右側に書く。</string>
+
+    <string name="toolbar_title">画面まわり</string>
+    <string name="toolbar_body">上部の固定バーは持たない。入力エリアの左端に幅 64dp のボタン列が縦に 5 つ並ぶ（1 ボタン約 47dp）。\n\n  abc / かな … タップで英字入力とかな入力を切り替えるトグル。現在のモードがそのままラベルになる（カタカナ中は「カナ」）。開いたときは「かな」で始まり、以降は前回使ったモードを復元する（パスワード・メール・URL・数値などの欄は自動的に abc で開く）\n  ◀ ▶ … カーソルを左右へ移動。長押しで連続移動する。合成中に押すと合成内容を確定してから動く\n  全選択 … タップで入力欄の内容をすべて選択し、<b>もう一度タップすると削除</b>する（1回目=全選択 / 2回目=全削除）。長押しすると<b>直前に確定した文字列だけ</b>を選択し、続けてタップするとその範囲だけ消える。選択したまま書けばそのまま書き直せる。\n    確定のあとにカーソルを動かしたり別の文字を入れたりしていた場合は、長押しでも全選択になる。消えるのはこのボタンで選んだ範囲だけで、アプリ側で自分で選択した範囲は消さない\n  ? … タップでジェスチャー見本の表示／非表示、長押しで設定画面（利き手・学習データの管理）\n\n手書きゾーンを<b>長押し</b>すると音声入力に切り替わる（ゾーンに「長押しで音声入力」と出ているときだけ有効）。話し終わりは自動で判定して確定するので、終わりを知らせる操作は要らない（✕ でやめる）。長押しの判定はタップ（Punctuation Shift）より長いので、これまでの入力操作は変わらない。\n\n「エンター」「確定」「取り消し」などと<b>それだけ</b>言えば、文字ではなく操作として実行する（ボイスコマンド）。連続音声入力をオンにしておくと、1 回の長押しで「音声終了」と言うまで聞き続けるので、手を使わずに書き続けられる。言い回しの一覧は設定画面にある。既定では端末内の音声認識だけを使う。\n\nシフト（⇧ / ⇧⇧）・かなモードの一時アルファベット入力（A = 次の1文字を大文字 / a = 小文字）・記号シフト（• = Punctuation / ＼ = Extended）・変換中の文節番号は、描画エリア右上の小さなインジケータに出る。認識した文字そのものは入力欄の未確定表示（下線付き）で確認できるので、描画エリアには重ねて表示しない。\n\n折りたたみ端末を開いた大画面（smallestWidth 600dp 以上）では、フローティング IME として動く。入力パネルを 1 画面時と同じ幅（420dp）のまま利き手側の下部へ寄せ、パネル以外は完全に透明になる。\n\n背後のアプリは縮まず全画面のまま表示され、透明な部分をタップ・スクロールするとそのまま背後のアプリに届く（IME は素通し）。候補バーもパネル幅に合わせるので、空いた側は常に背後のアプリが見える。\n\n変換候補バーは入力窓の外・上側に独立して積まれる。候補が出ると IME 全体が上に伸びるだけで、描画ゾーンとボタン列の高さは常に一定（縮まない）。候補が無いときはバーが畳まれて従来どおりの高さになる。</string>
+
+    <string name="samples_title">ジェスチャー見本</string>
+    <string name="samples_body">左下の [?] を押すと、書き方の見本が入力エリアに重ねて表示される。もう一度 [?] を押すか、上部ツールバーをタップすると閉じる。表示中は手書き入力を受け付けない（誤入力防止）。\n\n見本は認識に使っているテンプレートから描いているので、実際の判定と一致する（K/X/+ だけはループが視認しやすいよう、同じ数式のままループをひとまわり大きく取った表示専用の字形を使う。ループの回り方は認識テンプレートと同一）。● が書き始めの位置、矢印が書き終わりの向き。英字・共通コマンド・数字・Punctuation・Extended の順に並び、上下にスクロールできる。</string>
+
+    <string name="modes_title">入力モード</string>
+    <string name="modes_body">abc / Abc / ABC（英字）\n  シフトストローク（下→上の縦線）で 1回=次の1文字を大文字 / 2回=CapsLock / 3回=解除\n\nかな（ひらがな）\n  英字ストロークをローマ字として溜め、標準ローマ字テーブルで逐次かなに変換する。\n  未確定部分は下線付きで表示される。\n  ka→か、shi/si→し、chi/ti→ち、tsu/tu→つ、kya→きゃ、kka→っか、句読点の「-」→「ー」。\n\n  「ん」の入力\n    ・「ん」を確実に出すには nn と打つ（nn→ん）。\n    ・n を1回だけ打った時点では「ん」に見せず、未確定の「n」として表示する（こn）。\n      合成中に「な行の途中なのか撥音なのか」が一目で分かるようにするため。\n    ・n+子音の先読みは従来どおり効く。次の子音を書いた時点で「ん」に変わる\n      （kondo → こn → こんd → こんど）。na/ni/nu/ne/no/nya… も従来どおり。\n    ・確定・変換のときに末尾へ単独の n が残っていたら、「ん」ではなく英字の n として確定する\n      （kan＋スペース→「かn」。「かん」が欲しいときは kann）。\n  右上スワイプ（左下→右上の「／」）で ひらがな ⇄ カタカナ を切り替え。\n  上スワイプ（下→上の縦線）で一時アルファベット入力。1回で次の1文字を大文字（チップ「A」）、\n  もう1回重ねると小文字（チップ「a」）、3回目で解除。1文字入れると自動でかな入力へ戻る。\n  （合成中に使うと、そこまでのかなを確定してから英字を入れる）\n  ストロークを誤認識して「kt」のような不正な並びになっても詰まらない。\n  かなにできない子音は英字のまま確定して先へ進む（例: k→t→a は「kた」）。\n\n  自動アルファベット化\n    日本語のローマ字としてどうしても解釈できない綴り（"str" "ght" のような子音の並び）を打つと、\n    <b>その単語だけ</b>自動で英字入力に切り替わる。右上のインジケータに「abc自動」と出て、\n    未確定表示は打ったアルファベットそのままになる（例: strike → 「strike」）。\n    スペース・リターン・変換確定などの単語の区切りで解除され、次の単語はまたかな入力に戻る。\n\n    判定は「1 文字ぶんの誤認識では発動しない」よう控えめにしてある。\n    ローマ字にならない文字が<b>2 回以上</b>現れたときだけ発動するので、\n    「kta」のような 1 回の書き損じでは従来どおりかな入力が続く。\n    撥音（kansha）や促音（issho）も誤発動しない。\n\n    誤判定したときは、候補バーに並ぶ「かな解釈」をタップすれば確定せずにかな入力へ戻れる。\n    バックスペースで綴りを縮めて条件を割った場合も自動でかな入力へ戻る。\n\n  文脈補正: かなモードでは、未確定ローマ字から次に来うる文字（子音のあとは母音、\n  「ky」「sh」のような2子音クラスタのあとはほぼ母音だけ）にごく僅かな下駄（+0.04）を履かせ、\n  紛らわしい字形の取りこぼしを減らす。明確に別の字形のほうが高スコアならそちらが勝つ。\n  スペース・バックスペース等のコマンドはこの補正で覆らない。\n  未確定が「n」のときは、次に子音（kondo の d）も母音（na の a）も来うるため補正しない。\n\nカナ（カタカナ）\n  同じローマ字テーブルでカタカナを直接入力する（漢字変換なし）。</string>
+
+    <string name="kanji_title">漢字変換</string>
+    <string name="kanji_body">既定では<b>入力した内容を外部へ送らない</b>。変換・予測は入力履歴と<b>端末内のかな漢字変換エンジン</b>だけで動く。設定で「ネット変換」を有効にすると、読みを外部へ送って変換精度をさらに上げられる（既定はオフ）。\n\n端末内エンジンは約 24 万語の内蔵辞書でラティスを組み、Viterbi 法で文節分割と表記を決める。ネット変換が使えないとき（オフ・圏外・通信失敗・タイムアウト・設定で「端末内のみ」を選んだとき）は自動でこちらが肩代わりする。切り替えは黙って起きるが、端末内で作った候補には候補バーの右端に「端末内」と出る（文節編集中は右上のインジケータに出る）。\n\n1. 予測変換（スペース不要）\n  かなモードでは、かなが 1 文字確定した時点から自動で候補を出す（約 0.12 秒のデバウンスのみ）。\n  候補は入力窓の上に出る候補バーに最大 15 件並び、横スクロールで全部見られる。\n  並ぶのはすべて「読み全体」に対応する文字列なので、タップすればその場で全文が確定する。\n  先頭が変換結果、続いて第1文節の別候補・第2文節の別候補、最後に全文ひらがな・全文カタカナ。\n  末尾に未確定の子音（「かk」の「k」など）が残っていても、確定済みの「か」だけで即リクエストする。\n  同じ読みへの再リクエストは直近 24 件の LRU キャッシュで通信せずに済ませる。\n\n2. 文節ごとに直す（スペース）\n  スペース（左→右の横線）を書くと文節編集モードに入る。\n  候補バーをタップ … その候補で現在の文節を確定し、次の文節へ。最後の文節なら全体を確定\n  スペース … 現在の文節の候補を順送り\n  《 》（候補バーの両端）… 文節を移動\n  リターン … 全文節を現在の選択で確定\n  バックスペース … 変換をやめてひらがなに戻す\n\n※ 文節の切り直し（文節を伸ばす・縮める）には未対応。端末内エンジンが切った文節の中で候補を選ぶ形になる。</string>
+
+    <string name="predict_title">予測変換</string>
+    <string name="predict_body">かなモードでは、読みの途中から先を予測して候補バーに出す。「おは」→「おはようございます」のように、まだ打っていない部分まで補完してタップ 1 回で確定できる。\n\n候補は 4 系統をマージして並べる。\n  1. 入力履歴（最優先・完全オフライン）… 確定した「読み→表記」を最大 500 件覚え、頻度と直近利用でランク付けする\n  2. 内蔵フレーズ辞書（約 325 件）… 挨拶・定型句・曜日・機能語など。履歴が空の初回から効く\n  3. 端末内辞書の前方一致（約 24 万語）… 通信しないときの予測の主力。補完量の少ない順にコストで並べる\n  4. Google サジェスト … 検索向けでノイズを含むため最下位。ネット変換が有効なときだけ\n\n並び順は [履歴] → [フレーズ辞書] → [端末内辞書] → [変換候補] → [サジェスト] → [ひらがな/カタカナ]。1〜3 は通信なしで即座に出るので、オフラインでも予測は完全に動く。</string>
+    <string name="history_count">記憶している入力履歴: %d 件</string>
+    <string name="btn_reset_history">入力履歴をリセット</string>
+
+    <!-- ネット変換のオプトイン（既定オフ） -->
+    <string name="net_consent_title">ネット変換を使いますか？</string>
+    <string name="net_consent_body">この IME は、<b>入力した内容を外部へ送りません</b>。変換も予測も、入力履歴と内蔵辞書だけを使って端末内で完結します。\n\n「ネット変換」を有効にした場合に限り、漢字変換の精度を上げるために読みを外部へ送ります。\n\n有効にすると送られるもの\n  ・変換したい<b>ひらがなの読み</b>だけ（例:「こんにちは」）\n  ・送信先は Google の変換サービス\n\n有効にしても送られないもの\n  ・パスワード欄・メール欄・URL 欄の内容\n  ・シークレットタブなど、アプリが学習を拒否している欄の内容\n  ・確定した文章そのもの、連絡先、位置情報、端末の識別子\n\n※ これとは別に、アプリの画面（この画面や設定画面）を開いたとき、アプリの更新があるかを GitHub へ問い合わせます。送るのは「最新版は何か」という問い合わせだけで、入力内容は含みません（接続先からは IP アドレスが見えます）。設定でオフにできます。\n\n後から設定画面でいつでも変更できます。</string>
+    <string name="net_consent_keep_offline">オフラインのまま使う（推奨）</string>
+    <string name="net_consent_enable">ネット変換を有効にする</string>
+
+    <string name="net_convert_title">ネット変換</string>
+    <string name="net_convert_body">オフのあいだ、<b>入力した内容が外部へ送られることはありません</b>（変換・予測は履歴と内蔵辞書だけで動きます）。\n\nオンにすると、変換したいひらがなの読みだけが Google の変換サービスへ送られ、漢字変換の精度が上がります。\n\nオンにしていても、パスワード欄・メール欄・URL 欄、およびシークレットタブなど学習が禁止された欄では送信しません。</string>
+    <string name="net_convert_off">オフ ― 通信しない（既定）</string>
+    <string name="net_convert_on">オン ― 読みを送って変換精度を上げる</string>
+
+    <!-- 拡張辞書の取得（任意・セットアップで案内する） -->
+    <string name="dict_prompt_title">拡張辞書を入れますか？</string>
+    <string name="dict_prompt_body">この IME には<b>約 8 万語のコア辞書が最初から入っています</b>。何もしなくても、オフラインのまま日本語を書けます。\n\nより語彙の広い<b>拡張辞書（約 22 万語 / 約 6.7 MB）</b>を追加すると、固有名詞や専門語の変換が当たりやすくなります。\n\nこれは<b>辞書ファイルを 1 つ受け取るだけ</b>の操作です。あなたが入力した内容が送られることはありません（「ネット変換」とは別の機能です）。\n\nWi-Fi での実行をおすすめします。あとから設定画面でも入れられます。</string>
+    <string name="dict_prompt_yes">ダウンロードする</string>
+    <string name="dict_prompt_later">あとで</string>
+
+    <string name="dict_title">拡張辞書</string>
+    <string name="dict_body">コア辞書（約 8 万語）は本体に内蔵されているので、拡張辞書が無くてもオフラインで変換できます。拡張辞書（約 22 万語）を入れると、固有名詞や専門語に強くなります。\n\n辞書ファイルを受け取るだけで、入力内容は送信しません。受け取ったファイルはハッシュ（SHA-256）を照合し、辞書として開けることを確かめてから差し替えます。壊れていた場合は捨てて、今の辞書のまま動き続けます。</string>
+    <string name="dict_state_core">現在: コア辞書（約 8 万語・内蔵）</string>
+    <string name="dict_state_ext_locked">現在: コア辞書（約 8 万語・内蔵）\n拡張辞書 v%1$d は入っていますが、プレミアムで有効になります</string>
+    <string name="dict_state_ext">現在: 拡張辞書 v%1$d（約 22 万語）</string>
+    <string name="dict_btn_download">拡張辞書をダウンロード</string>
+    <string name="dict_btn_check">更新を確認</string>
+    <string name="dict_btn_remove">拡張辞書を削除してコアに戻す</string>
+    <string name="dict_auto_update">更新を自動で確認する</string>
+    <string name="dict_auto_update_note">オンにしても定期的な通信はしません。アプリを開いたときに、前回の確認から 7 日以上経っていれば確認するだけです。</string>
+
+    <string name="dict_checking">確認しています…</string>
+    <string name="dict_downloading">ダウンロード中 %1$d%%（%2$.1f / %3$.1f MB）</string>
+    <string name="dict_verifying">検証しています…</string>
+    <string name="dict_up_to_date">最新です</string>
+    <string name="dict_done">拡張辞書 v%1$d を入れました（約 %2$,d 語）</string>
+    <string name="dict_removed">拡張辞書を削除しました。コア辞書で動きます</string>
+
+    <string name="dict_fail_network">通信できませんでした。電波の良い場所で試してください</string>
+    <string name="dict_fail_manifest">配布情報を読めませんでした。時間をおいて試してください</string>
+    <string name="dict_fail_incompatible">この辞書はアプリのバージョンに合いません。アプリを更新してください</string>
+    <string name="dict_fail_size">ダウンロードが途中で切れました</string>
+    <string name="dict_fail_checksum">ファイルが壊れていたため取り込みませんでした</string>
+    <string name="dict_fail_broken">辞書として読めなかったため取り込みませんでした</string>
+    <string name="dict_fail_storage">保存できませんでした。空き容量を確認してください</string>
+
+    <!-- 変換エンジンの選択 -->
+    <string name="engine_title">変換エンジン</string>
+    <string name="engine_body">「自動」は、ネット変換が有効なときだけオンラインの変換を使い、圏外・通信失敗・タイムアウトのときは自動で端末内エンジンへ切り替えます。\n\n「端末内のみ」を選ぶと、ネット変換が有効でも変換のための通信を行わず、常に内蔵辞書だけで変換します。\n\nネット変換がオフのときは、どちらを選んでも端末内エンジンだけが動きます。端末内エンジンで作った候補には、候補バーの右端に「端末内」と表示されます。</string>
+    <string name="engine_auto">自動 ― オンライン優先（既定）</string>
+    <string name="engine_ondevice">端末内のみ ― 通信しない</string>
+
+    <string name="ondevice_title">端末内かな漢字変換</string>
+    <string name="ondevice_body">通信できないときのために、辞書とかな漢字変換エンジンを本体に内蔵しています。\n\n約 24 万語の辞書を読み込み、ラティス（候補の網）を組んで Viterbi 法で最尤の文節分割と表記を選びます。単語コストと文節の繋がりやすさ（接続コスト）はどちらも Mozc の公開データから作っています。\n\n辞書はアプリのファイルをそのままメモリマップして引くので、起動が遅くならず、メモリもほとんど使いません。</string>
+
+    <!-- アプリの更新確認 -->
+    <string name="update_title">アプリの更新</string>
+    <string name="update_body">新しい版が出ていないか、アプリの画面を開いたときに GitHub へ問い合わせます（1 日 1 回まで）。\n\n送るのは「最新版は何か」という問い合わせだけで、<b>入力内容は含みません</b>。通信する以上、接続先からは接続元の IP アドレスが見えます。\n\n入力中（IME を使っているあいだ）にこの通信が起きることはありません。オフにすると、下の「今すぐ確認」を押したときだけ問い合わせます。</string>
+    <string name="update_auto">アプリの更新を自動で確認する</string>
+    <string name="update_check_now">今すぐ確認</string>
+    <string name="update_checking">確認中…</string>
+    <string name="update_up_to_date">お使いの版が最新です</string>
+    <string name="update_available_title">%s が利用できます</string>
+    <string name="update_available_body">現在のバージョン: %2$s\nダウンロード: 約 %3$.1f MB\n\n%4$s</string>
+    <string name="update_download">ダウンロード</string>
+    <string name="update_later">あとで</string>
+    <string name="update_cancel">中止</string>
+    <string name="update_downloading">ダウンロード中</string>
+    <string name="update_progress">%1$d / %2$d MB</string>
+    <string name="update_failed_network">更新を確認できませんでした（通信エラー）</string>
+    <string name="update_failed_no_asset">配布物が見つかりませんでした</string>
+    <string name="update_failed_space">保存する空き容量が足りません</string>
+    <string name="update_failed_verify">ダウンロードしたファイルが壊れていました</string>
+    <string name="update_install_failed">インストーラーを起動できませんでした</string>
+    <string name="update_need_permission_title">インストールの許可が必要です</string>
+    <string name="update_need_permission_body">更新をインストールするには、この端末で「不明なアプリのインストール」を Uni-Stroke IME に許可する必要があります。\n\n設定画面を開いて許可したあと、もう一度お試しください。</string>
+    <string name="update_open_settings">設定を開く</string>
+
+    <!-- 音声入力（手書きゾーンの長押しで開始） -->
+    <string name="voice_title">音声入力</string>
+    <string name="voice_body">手書きゾーンを<b>長押し</b>すると音声入力に切り替わる。<b>話し終わりは自動で判定して確定する</b>ので、終わりを知らせる操作は要らない（録音中に画面へ触れても話は切れない）。途中でやめるときは ✕ を押す。長押しの判定はタップ（Punctuation Shift）より長いので、これまでの入力操作は変わらない。\n\n<b>既定では端末内の音声認識だけを使う</b>。音声も認識結果も端末から出ない。端末内認識は Android 13 以降の対応端末でのみ使える。\n\n録音するのは長押しで始めてから終わるまでのあいだだけで、終わったら認識器ごと破棄してマイクを手放す。マイクの許可は初めて長押ししたときに尋ねる。\n\n<b>パスワード欄では音声入力そのものを無効にする</b>（端末内認識であっても、パスワードを声に出すこと自体が危ないため）。</string>
+    <string name="voice_enable">音声入力を使う（手書きゾーンの長押しで開始）</string>
+
+    <string name="voice_commands_title">ボイスコマンド（ハンズフリー）</string>
+    <string name="voice_commands_body">発話が<b>まるごと</b>下の言い回しと一致したときは、文字にせず操作として実行する。文の一部として言ったときは普通に入力されるので、「確定」という語そのものを書きたいときは文の中で言えばよい。\n\n<b>連続音声入力</b>をオンにすると、1 回の長押しで「音声終了」と言うか ✕ を押すまで聞き続ける。手を使わずに「話す → 確定 → 次を話す」を続けられる。何も話されない状態が 2 回続けば自動で終わるので、黙っているあいだにマイクが開いたままになることはない。\n\n※ 音声で始めること（最初の長押し）だけは手が要る。合図の声だけで起動する仕組み（ホットワード）は Android がアプリに開放していない。</string>
+    <string name="voice_commands_enable">ボイスコマンドを使う</string>
+    <string name="voice_continuous_enable">連続音声入力（終わりと言うまで聞き続ける）</string>
+    <string name="voice_commands_list_title">言い回しの一覧</string>
+    <string name="voice_commands_list">改行／送信 … 「エンター」「リターン」「改行」「送信」\n空白 … 「スペース」「空白」\n変換 … 「変換」\n確定 … 「確定」「決定」\n1 文字消す … 「削除」「消して」「一文字消して」「バックスペース」\n直前の音声入力を取り消す … 「取り消し」「取消」「取り消して」\n全選択 … 「全選択」「全部選択」\nカーソル移動 … 「左」「右」「左へ」「右へ」\n音声入力を終える … 「音声終了」「終了」「終わり」</string>
+
+    <string name="voice_engine_title">音声認識エンジン</string>
+    <string name="voice_engine_body">「端末内のみ」は、Android 13 以降の端末内音声認識だけを使う。音声は端末から出ない。使えない端末では音声入力は動かない（黙って外部へ送る側へ切り替えたりはしない）。\n\n「自動」は、端末内認識が使えるときはそれを使い、使えないときだけ端末の音声認識サービスへ渡す。このサービスの実装しだいでは<b>音声が外部のサーバへ送られる</b>。どこへ送られるかはサービス側の仕様によるので、この IME からは保証できない。\n\nどちらを選んでも、パスワード欄では音声入力を使えない。メール欄・URL 欄・数値欄、およびシークレットタブなど学習が禁止された欄では、「自動」で外部のサービスへ渡す経路だけを止める（ネット変換と同じ基準）。</string>
+    <string name="voice_engine_ondevice">端末内のみ ― 音声を外へ出さない（既定）</string>
+    <string name="voice_engine_auto">自動 ― 端末内が使えなければ端末の音声認識サービス</string>
+    <string name="voice_state_ondevice">音声入力が使えます</string>
+    <string name="voice_state_service">音声入力が使えます（端末内認識に対応していないため、端末の音声認識サービスを使います）</string>
+    <string name="voice_state_blocked">いまの設定では音声入力は動きません（この端末は端末内認識に対応していません。「自動」を選ぶと端末の音声認識サービスを使えます）</string>
+    <string name="voice_state_none">この端末では音声入力を使えません</string>
+
+    <!-- 入力エリアに出す音声入力の状態（IME バナー） -->
+    <string name="voice_listening_ondevice">聞いています…（端末内）</string>
+    <string name="voice_listening_service">聞いています…（端末の音声認識サービス）</string>
+    <string name="voice_listening_ondevice_continuous">聞いています…（端末内・連続）</string>
+    <string name="voice_listening_service_continuous">聞いています…（端末の音声認識サービス・連続）</string>
+    <string name="voice_working">認識しています…</string>
+    <string name="voice_finished">音声入力を終了しました</string>
+    <string name="voice_need_permission">マイクの使用を許可してください</string>
+    <string name="voice_blocked_field">この欄では音声入力を使えません</string>
+    <string name="voice_blocked_field_service">この欄では端末外へ音声を出す認識を使えません</string>
+    <string name="voice_no_ondevice">この端末では端末内音声認識が使えません（設定 → 音声認識エンジン）</string>
+    <string name="voice_no_service">この端末では音声認識が使えません</string>
+    <string name="voice_error_no_match">聞き取れませんでした</string>
+    <string name="voice_error_audio">マイクを使えませんでした</string>
+    <string name="voice_error_permission">マイクの許可がありません</string>
+    <string name="voice_error_network">音声認識サービスに接続できませんでした</string>
+    <string name="voice_error_server">音声認識サービスがエラーを返しました</string>
+    <string name="voice_error_busy">音声認識が他で使われています</string>
+    <string name="voice_error_model">端末内の音声モデルを取得しています。しばらくしてからもう一度</string>
+    <string name="voice_error_unavailable">音声認識を開始できませんでした</string>
+    <string name="voice_error_client">音声認識を開始できませんでした</string>
+
+    <!-- マイクの許可（透明な Activity 経由で尋ねる） -->
+    <string name="voice_permission_title">マイクの許可</string>
+    <string name="voice_permission_granted">マイクを許可しました。もう一度長押しすると音声入力を始めます</string>
+    <string name="voice_permission_denied">マイクが許可されていないため音声入力は使えません</string>
+    <string name="voice_permission_blocked">マイクの使用が拒否されています。アプリ情報の「権限」からマイクを許可すると、音声入力を使えます。</string>
+    <string name="voice_permission_open_settings">アプリ情報を開く</string>
+    <string name="voice_permission_later">あとで</string>
+
+    <!-- 速書き調査用のデバッグログ -->
+    <string name="debug_title">開発者向け</string>
+    <string name="debug_body">手書きの認識がうまくいかないときの調査用です。オンにすると、1 ストロークごとに「点数・所要時間・大きさ・認識スコア・棄却理由」を Android のログへ出します。\n\n  adb logcat -s UniStroke\n\n通常の利用では不要です（既定オフ）。入力内容そのものは出力しません。</string>
+    <string name="debug_strokes">ストロークのデバッグログを出す</string>
+
+    <!-- ライセンス表示（BSD-3-Clause の再配布条件を満たすために必要） -->
+    <string name="license_title">ライセンス</string>
+    <string name="btn_license">同梱データのライセンスを表示</string>
+    <string name="license_activity_label">ライセンス</string>
+    <string name="license_english_title">英単語の辞書データ</string>
+    <string name="license_english_body">英語版の単語予測に使っている辞書は、Android オープンソースプロジェクト（AOSP）のキーボード（LatinIME）が公開している英単語リストから生成しています。不適切な可能性があると印の付いた語は除き、まれな語は落としてサイズを抑えています。\n\nLatinIME は Apache License 2.0 で配布されています。以下がその著作権表示とライセンスの全文です。</string>
+    <string name="license_dict_title">端末内変換の辞書データ</string>
+    <string name="license_dict_body">端末内のかな漢字変換に使っている辞書は、Google の Mozc プロジェクトが公開している OSS 辞書（dictionary_oss の語彙・品詞定義・接続コスト）から生成しています。\n\nMozc は BSD-3-Clause ライセンスで配布されており、以下がその全文です。</string>
+
+    <string name="settings_activity_label">Uni-Stroke IME の設定</string>
+    <string name="btn_settings">設定 / 学習データの管理</string>
+    <string name="settings_hand_title">利き手</string>
+    <string name="settings_hand_body">左利きを選ぶと、縦ボタン列が右端に移り、英字ゾーンと数字ゾーンの左右も入れ替わる（数字が左 1/3、英字が右 2/3）。画面を折りたたまない大画面では、入力パネルを利き手側へ寄せて配置する。\n\n大画面では、パネル上辺のつまみをドラッグして置き場所を変えられる。左右はどちらかの端へ吸い付き、上下は端の近くで離せば隅にマグネット、真ん中で離せばその高さに留まる。背後の URL 欄や送信ボタンがパネルに隠れたときは、いったん上へ逃がせばよい。位置は次に開いたときも保たれる。\n\n入力エリアの [?] を長押しすると、いつでもこの設定画面を開ける。</string>
+    <string name="settings_hand_right">右利き（ボタン列は左・英字ゾーンが左）</string>
+    <string name="settings_hand_left">左利き（ボタン列は右・英字ゾーンが右）</string>
+
+    <string name="training_activity_label">書き方トレーニング</string>
+    <string name="btn_training">書き方トレーニングを始める</string>
+    <string name="training_sample_label">見本（● が書き始め、矢印が書き終わり）</string>
+    <string name="training_pad_label">ここに書いてみる</string>
+    <string name="training_pad_hint">指でなぞる</string>
+    <string name="training_write">%s</string>
+    <string name="training_instruction">見本と同じように、下の枠に書いてください</string>
+    <string name="training_progress">%1$d / %2$d 文字目 ・ 成功 %3$d / %4$d</string>
+    <string name="training_ok">✓ 認識されました（%1$d / %2$d）</string>
+    <string name="training_ok_learned">✓ 認識されました（%1$d / %2$d）\nあなたの書き方を登録しました</string>
+    <string name="training_learned">あなたの書き方を登録しました\nもう一度書いてみてください</string>
+    <string name="training_retry">△ どの文字か判別できませんでした\n見本の書き順どおり、大きめに書いてください</string>
+    <string name="training_wrong">△「%s」と認識されました\n見本の書き順を確認して、もう一度</string>
+    <string name="training_skip_char">この文字をスキップ</string>
+    <string name="training_skip_all">トレーニングを終了</string>
+    <string name="training_close">閉じる</string>
+    <string name="training_done_title">トレーニング完了</string>
+    <string name="training_done_none">個人テンプレートの登録はありませんでした（標準の字形でうまく認識できています）</string>
+    <string name="training_done_learned">次の文字にあなたの書き方を登録しました:\n%s</string>
+    <string name="training_prompt_title">書き方トレーニング</string>
+    <string name="training_prompt_body">この入力方式には独特の字形があります（A・K・X・Y・B など）。9 文字だけ練習しておくと、あなたの書き方に合わせて認識精度が上がります。今すぐ始めますか？</string>
+    <string name="training_prompt_yes">始める</string>
+    <string name="training_prompt_later">後で</string>
+
+    <string name="learning_title">書き癖の学習（自動）</string>
+    <string name="learning_body">誤認識したときに「バックスペースで消して書き直す」と、その訂正を自動で覚える。\n\n元のストロークを、書き直して確定した文字の候補として記録し、**同じ書き方が 2 回**現れたら個人テンプレートに昇格させる（1 回の書き損じは覚えない）。昇格前に他の文字の標準字形と紛らわしくないかを検査し、紛らわしければ見送る。個人テンプレートは 1 文字あたり最大 2 個、認識時の下駄はごく僅か（+0.02）なので標準字形を大きく上書きすることはない。\n\n※ 追跡できるのは「直前の 1 ストロークをちょうど取り消した」場合のみ。英字モードのバックスペース、およびかなモードでローマ字 1 文字が消えた場合が対象で、かな 1 文字ぶんまとめて消えた場合はどのストロークの訂正か特定できないため学習しない。\n\n学習済みの文字は下に並ぶ（ジェスチャー見本でも右上に印が付く）。★ 付きは「書き方トレーニング」で登録したもので、自動学習より優先して保持される。\n\nA・K・X・Y など独特の字形（K/X はループのある一筆書き、B/D/P/R は左下から縦線を上げてから膨らみ）は、上の「書き方トレーニング」で先に練習しておくと確実。\n\nトレーニングで登録した字形は、IME に切り替えた時点ですぐ認識に反映される。</string>
+    <string name="learning_empty">まだ学習していません</string>
+    <string name="btn_reset_learning">学習データをリセット</string>
+
+    <!-- 文字単位リセットの選択画面 -->
+    <string name="reset_activity_label">学習データのリセット</string>
+    <string name="reset_select_body">リセットする文字を選んでください。選んだ文字の学習データ（自動学習した書き方と「書き方トレーニング」で登録した字形 ★）が削除され、その文字は標準の字形だけで認識するようになります。</string>
+    <string name="reset_select_all">全て選択</string>
+    <string name="btn_reset_selected">選択した文字をリセット</string>
+    <string name="btn_reset_all">全ての文字をリセット</string>
+    <string name="reset_selected_title">選択した文字をリセットしますか？</string>
+    <string name="reset_selected_body">%1$s\n\n上記 %2$d 文字の学習データを削除します。元に戻せません。</string>
+    <string name="reset_selected_done">選択した文字の学習データを削除しました</string>
+
+    <!-- 学習リセットの確認。取り返しがつかないので、影響をはっきり書く。 -->
+    <string name="reset_learning_title">学習データをリセットしますか？</string>
+    <string name="reset_learning_body">学習した書き方が全て削除されます。認識精度が下がる場合があります。\n\n削除されるのは、自動学習した個人テンプレートと「書き方トレーニング」で登録した字形（★）です。標準の字形だけで認識するようになるため、A・K・X・Y・B など癖の出やすい文字が認識されにくくなることがあります。\n\nリセット後は「書き方トレーニング」をやり直すと、短時間で精度を戻せます。</string>
+    <string name="reset_learning_ok">リセットする</string>
+    <string name="reset_learning_cancel">やめる</string>
+    <string name="reset_done_title">学習データをリセットしました</string>
+    <string name="reset_done_body">いまは標準の字形だけで認識しています。認識精度が下がったと感じたら、書き方トレーニングで字形を登録し直してください。</string>
+    <string name="reset_done_training">トレーニングを始める</string>
+    <string name="reset_done_later">後で</string>
+
+    <!-- 端末に入っているビルドの識別（古い APK が残っていないかの確認用） -->
+    <string name="build_info">バージョン: %1$s (build %2$s)</string>
+    <string name="build_info_short">v%1$s / %2$s</string>
+
+    <string name="strokes_title">ストローク一覧（すべて一筆書き・書き始めの向きが重要）</string>
+    <string name="strokes_body">共通（両ゾーン）\n  スペース … 左から右への横線\n  バックスペース … 右から左への横線\n  リターン … 右上から左下への斜線。<b>合成中・変換中は「確定」だけ</b>で改行しない（一般的な IME と同じ）。もう一度書くと改行が入る。検索欄など「検索」「送信」を求める入力欄では、改行のかわりにそのアクションを実行する\n  上スワイプ（下から上への縦線） … abc = シフト / かな = 一時アルファベット入力（A → a → 解除）\n  右上スワイプ（左下→右上の「／」） … abc = Extended Shift / かな = ひらがな ⇄ カタカナ\n  Extended Shift … 左上から右下への斜線「＼」（abc では「／」でも入れる）\n  タップ（点） … Punctuation Shift\n  長押し（その場で押したまま） … 音声入力（設定でオフにできる）\n\n英字ゾーン（左側）\n  A 山型（左下→頂点→右下）。頂点は丸くても左右に寄っていてもよい\n  B 左下から縦線を上げ、時計回りに上下2つの膨らみ\n  C 右上から反時計回りの開いた弧\n  D 左下から縦線を上げ、時計回りに大きな弧を1つ\n  E ギリシャ文字 ε。右上から左向きの上弧→中央で折り返し→左向きの下弧→右下へ抜ける\n  F 上を右から左へ引いてから下ろす\n  G 数字の 6 と同じ字形（右上から左下へ下り、下部で反時計回りの輪を閉じる）\n  H 縦線を下ろして右側に山を作る\n  I 上から下への縦線\n  J 下ろして左へ跳ね上げる\n  K 「∝」右上から左下がりに入り、折れ角を作らずそのまま時計回りにループして右下へ抜ける一筆の連続曲線（ループ形が正式）\n  L 下ろして右へ\n  M 左下から M 字のジグザグ\n  N 左下から N 字のジグザグ（丸い N も可）\n  O 上から反時計回りの丸\n  P 左下から縦線を上げ、上の膨らみで終わる\n  Q 反時計回りに丸を閉じ、そのまま上部を右へ払う\n  R 左下から縦線を上げ、上の膨らみ→右下への斜め脚\n  S S 字\n  T 上を左から右へ引いてから下ろす\n  U 左上から下りて底を回り右上へ\n  V 「v-」。v を書いたあと、終端を右へ水平に払う（この払いが U との識別点）\n  W W 字\n  X K の左右反転。左上から右下がりに入り、折れ角なしで反時計回りにループして左下へ抜ける（ループ形が正式）\n  Y U の谷から右上へ上げ、そのまま左下へ長く下ろす（輪を作って右上へ抜ける元の字形も可）\n  Z Z 字\n\n数字ゾーン（右側）\n  0〜9 は本方式の数字字形。0 は丸、1 は縦線、4 は左下がりの斜線から右へ、7 は上を右へ引いてから左下へ。</string>
+
+    <string name="punct_title">Punctuation mode（タップで入る／1ストロークで自動解除）</string>
+    <string name="punct_body">タップしてから次の1ストロークが記号になる。右から左への横線でキャンセル。\n\n  . もう一度タップ        , 右上→左下の短い斜線\n  \' 下ろす（縦線）        ! 上げる（縦線）\n  : 細く下ろして戻す      | 細く上げて戻す\n  - 左→右の横線          _ 右へ引いて左へ戻す\n  \" ∪ を2回              ? 上でフックを描いて下ろす\n  ( 左に膨らむ弧          ) 右に膨らむ弧\n  { Ɛ（右下で終わる）      } 3（左下で終わる）\n  [ Ɛ を下から上へ        ] 3 を下から上へ\n  &lt; 右下→左の頂点→右上   > 左下→右の頂点→左上\n  ; 「／」方向に下ろして戻す\n  @ 丸を閉じて内側へ引っ掛ける\n  # 下ろす→∪→上げる→∩→下ろす      ~ その左右反転\n  $ S を書いて左下へ      % 2つの輪を作って右上へ\n  ^ 山型                  &amp; 8の字を描いて右へ\n  * 右で輪を作って左下へ  + 「∝」（K と同じ）\n  = Z 字                  \\ 左上→右下      / 左下→右上\n  tab 上げてから右へ\n\n※ かな／カナモードでは「.」「,」「-」「?」「!」「~」が全角の「。」「、」「ー」「？」「！」「〜」になり、確定せず未確定のまま（下線付きで）合成に足される。そのまま変換できる（例: きょうは？ → 今日は？）。他の記号と abc モード・Extended モードでは半角のまま確定する。</string>
+
+    <string name="ext_title">Extended Character mode（「＼」で入る／1ストロークで自動解除）</string>
+    <string name="ext_body">左上→右下の斜線「＼」を書いてから、次の1ストロークが特殊文字になる。右から左への横線でキャンセル。\n\n※ abc モードでは左下→右上の「／」でも入れる。かなモードでは「／」を ひらがな ⇄ カタカナ の切替に使うので、Extended へは「＼」だけで入る。\n\n  • タップ                ° 丸\n  + 「∝」                 − 左→右の横線\n  × 右上→左下の斜線       ÷ 2つの輪を作って右上へ\n  ¡ 上げる（縦線）        = Z 字\n  £ 下ろして右へ（L）     ¿ 右下から左へ引いて上げる\n  ‘ 上げてから右へ        ’ 上げてから左へ\n  § S 字                  ß B 字\n  © C 字（上から下へ）     ¢ C 字（下から上へ）\n  € Ɛ（E と同じ）          ™ M 字      ® R 字\n  ¥ 左上から右下へ入り、下で輪を作って右上へ\n\n※ 認識器は「形そのものの性質」で明らかに違う候補を先に落としている。まっすぐなストロークでないものは直線系（I・スペース・バックスペース・リターン・シフト・＼／）にはならず、左右に 3 回折り返すストローク（E など）は F・L・T・C にはならない。おかげで E を縦長・幅狭に書いても I や F に化けにくい。\n\n※ K と X はループのある一筆書きが正式な字形。K は「右上から左下がりに入り、折れ角なしでそのまま時計回りにループして右下へ抜ける」連続曲線（X はその鏡像で反時計回り）。ループを省いた「＜」「＞」だけの形は判定が不安定になるので、見本どおりループを作って書くこと。見本は直線→270度の円弧→直線を接線で繋いだ数式で描いているので折れ角がなく、トレーニング画面では書かれていく順にアニメーションで再生する。\n※ 元となった方式にある Accent mode（アクセント付き文字）は実装していない。\n※ 元となった方式では X は「＼」＋「／」の2ストロークだが、本 IME では「＼」を Extended Shift に使うため、X は1ストローク版（K の左右反転）のみを採用している。</string>
+
+    <!-- 言語（日本語版 / 英語版）の切り替え。見出しと選択肢はどちらの言語でも読めるように書く。 -->
+    <string name="language_title">言語 / Language</string>
+    <string name="language_body">日本語版と英語版を切り替える。表示だけでなく、入力の動きも変わる。\n\n  日本語 … ローマ字かな入力とかな漢字変換。左上のボタンは「abc ⇄ かな」\n  English … 英字入力のみ。候補バーには英単語の予測が出て、左上のボタンは単語削除になる\n\n「端末の言語に合わせる」では、端末が日本語なら日本語版、それ以外は英語版になる。</string>
+    <string name="language_auto">端末の言語に合わせる / Follow system</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_en">English</string>
+
+    <!-- 英語版だけの設定（日本語版では節ごと隠れる） -->
+    <string name="english_title">英語入力</string>
+    <string name="english_body">英語版では、書いている単語が下線付きの未確定表示になり、候補バーに続きの予測が出る。候補をタップすると、その単語と空白が入る。スペースを書けば、打った綴りのまま確定する（勝手に別の語へ直すことはしない）。\n\nパスワード・メールアドレス・URL・数値の欄では予測を出さず、書いた文字をそのまま入れる。</string>
+    <string name="english_predict">単語の予測を使う</string>
+    <string name="english_auto_cap">文頭を自動で大文字にする</string>
+
+    <!-- 文字を並べて見せるときの区切り -->
+    <string name="list_separator">・</string>
+
+    <!-- プレミアム（試用 → 購入で解錠） -->
+    <string name="premium_title">プレミアム</string>
+    <string name="premium_body">次の機能はプレミアムです。試用期間中はすべて使えます。\n\n・音声入力とボイスコマンド\n・拡張辞書（約 22 万語）\n・書き癖の学習\n\n<b>基本の入力（一筆書き・ローマ字かな・コア辞書での変換）は、試用期間が終わってもそのまま使えます。</b>\n\n購入は一度きりで、同じ Google アカウントなら機種変更や再インストールのあとも「購入を復元」で戻せます。</string>
+    <string name="premium_state_owned">プレミアム: 有効（購入済み）</string>
+    <string name="premium_state_trial">試用中: あと %1$d 日（全機能が使えます）</string>
+    <string name="premium_state_expired">試用期間は終了しました（基本の入力は引き続き使えます）</string>
+    <string name="premium_buy">プレミアムを購入</string>
+    <string name="premium_buy_price">プレミアムを購入（%1$s）</string>
+    <string name="premium_restore">購入を復元</string>
+    <string name="premium_toast_purchased">プレミアムが有効になりました。ありがとうございます</string>
+    <string name="premium_toast_pending">お支払いの完了を待っています。完了すると有効になります</string>
+    <string name="premium_toast_unavailable">Google Play に接続できませんでした。時間をおいてもう一度お試しください</string>
+    <string name="premium_toast_failed">購入を完了できませんでした</string>
+    <string name="premium_toast_restored">購入を復元しました</string>
+    <string name="premium_toast_not_found">この Google アカウントでの購入が見つかりませんでした</string>
+    <string name="premium_main_trial">試用中: あと %1$d 日（全機能が使えます）　▶ 設定</string>
+    <string name="premium_main_expired">試用期間は終了しました。音声入力・拡張辞書・書き癖の学習はプレミアムで使えます　▶ 設定</string>
+</resources>

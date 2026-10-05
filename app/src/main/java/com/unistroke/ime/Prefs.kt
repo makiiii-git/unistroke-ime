@@ -69,6 +69,15 @@ object Prefs {
     /** これまでに見た最も遅い時刻（ms）。時計を巻き戻して試用を延ばせないようにする。 */
     const val KEY_TRIAL_LAST_SEEN = "trial_last_seen"
 
+    /** 表示と入力の言語（[LANG_AUTO] / [LANG_JA] / [LANG_EN]）。 */
+    const val KEY_LANGUAGE = "language"
+
+    /** 英語版: 文頭を自動で大文字にするか（既定オン）。 */
+    const val KEY_EN_AUTO_CAP = "en_auto_cap"
+
+    /** 英語版: 単語の予測（候補バー）を使うか（既定オン）。 */
+    const val KEY_EN_PREDICT = "en_predict"
+
     const val HAND_RIGHT = "right"
     const val HAND_LEFT = "left"
 
@@ -87,8 +96,15 @@ object Prefs {
     /** 端末内が使えないときは端末の音声認識サービスへ渡す（外部送信の可能性あり）。 */
     const val VOICE_AUTO = "auto"
 
+    /** 端末の言語に合わせる（日本語なら日本語版、それ以外は英語版）。 */
+    const val LANG_AUTO = "auto"
+    const val LANG_JA = "ja"
+    const val LANG_EN = "en"
+
     fun of(context: Context): SharedPreferences =
-        context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        // 画面の組み立て前（attachBaseContext）から言語を読みに来ることがある。
+        // その時点で applicationContext が取れない場合は、渡された Context で開く。
+        (context.applicationContext ?: context).getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
     fun isLeftHanded(context: Context): Boolean =
         of(context).getString(KEY_HANDEDNESS, HAND_RIGHT) == HAND_LEFT
@@ -256,5 +272,43 @@ object Prefs {
 
     fun setDebugStrokes(context: Context, enabled: Boolean) {
         of(context).edit().putBoolean(KEY_DEBUG_STROKES, enabled).apply()
+    }
+
+    /**
+     * 言語の設定。既定は [LANG_AUTO]（端末の言語に合わせる）。
+     *
+     * 画面の表示だけでなく、IME の動きもこれで決まる（[AppLanguage]）。
+     * 英語版ではかな入力を持たず、候補バーは英単語の予測になる。
+     */
+    fun language(context: Context): String =
+        of(context).getString(KEY_LANGUAGE, LANG_AUTO) ?: LANG_AUTO
+
+    fun setLanguage(context: Context, language: String) {
+        of(context).edit().putString(KEY_LANGUAGE, language).apply()
+    }
+
+    /**
+     * 英語版で文頭を自動的に大文字にするか。既定はオン。
+     *
+     * 大文字にするかどうかは入力欄の指定（文頭を大文字にしてほしい欄か）に従うので、
+     * オンでもユーザー名やメールアドレスの欄で勝手に大文字になることはない。
+     */
+    fun isEnglishAutoCap(context: Context): Boolean =
+        of(context).getBoolean(KEY_EN_AUTO_CAP, true)
+
+    fun setEnglishAutoCap(context: Context, enabled: Boolean) {
+        of(context).edit().putBoolean(KEY_EN_AUTO_CAP, enabled).apply()
+    }
+
+    /**
+     * 英語版で単語の予測を使うか。既定はオン。
+     *
+     * オフにすると書いた文字はそのまま 1 文字ずつ確定され、候補バーは出ない。
+     */
+    fun isEnglishPrediction(context: Context): Boolean =
+        of(context).getBoolean(KEY_EN_PREDICT, true)
+
+    fun setEnglishPrediction(context: Context, enabled: Boolean) {
+        of(context).edit().putBoolean(KEY_EN_PREDICT, enabled).apply()
     }
 }

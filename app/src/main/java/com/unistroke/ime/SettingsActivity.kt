@@ -1,6 +1,5 @@
 package com.unistroke.ime
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -14,10 +13,13 @@ import android.widget.Toast
  * IME の設定・管理をまとめた画面。
  * IME サービスの [?] 長押しからも、MainActivity からも同じものを開く。
  */
-class SettingsActivity : Activity() {
+class SettingsActivity : LocalizedActivity() {
 
     private lateinit var store: PersonalTemplateStore
     private lateinit var prediction: PredictionEngine
+
+    /** 英語版として表示しているか（この画面を作った時点の言語）。 */
+    private var english = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,6 +27,41 @@ class SettingsActivity : Activity() {
 
         store = PersonalTemplateStore.get(this)
         prediction = PredictionEngine.get(this)
+        english = AppLanguage.isEnglish(this)
+
+        // 言語（日本語版 / 英語版）。表示も IME の動きも切り替わるので、画面ごと作り直す。
+        val language = Prefs.language(this)
+        for ((id, value) in listOf(
+            R.id.language_auto to Prefs.LANG_AUTO,
+            R.id.language_ja to Prefs.LANG_JA,
+            R.id.language_en to Prefs.LANG_EN,
+        )) {
+            findViewById<RadioButton>(id).apply {
+                isChecked = language == value
+                setOnClickListener {
+                    if (Prefs.language(this@SettingsActivity) != value) {
+                        Prefs.setLanguage(this@SettingsActivity, value)
+                        recreate()
+                    }
+                }
+            }
+        }
+
+        // 英語版だけの設定（単語の予測・文頭の自動大文字）
+        findViewById<View>(R.id.section_english).visibility =
+            if (english) View.VISIBLE else View.GONE
+        findViewById<CheckBox>(R.id.check_en_predict).apply {
+            isChecked = Prefs.isEnglishPrediction(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on ->
+                Prefs.setEnglishPrediction(this@SettingsActivity, on)
+            }
+        }
+        findViewById<CheckBox>(R.id.check_en_auto_cap).apply {
+            isChecked = Prefs.isEnglishAutoCap(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on ->
+                Prefs.setEnglishAutoCap(this@SettingsActivity, on)
+            }
+        }
 
         val right = findViewById<RadioButton>(R.id.hand_right)
         val left = findViewById<RadioButton>(R.id.hand_left)
@@ -35,9 +72,12 @@ class SettingsActivity : Activity() {
         right.setOnClickListener { Prefs.setLeftHanded(this, false) }
         left.setOnClickListener { Prefs.setLeftHanded(this, true) }
 
-        // ネット変換を提供しない配布（Google Play 版）では、変換エンジンの選択ごと隠す
+        // ネット変換を提供しない配布（Google Play 版）では、変換エンジンの選択ごと隠す。
+        // かな漢字変換そのものを持たない英語版でも隠す（拡張辞書の節も同じ）。
         findViewById<View>(R.id.section_net_convert).visibility =
-            if (NetConvertGate.SUPPORTED) View.VISIBLE else View.GONE
+            if (NetConvertGate.SUPPORTED && !english) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.section_dict).visibility =
+            if (english) View.GONE else View.VISIBLE
 
         // ネット変換のオプトイン。既定はオフ（通信しない）。
         val netOff = findViewById<RadioButton>(R.id.net_off)
@@ -145,7 +185,9 @@ class SettingsActivity : Activity() {
             startActivity(Intent(this, ResetLearningActivity::class.java))
         }
         findViewById<Button>(R.id.btn_reset_history).setOnClickListener {
+            // 言語によらず、覚えている入力履歴はすべて消す（日本語の読みも英単語も）
             prediction.reset()
+            EnglishPredictor.get(this).reset()
             refresh()
         }
     }
@@ -297,9 +339,10 @@ class SettingsActivity : Activity() {
         // どのビルドが端末に入っているか（古い APK が残っていないかの確認用）
         findViewById<TextView>(R.id.text_build).text = BuildInfo.label(this)
         prediction.reloadIfChanged()
+        val englishHistory = EnglishPredictor.get(this).also { it.reloadIfChanged() }
 
         findViewById<TextView>(R.id.text_history).text =
-            getString(R.string.history_count, prediction.size())
+            getString(R.string.history_count, prediction.size() + englishHistory.size())
 
         val summary = store.summary()
         findViewById<TextView>(R.id.text_learning).text = if (summary.isEmpty()) {

@@ -3,7 +3,6 @@ package com.unistroke.ime
 // 定数を直接取り込むのは、android.Manifest が配布マニフェスト
 // （[DictionaryUpdater.Manifest]）と名前でぶつかるため。
 import android.Manifest.permission.RECORD_AUDIO
-import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -21,7 +20,7 @@ import android.widget.Toast
  * 「今後表示しない」で断られている場合は権限ダイアログが出ないまま拒否が返るので、
  * そのときだけアプリ情報画面への導線を出す（黙って閉じると何も起きないように見える）。
  */
-class VoicePermissionActivity : Activity() {
+class VoicePermissionActivity : LocalizedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -1,259 +1,285 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+        英語版（既定）の文言。日本語版は values-ja/strings.xml にある。
+        名前は 2 つのファイルで必ず揃えること（test_static.py が突き合わせる）。
+
+        言語の設定（AppLanguage）が英語のときは IME も英語版として動くので、
+        操作の説明は英語版の動き（かな入力なし・単語の予測・左上は単語削除）で書いてある。
+        日本語版にしか出ない画面（ネット変換・拡張辞書など）の文言も、名前を揃えるために置く。
+    -->
     <string name="app_name">Uni-Stroke IME</string>
     <string name="ime_name">Uni-Stroke IME</string>
     <string name="subtype_label">Uni-Stroke</string>
 
     <string name="title">Uni-Stroke IME</string>
-    <string name="subtitle">1990 年代の PDA で使われた一筆書き入力方式に着想を得たストローク入力メソッド（日本語対応）</string>
+    <string name="subtitle">A handwriting keyboard where every letter is a single stroke, inspired by the input method of 1990s PDAs (English and Japanese)</string>
 
-    <string name="btn_enable">IME を有効化</string>
-    <string name="btn_switch">IME を切替</string>
+    <string name="btn_enable">Enable keyboard</string>
+    <string name="btn_switch">Switch keyboard</string>
 
-    <string name="test_hint">ここで入力を試す</string>
+    <string name="test_hint">Try writing here</string>
 
-    <string name="usage_title">使い方</string>
-    <string name="usage_body">1. 「IME を有効化」で Uni-Stroke IME をオンにする\n2. 「IME を切替」で入力メソッドとして選択する\n3. 下のテキスト欄をタップすると入力エリアが開く\n\n入力エリアは左 2/3 が英字ゾーン、右 1/3 が数字ゾーン。ゾーンをまたいだ判定は行わないので、数字は必ず右側に書く。</string>
+    <string name="usage_title">Getting started</string>
+    <string name="usage_body">1. Tap “Enable keyboard” and turn on Uni-Stroke IME\n2. Tap “Switch keyboard” and select it as your input method\n3. Tap the text box below to open the writing area\n\nThe left two-thirds of the writing area is the letter zone and the right third is the number zone. A stroke is only matched against the zone it was written in, so always write digits on the right.</string>
 
-    <string name="toolbar_title">画面まわり</string>
-    <string name="toolbar_body">上部の固定バーは持たない。入力エリアの左端に幅 64dp のボタン列が縦に 5 つ並ぶ（1 ボタン約 47dp）。\n\n  abc / かな … タップで英字入力とかな入力を切り替えるトグル。現在のモードがそのままラベルになる（カタカナ中は「カナ」）。開いたときは「かな」で始まり、以降は前回使ったモードを復元する（パスワード・メール・URL・数値などの欄は自動的に abc で開く）\n  ◀ ▶ … カーソルを左右へ移動。長押しで連続移動する。合成中に押すと合成内容を確定してから動く\n  全選択 … タップで入力欄の内容をすべて選択し、<b>もう一度タップすると削除</b>する（1回目=全選択 / 2回目=全削除）。長押しすると<b>直前に確定した文字列だけ</b>を選択し、続けてタップするとその範囲だけ消える。選択したまま書けばそのまま書き直せる。\n    確定のあとにカーソルを動かしたり別の文字を入れたりしていた場合は、長押しでも全選択になる。消えるのはこのボタンで選んだ範囲だけで、アプリ側で自分で選択した範囲は消さない\n  ? … タップでジェスチャー見本の表示／非表示、長押しで設定画面（利き手・学習データの管理）\n\n手書きゾーンを<b>長押し</b>すると音声入力に切り替わる（ゾーンに「長押しで音声入力」と出ているときだけ有効）。話し終わりは自動で判定して確定するので、終わりを知らせる操作は要らない（✕ でやめる）。長押しの判定はタップ（Punctuation Shift）より長いので、これまでの入力操作は変わらない。\n\n「エンター」「確定」「取り消し」などと<b>それだけ</b>言えば、文字ではなく操作として実行する（ボイスコマンド）。連続音声入力をオンにしておくと、1 回の長押しで「音声終了」と言うまで聞き続けるので、手を使わずに書き続けられる。言い回しの一覧は設定画面にある。既定では端末内の音声認識だけを使う。\n\nシフト（⇧ / ⇧⇧）・かなモードの一時アルファベット入力（A = 次の1文字を大文字 / a = 小文字）・記号シフト（• = Punctuation / ＼ = Extended）・変換中の文節番号は、描画エリア右上の小さなインジケータに出る。認識した文字そのものは入力欄の未確定表示（下線付き）で確認できるので、描画エリアには重ねて表示しない。\n\n折りたたみ端末を開いた大画面（smallestWidth 600dp 以上）では、フローティング IME として動く。入力パネルを 1 画面時と同じ幅（420dp）のまま利き手側の下部へ寄せ、パネル以外は完全に透明になる。\n\n背後のアプリは縮まず全画面のまま表示され、透明な部分をタップ・スクロールするとそのまま背後のアプリに届く（IME は素通し）。候補バーもパネル幅に合わせるので、空いた側は常に背後のアプリが見える。\n\n変換候補バーは入力窓の外・上側に独立して積まれる。候補が出ると IME 全体が上に伸びるだけで、描画ゾーンとボタン列の高さは常に一定（縮まない）。候補が無いときはバーが畳まれて従来どおりの高さになる。</string>
+    <string name="toolbar_title">Layout and buttons</string>
+    <string name="toolbar_body">There is no fixed bar across the top. A column of five buttons (64dp wide, about 47dp each) runs down the left edge of the writing area.\n\n  ⌫ word … Deletes the word before the cursor, or the word you are still writing. Hold it to keep deleting one word at a time\n  ◀ ▶ … Move the cursor left and right. Hold to repeat. A word in progress is committed first\n  All … Tap to select everything in the field and <b>tap again to delete it</b>. Hold it to select <b>only the word you just picked from the suggestion bar</b>; tap again to delete just that word, or simply write over it.\n    If you have moved the cursor or written anything since, holding selects everything instead. This button only ever deletes a selection it made itself, never one you made in the app\n  ? … Tap to show or hide the stroke chart. Hold to open Settings\n\n<b>Hold</b> a finger still in the writing zone to start voice input (only while “Hold for voice input” is shown there). It commits by itself when you stop talking, so there is nothing to press at the end (✕ cancels). The hold is longer than a tap, so tapping for punctuation works as before.\n\nSay just “enter”, “delete” or “undo” and it is carried out as a command instead of being typed. With continuous voice input on, one hold keeps listening until you say “stop listening”. The full list of phrases is in Settings. By default only on-device speech recognition is used.\n\nShift (⇧ / ⇧⇧) and symbol shift (• = Punctuation / ＼ = Extended) are shown in a small indicator at the top right of the writing area. The letters themselves appear underlined in the text field as you write, so they are not echoed on the pad.\n\nOn an unfolded foldable or a tablet (smallest width 600dp or more) the keyboard floats: the panel keeps its phone width (420dp), sits at the bottom on your writing-hand side, and everything outside it is fully transparent.\n\nThe app behind stays full-screen, and taps and scrolls on the transparent area go straight through to it. The suggestion bar matches the panel width, so the free side always shows the app.\n\nThe suggestion bar is stacked above the writing area. When suggestions appear the keyboard simply grows upward; the writing zone and the buttons never shrink. With no suggestions the bar folds away.</string>
 
-    <string name="samples_title">ジェスチャー見本</string>
-    <string name="samples_body">左下の [?] を押すと、書き方の見本が入力エリアに重ねて表示される。もう一度 [?] を押すか、上部ツールバーをタップすると閉じる。表示中は手書き入力を受け付けない（誤入力防止）。\n\n見本は認識に使っているテンプレートから描いているので、実際の判定と一致する（K/X/+ だけはループが視認しやすいよう、同じ数式のままループをひとまわり大きく取った表示専用の字形を使う。ループの回り方は認識テンプレートと同一）。● が書き始めの位置、矢印が書き終わりの向き。英字・共通コマンド・数字・Punctuation・Extended の順に並び、上下にスクロールできる。</string>
+    <string name="samples_title">Stroke chart</string>
+    <string name="samples_body">Tap [?] at the bottom of the button column to lay the stroke chart over the writing area. Tap [?] again to close it. Writing is ignored while the chart is open, to avoid accidental input.\n\nThe chart is drawn from the very templates used for recognition, so it always matches what the recogniser expects (K, X and + are drawn with a slightly larger loop for legibility; the direction of the loop is identical). ● marks where a stroke starts and the arrow shows where it ends. The sections are letters, common commands, digits, Punctuation and Extended; drag to scroll.</string>
 
-    <string name="modes_title">入力モード</string>
-    <string name="modes_body">abc / Abc / ABC（英字）\n  シフトストローク（下→上の縦線）で 1回=次の1文字を大文字 / 2回=CapsLock / 3回=解除\n\nかな（ひらがな）\n  英字ストロークをローマ字として溜め、標準ローマ字テーブルで逐次かなに変換する。\n  未確定部分は下線付きで表示される。\n  ka→か、shi/si→し、chi/ti→ち、tsu/tu→つ、kya→きゃ、kka→っか、句読点の「-」→「ー」。\n\n  「ん」の入力\n    ・「ん」を確実に出すには nn と打つ（nn→ん）。\n    ・n を1回だけ打った時点では「ん」に見せず、未確定の「n」として表示する（こn）。\n      合成中に「な行の途中なのか撥音なのか」が一目で分かるようにするため。\n    ・n+子音の先読みは従来どおり効く。次の子音を書いた時点で「ん」に変わる\n      （kondo → こn → こんd → こんど）。na/ni/nu/ne/no/nya… も従来どおり。\n    ・確定・変換のときに末尾へ単独の n が残っていたら、「ん」ではなく英字の n として確定する\n      （kan＋スペース→「かn」。「かん」が欲しいときは kann）。\n  右上スワイプ（左下→右上の「／」）で ひらがな ⇄ カタカナ を切り替え。\n  上スワイプ（下→上の縦線）で一時アルファベット入力。1回で次の1文字を大文字（チップ「A」）、\n  もう1回重ねると小文字（チップ「a」）、3回目で解除。1文字入れると自動でかな入力へ戻る。\n  （合成中に使うと、そこまでのかなを確定してから英字を入れる）\n  ストロークを誤認識して「kt」のような不正な並びになっても詰まらない。\n  かなにできない子音は英字のまま確定して先へ進む（例: k→t→a は「kた」）。\n\n  自動アルファベット化\n    日本語のローマ字としてどうしても解釈できない綴り（"str" "ght" のような子音の並び）を打つと、\n    <b>その単語だけ</b>自動で英字入力に切り替わる。右上のインジケータに「abc自動」と出て、\n    未確定表示は打ったアルファベットそのままになる（例: strike → 「strike」）。\n    スペース・リターン・変換確定などの単語の区切りで解除され、次の単語はまたかな入力に戻る。\n\n    判定は「1 文字ぶんの誤認識では発動しない」よう控えめにしてある。\n    ローマ字にならない文字が<b>2 回以上</b>現れたときだけ発動するので、\n    「kta」のような 1 回の書き損じでは従来どおりかな入力が続く。\n    撥音（kansha）や促音（issho）も誤発動しない。\n\n    誤判定したときは、候補バーに並ぶ「かな解釈」をタップすれば確定せずにかな入力へ戻れる。\n    バックスペースで綴りを縮めて条件を割った場合も自動でかな入力へ戻る。\n\n  文脈補正: かなモードでは、未確定ローマ字から次に来うる文字（子音のあとは母音、\n  「ky」「sh」のような2子音クラスタのあとはほぼ母音だけ）にごく僅かな下駄（+0.04）を履かせ、\n  紛らわしい字形の取りこぼしを減らす。明確に別の字形のほうが高スコアならそちらが勝つ。\n  スペース・バックスペース等のコマンドはこの補正で覆らない。\n  未確定が「n」のときは、次に子音（kondo の d）も母音（na の a）も来うるため補正しない。\n\nカナ（カタカナ）\n  同じローマ字テーブルでカタカナを直接入力する（漢字変換なし）。</string>
+    <string name="modes_title">Capitals and words</string>
+    <string name="modes_body">abc / Abc / ABC\n  The shift stroke (a vertical line from bottom to top) cycles: once = next letter is a capital, twice = Caps Lock, three times = off. The indicator at the top right shows ⇧ or ⇧⇧.\n\nAutomatic capitals\n  At the start of a sentence ⇧ lights up by itself, in text fields that ask for it (messages, notes and so on; not usernames or email addresses). Write the shift stroke once to cancel it and start in lower case. This can be turned off in Settings.\n\nWords\n  The letters you write are held as an underlined word. A space stroke, a punctuation mark or Return commits it exactly as written; nothing is ever auto-corrected. While the word is underlined the suggestion bar offers completions (see “Word suggestions”).\n  Digits end the current word and are entered as they are.\n\n  In password, email, URL and number fields, and in fields where the app has asked for no suggestions, each letter is entered directly and no suggestions are shown.</string>
 
-    <string name="kanji_title">漢字変換</string>
-    <string name="kanji_body">既定では<b>入力した内容を外部へ送らない</b>。変換・予測は入力履歴と<b>端末内のかな漢字変換エンジン</b>だけで動く。設定で「ネット変換」を有効にすると、読みを外部へ送って変換精度をさらに上げられる（既定はオフ）。\n\n端末内エンジンは約 24 万語の内蔵辞書でラティスを組み、Viterbi 法で文節分割と表記を決める。ネット変換が使えないとき（オフ・圏外・通信失敗・タイムアウト・設定で「端末内のみ」を選んだとき）は自動でこちらが肩代わりする。切り替えは黙って起きるが、端末内で作った候補には候補バーの右端に「端末内」と出る（文節編集中は右上のインジケータに出る）。\n\n1. 予測変換（スペース不要）\n  かなモードでは、かなが 1 文字確定した時点から自動で候補を出す（約 0.12 秒のデバウンスのみ）。\n  候補は入力窓の上に出る候補バーに最大 15 件並び、横スクロールで全部見られる。\n  並ぶのはすべて「読み全体」に対応する文字列なので、タップすればその場で全文が確定する。\n  先頭が変換結果、続いて第1文節の別候補・第2文節の別候補、最後に全文ひらがな・全文カタカナ。\n  末尾に未確定の子音（「かk」の「k」など）が残っていても、確定済みの「か」だけで即リクエストする。\n  同じ読みへの再リクエストは直近 24 件の LRU キャッシュで通信せずに済ませる。\n\n2. 文節ごとに直す（スペース）\n  スペース（左→右の横線）を書くと文節編集モードに入る。\n  候補バーをタップ … その候補で現在の文節を確定し、次の文節へ。最後の文節なら全体を確定\n  スペース … 現在の文節の候補を順送り\n  《 》（候補バーの両端）… 文節を移動\n  リターン … 全文節を現在の選択で確定\n  バックスペース … 変換をやめてひらがなに戻す\n\n※ 文節の切り直し（文節を伸ばす・縮める）には未対応。端末内エンジンが切った文節の中で候補を選ぶ形になる。</string>
+    <string name="kanji_title">Kana-kanji conversion</string>
+    <string name="kanji_body">Kana-kanji conversion is part of the Japanese version. Set the language to 日本語 in Settings to use it.</string>
 
-    <string name="predict_title">予測変換</string>
-    <string name="predict_body">かなモードでは、読みの途中から先を予測して候補バーに出す。「おは」→「おはようございます」のように、まだ打っていない部分まで補完してタップ 1 回で確定できる。\n\n候補は 4 系統をマージして並べる。\n  1. 入力履歴（最優先・完全オフライン）… 確定した「読み→表記」を最大 500 件覚え、頻度と直近利用でランク付けする\n  2. 内蔵フレーズ辞書（約 325 件）… 挨拶・定型句・曜日・機能語など。履歴が空の初回から効く\n  3. 端末内辞書の前方一致（約 24 万語）… 通信しないときの予測の主力。補完量の少ない順にコストで並べる\n  4. Google サジェスト … 検索向けでノイズを含むため最下位。ネット変換が有効なときだけ\n\n並び順は [履歴] → [フレーズ辞書] → [端末内辞書] → [変換候補] → [サジェスト] → [ひらがな/カタカナ]。1〜3 は通信なしで即座に出るので、オフラインでも予測は完全に動く。</string>
-    <string name="history_count">記憶している入力履歴: %d 件</string>
-    <string name="btn_reset_history">入力履歴をリセット</string>
+    <string name="predict_title">Word suggestions</string>
+    <string name="predict_body">While you write a word, the suggestion bar shows up to 10 words that begin with it. Tap one to enter the whole word followed by a space.\n\nSuggestions come from two places, both on the device:\n  1. Words you have used … remembered with how often and how recently you used them (up to 1,000). A word that is not in the dictionary, such as a name, is offered once you have used it twice\n  2. The built-in dictionary … about 77,000 English words ranked by how common they are, so suggestions work from the first word\n\nApostrophes are optional: write “dont” for don\'t or “im” for I\'m. Capitals follow what you wrote: start with a capital and the suggestions are capitalised, write in Caps Lock and they are all capitals.\n\nAfter you pick a suggestion:\n  . , ! ? : ; … are tucked against the word and followed by a space (“word. ”)\n  A space stroke … is not doubled\n  A backspace stroke … puts back what you had written, so a wrong pick costs one stroke\n\nNothing you write is sent anywhere. Suggestions are not shown in password, email, URL or number fields, and words are not remembered in incognito tabs.</string>
+    <string name="history_count">Remembered words and phrases: %d</string>
+    <string name="btn_reset_history">Reset typing history</string>
 
-    <!-- ネット変換のオプトイン（既定オフ） -->
-    <string name="net_consent_title">ネット変換を使いますか？</string>
-    <string name="net_consent_body">この IME は、<b>入力した内容を外部へ送りません</b>。変換も予測も、入力履歴と内蔵辞書だけを使って端末内で完結します。\n\n「ネット変換」を有効にした場合に限り、漢字変換の精度を上げるために読みを外部へ送ります。\n\n有効にすると送られるもの\n  ・変換したい<b>ひらがなの読み</b>だけ（例:「こんにちは」）\n  ・送信先は Google の変換サービス\n\n有効にしても送られないもの\n  ・パスワード欄・メール欄・URL 欄の内容\n  ・シークレットタブなど、アプリが学習を拒否している欄の内容\n  ・確定した文章そのもの、連絡先、位置情報、端末の識別子\n\n※ これとは別に、アプリの画面（この画面や設定画面）を開いたとき、アプリの更新があるかを GitHub へ問い合わせます。送るのは「最新版は何か」という問い合わせだけで、入力内容は含みません（接続先からは IP アドレスが見えます）。設定でオフにできます。\n\n後から設定画面でいつでも変更できます。</string>
-    <string name="net_consent_keep_offline">オフラインのまま使う（推奨）</string>
-    <string name="net_consent_enable">ネット変換を有効にする</string>
+    <!-- ネット変換のオプトイン（既定オフ）。日本語版にだけ出る。 -->
+    <string name="net_consent_title">Use online conversion?</string>
+    <string name="net_consent_body">This keyboard <b>does not send what you type anywhere</b>. Conversion and prediction run entirely on the device, from your typing history and the built-in dictionary.\n\nOnly if you turn on “Online conversion” are readings sent out, to improve kana-kanji conversion.\n\nSent when it is on\n  • Only the <b>hiragana reading</b> you want converted\n  • The destination is Google\'s conversion service\n\nNever sent, even when it is on\n  • The contents of password, email and URL fields\n  • The contents of fields where the app has refused learning, such as incognito tabs\n  • The text you commit, your contacts, your location or any device identifier\n\nSeparately, when you open this app\'s screens it asks GitHub whether an update is available. Only the question “what is the latest version?” is sent, never anything you typed (the server sees your IP address). You can turn this off in Settings.\n\nYou can change this at any time in Settings.</string>
+    <string name="net_consent_keep_offline">Stay offline (recommended)</string>
+    <string name="net_consent_enable">Turn on online conversion</string>
 
-    <string name="net_convert_title">ネット変換</string>
-    <string name="net_convert_body">オフのあいだ、<b>入力した内容が外部へ送られることはありません</b>（変換・予測は履歴と内蔵辞書だけで動きます）。\n\nオンにすると、変換したいひらがなの読みだけが Google の変換サービスへ送られ、漢字変換の精度が上がります。\n\nオンにしていても、パスワード欄・メール欄・URL 欄、およびシークレットタブなど学習が禁止された欄では送信しません。</string>
-    <string name="net_convert_off">オフ ― 通信しない（既定）</string>
-    <string name="net_convert_on">オン ― 読みを送って変換精度を上げる</string>
+    <string name="net_convert_title">Online conversion</string>
+    <string name="net_convert_body">While this is off, <b>nothing you type is sent anywhere</b> (conversion and prediction use only your history and the built-in dictionary).\n\nWhen it is on, only the hiragana reading you want converted is sent to Google\'s conversion service, which improves kana-kanji conversion.\n\nEven when it is on, nothing is sent from password, email or URL fields, or from fields where learning is refused, such as incognito tabs.</string>
+    <string name="net_convert_off">Off — no network use (default)</string>
+    <string name="net_convert_on">On — send readings for better conversion</string>
 
-    <!-- 拡張辞書の取得（任意・セットアップで案内する） -->
-    <string name="dict_prompt_title">拡張辞書を入れますか？</string>
-    <string name="dict_prompt_body">この IME には<b>約 8 万語のコア辞書が最初から入っています</b>。何もしなくても、オフラインのまま日本語を書けます。\n\nより語彙の広い<b>拡張辞書（約 22 万語 / 約 6.7 MB）</b>を追加すると、固有名詞や専門語の変換が当たりやすくなります。\n\nこれは<b>辞書ファイルを 1 つ受け取るだけ</b>の操作です。あなたが入力した内容が送られることはありません（「ネット変換」とは別の機能です）。\n\nWi-Fi での実行をおすすめします。あとから設定画面でも入れられます。</string>
-    <string name="dict_prompt_yes">ダウンロードする</string>
-    <string name="dict_prompt_later">あとで</string>
+    <!-- 拡張辞書の取得（任意）。日本語版にだけ出る。 -->
+    <string name="dict_prompt_title">Install the extended dictionary?</string>
+    <string name="dict_prompt_body">This keyboard comes with <b>a core dictionary of about 80,000 words</b>, so Japanese works offline straight away.\n\nAdding the <b>extended dictionary (about 220,000 words / about 6.7 MB)</b> improves the conversion of names and technical terms.\n\nThis <b>only downloads one dictionary file</b>. Nothing you type is sent (it is unrelated to “Online conversion”).\n\nWi-Fi is recommended. You can also install it later from Settings.</string>
+    <string name="dict_prompt_yes">Download</string>
+    <string name="dict_prompt_later">Later</string>
 
-    <string name="dict_title">拡張辞書</string>
-    <string name="dict_body">コア辞書（約 8 万語）は本体に内蔵されているので、拡張辞書が無くてもオフラインで変換できます。拡張辞書（約 22 万語）を入れると、固有名詞や専門語に強くなります。\n\n辞書ファイルを受け取るだけで、入力内容は送信しません。受け取ったファイルはハッシュ（SHA-256）を照合し、辞書として開けることを確かめてから差し替えます。壊れていた場合は捨てて、今の辞書のまま動き続けます。</string>
-    <string name="dict_state_core">現在: コア辞書（約 8 万語・内蔵）</string>
-    <string name="dict_state_ext_locked">現在: コア辞書（約 8 万語・内蔵）\n拡張辞書 v%1$d は入っていますが、プレミアムで有効になります</string>
-    <string name="dict_state_ext">現在: 拡張辞書 v%1$d（約 22 万語）</string>
-    <string name="dict_btn_download">拡張辞書をダウンロード</string>
-    <string name="dict_btn_check">更新を確認</string>
-    <string name="dict_btn_remove">拡張辞書を削除してコアに戻す</string>
-    <string name="dict_auto_update">更新を自動で確認する</string>
-    <string name="dict_auto_update_note">オンにしても定期的な通信はしません。アプリを開いたときに、前回の確認から 7 日以上経っていれば確認するだけです。</string>
+    <string name="dict_title">Extended dictionary</string>
+    <string name="dict_body">The core dictionary (about 80,000 words) is built in, so conversion works offline without the extended dictionary. The extended dictionary (about 220,000 words) is better at names and technical terms.\n\nOnly the dictionary file is downloaded; nothing you type is sent. The file\'s SHA-256 hash is checked and it is opened as a dictionary before it replaces the current one. A damaged file is discarded and the current dictionary keeps working.</string>
+    <string name="dict_state_core">Now: core dictionary (about 80,000 words, built in)</string>
+    <string name="dict_state_ext_locked">Now: core dictionary (about 80,000 words, built in)\nExtended dictionary v%1$d is installed and becomes active with Premium</string>
+    <string name="dict_state_ext">Now: extended dictionary v%1$d (about 220,000 words)</string>
+    <string name="dict_btn_download">Download extended dictionary</string>
+    <string name="dict_btn_check">Check for updates</string>
+    <string name="dict_btn_remove">Remove extended dictionary</string>
+    <string name="dict_auto_update">Check for updates automatically</string>
+    <string name="dict_auto_update_note">Turning this on does not cause periodic network use. It only checks when you open the app and at least 7 days have passed since the last check.</string>
 
-    <string name="dict_checking">確認しています…</string>
-    <string name="dict_downloading">ダウンロード中 %1$d%%（%2$.1f / %3$.1f MB）</string>
-    <string name="dict_verifying">検証しています…</string>
-    <string name="dict_up_to_date">最新です</string>
-    <string name="dict_done">拡張辞書 v%1$d を入れました（約 %2$,d 語）</string>
-    <string name="dict_removed">拡張辞書を削除しました。コア辞書で動きます</string>
+    <string name="dict_checking">Checking…</string>
+    <string name="dict_downloading">Downloading %1$d%% (%2$.1f / %3$.1f MB)</string>
+    <string name="dict_verifying">Verifying…</string>
+    <string name="dict_up_to_date">Up to date</string>
+    <string name="dict_done">Installed extended dictionary v%1$d (about %2$,d words)</string>
+    <string name="dict_removed">Extended dictionary removed. Using the core dictionary</string>
 
-    <string name="dict_fail_network">通信できませんでした。電波の良い場所で試してください</string>
-    <string name="dict_fail_manifest">配布情報を読めませんでした。時間をおいて試してください</string>
-    <string name="dict_fail_incompatible">この辞書はアプリのバージョンに合いません。アプリを更新してください</string>
-    <string name="dict_fail_size">ダウンロードが途中で切れました</string>
-    <string name="dict_fail_checksum">ファイルが壊れていたため取り込みませんでした</string>
-    <string name="dict_fail_broken">辞書として読めなかったため取り込みませんでした</string>
-    <string name="dict_fail_storage">保存できませんでした。空き容量を確認してください</string>
+    <string name="dict_fail_network">Could not connect. Try again with a better signal</string>
+    <string name="dict_fail_manifest">Could not read the release information. Try again later</string>
+    <string name="dict_fail_incompatible">This dictionary does not match the app version. Please update the app</string>
+    <string name="dict_fail_size">The download was cut short</string>
+    <string name="dict_fail_checksum">The file was damaged and was not installed</string>
+    <string name="dict_fail_broken">The file could not be read as a dictionary and was not installed</string>
+    <string name="dict_fail_storage">Could not save the file. Check the free space</string>
 
-    <!-- 変換エンジンの選択 -->
-    <string name="engine_title">変換エンジン</string>
-    <string name="engine_body">「自動」は、ネット変換が有効なときだけオンラインの変換を使い、圏外・通信失敗・タイムアウトのときは自動で端末内エンジンへ切り替えます。\n\n「端末内のみ」を選ぶと、ネット変換が有効でも変換のための通信を行わず、常に内蔵辞書だけで変換します。\n\nネット変換がオフのときは、どちらを選んでも端末内エンジンだけが動きます。端末内エンジンで作った候補には、候補バーの右端に「端末内」と表示されます。</string>
-    <string name="engine_auto">自動 ― オンライン優先（既定）</string>
-    <string name="engine_ondevice">端末内のみ ― 通信しない</string>
+    <!-- 変換エンジンの選択。日本語版にだけ出る。 -->
+    <string name="engine_title">Conversion engine</string>
+    <string name="engine_body">“Automatic” uses online conversion only while Online conversion is on, and switches to the on-device engine by itself when you are offline or the request fails or times out.\n\n“On-device only” never uses the network for conversion, even when Online conversion is on.\n\nWhile Online conversion is off, only the on-device engine runs whichever you choose. Candidates made by the on-device engine are marked “on-device” at the right end of the candidate bar.</string>
+    <string name="engine_auto">Automatic — online first (default)</string>
+    <string name="engine_ondevice">On-device only — no network use</string>
 
-    <string name="ondevice_title">端末内かな漢字変換</string>
-    <string name="ondevice_body">通信できないときのために、辞書とかな漢字変換エンジンを本体に内蔵しています。\n\n約 24 万語の辞書を読み込み、ラティス（候補の網）を組んで Viterbi 法で最尤の文節分割と表記を選びます。単語コストと文節の繋がりやすさ（接続コスト）はどちらも Mozc の公開データから作っています。\n\n辞書はアプリのファイルをそのままメモリマップして引くので、起動が遅くならず、メモリもほとんど使いません。</string>
+    <string name="ondevice_title">On-device kana-kanji conversion</string>
+    <string name="ondevice_body">A dictionary and a kana-kanji conversion engine are built in for when the network is unavailable.\n\nThe engine builds a lattice from the dictionary and picks the most likely segmentation and spelling with the Viterbi algorithm. Word costs and connection costs both come from Mozc\'s open data.\n\nThe dictionary file is memory-mapped as it is, so start-up stays fast and almost no memory is used.</string>
 
     <!-- アプリの更新確認 -->
-    <string name="update_title">アプリの更新</string>
-    <string name="update_body">新しい版が出ていないか、アプリの画面を開いたときに GitHub へ問い合わせます（1 日 1 回まで）。\n\n送るのは「最新版は何か」という問い合わせだけで、<b>入力内容は含みません</b>。通信する以上、接続先からは接続元の IP アドレスが見えます。\n\n入力中（IME を使っているあいだ）にこの通信が起きることはありません。オフにすると、下の「今すぐ確認」を押したときだけ問い合わせます。</string>
-    <string name="update_auto">アプリの更新を自動で確認する</string>
-    <string name="update_check_now">今すぐ確認</string>
-    <string name="update_checking">確認中…</string>
-    <string name="update_up_to_date">お使いの版が最新です</string>
-    <string name="update_available_title">%s が利用できます</string>
-    <string name="update_available_body">現在のバージョン: %2$s\nダウンロード: 約 %3$.1f MB\n\n%4$s</string>
-    <string name="update_download">ダウンロード</string>
-    <string name="update_later">あとで</string>
-    <string name="update_cancel">中止</string>
-    <string name="update_downloading">ダウンロード中</string>
+    <string name="update_title">App updates</string>
+    <string name="update_body">When you open this app\'s screens it asks GitHub whether a newer version is out (at most once a day).\n\nOnly the question “what is the latest version?” is sent; <b>nothing you typed is included</b>. As with any connection, the server sees your IP address.\n\nThis never happens while you are typing. If you turn it off, the check only runs when you press “Check now” below.</string>
+    <string name="update_auto">Check for app updates automatically</string>
+    <string name="update_check_now">Check now</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">You have the latest version</string>
+    <string name="update_available_title">%s is available</string>
+    <string name="update_available_body">Current version: %2$s\nDownload: about %3$.1f MB\n\n%4$s</string>
+    <string name="update_download">Download</string>
+    <string name="update_later">Later</string>
+    <string name="update_cancel">Cancel</string>
+    <string name="update_downloading">Downloading</string>
     <string name="update_progress">%1$d / %2$d MB</string>
-    <string name="update_failed_network">更新を確認できませんでした（通信エラー）</string>
-    <string name="update_failed_no_asset">配布物が見つかりませんでした</string>
-    <string name="update_failed_space">保存する空き容量が足りません</string>
-    <string name="update_failed_verify">ダウンロードしたファイルが壊れていました</string>
-    <string name="update_install_failed">インストーラーを起動できませんでした</string>
-    <string name="update_need_permission_title">インストールの許可が必要です</string>
-    <string name="update_need_permission_body">更新をインストールするには、この端末で「不明なアプリのインストール」を Uni-Stroke IME に許可する必要があります。\n\n設定画面を開いて許可したあと、もう一度お試しください。</string>
-    <string name="update_open_settings">設定を開く</string>
+    <string name="update_failed_network">Could not check for updates (network error)</string>
+    <string name="update_failed_no_asset">The download could not be found</string>
+    <string name="update_failed_space">Not enough free space to save the download</string>
+    <string name="update_failed_verify">The downloaded file was damaged</string>
+    <string name="update_install_failed">Could not start the installer</string>
+    <string name="update_need_permission_title">Permission needed to install</string>
+    <string name="update_need_permission_body">To install the update, this device has to allow Uni-Stroke IME to “install unknown apps”.\n\nOpen the settings screen, allow it, and try again.</string>
+    <string name="update_open_settings">Open settings</string>
 
     <!-- 音声入力（手書きゾーンの長押しで開始） -->
-    <string name="voice_title">音声入力</string>
-    <string name="voice_body">手書きゾーンを<b>長押し</b>すると音声入力に切り替わる。<b>話し終わりは自動で判定して確定する</b>ので、終わりを知らせる操作は要らない（録音中に画面へ触れても話は切れない）。途中でやめるときは ✕ を押す。長押しの判定はタップ（Punctuation Shift）より長いので、これまでの入力操作は変わらない。\n\n<b>既定では端末内の音声認識だけを使う</b>。音声も認識結果も端末から出ない。端末内認識は Android 13 以降の対応端末でのみ使える。\n\n録音するのは長押しで始めてから終わるまでのあいだだけで、終わったら認識器ごと破棄してマイクを手放す。マイクの許可は初めて長押ししたときに尋ねる。\n\n<b>パスワード欄では音声入力そのものを無効にする</b>（端末内認識であっても、パスワードを声に出すこと自体が危ないため）。</string>
-    <string name="voice_enable">音声入力を使う（手書きゾーンの長押しで開始）</string>
+    <string name="voice_title">Voice input</string>
+    <string name="voice_body"><b>Hold</b> a finger still in the writing zone to switch to voice input. <b>It works out by itself when you have stopped talking and commits the text</b>, so there is nothing to press at the end (touching the screen while it listens does not cut you off). Press ✕ to cancel. The hold is longer than a tap, so tapping for punctuation works as before.\n\n<b>By default only on-device speech recognition is used.</b> Neither the audio nor the recognised text leaves the device. On-device recognition needs Android 13 or later on a device that supports it.\n\nThe microphone is only open from the hold until the session ends; the recogniser is then destroyed and the microphone released. Microphone permission is requested the first time you hold.\n\n<b>Voice input is disabled in password fields</b> (even on-device, saying a password out loud is itself a risk).</string>
+    <string name="voice_enable">Use voice input (hold in the writing zone to start)</string>
 
-    <string name="voice_commands_title">ボイスコマンド（ハンズフリー）</string>
-    <string name="voice_commands_body">発話が<b>まるごと</b>下の言い回しと一致したときは、文字にせず操作として実行する。文の一部として言ったときは普通に入力されるので、「確定」という語そのものを書きたいときは文の中で言えばよい。\n\n<b>連続音声入力</b>をオンにすると、1 回の長押しで「音声終了」と言うか ✕ を押すまで聞き続ける。手を使わずに「話す → 確定 → 次を話す」を続けられる。何も話されない状態が 2 回続けば自動で終わるので、黙っているあいだにマイクが開いたままになることはない。\n\n※ 音声で始めること（最初の長押し）だけは手が要る。合図の声だけで起動する仕組み（ホットワード）は Android がアプリに開放していない。</string>
-    <string name="voice_commands_enable">ボイスコマンドを使う</string>
-    <string name="voice_continuous_enable">連続音声入力（終わりと言うまで聞き続ける）</string>
-    <string name="voice_commands_list_title">言い回しの一覧</string>
-    <string name="voice_commands_list">改行／送信 … 「エンター」「リターン」「改行」「送信」\n空白 … 「スペース」「空白」\n変換 … 「変換」\n確定 … 「確定」「決定」\n1 文字消す … 「削除」「消して」「一文字消して」「バックスペース」\n直前の音声入力を取り消す … 「取り消し」「取消」「取り消して」\n全選択 … 「全選択」「全部選択」\nカーソル移動 … 「左」「右」「左へ」「右へ」\n音声入力を終える … 「音声終了」「終了」「終わり」</string>
+    <string name="voice_commands_title">Voice commands (hands-free)</string>
+    <string name="voice_commands_body">When <b>the whole thing you said</b> matches one of the phrases below, it is carried out as a command instead of being typed. Said as part of a sentence it is typed normally, so to write the word “delete” itself, say it inside a sentence.\n\nWith <b>continuous voice input</b> on, one hold keeps listening until you say “stop listening” or press ✕. You can keep going — speak, it commits, speak again — without using your hands. If nothing is said twice in a row it stops by itself, so the microphone is never left open while you are silent.\n\nNote: starting (the first hold) still needs a hand. Android does not let apps start listening on a spoken cue (a hotword).</string>
+    <string name="voice_commands_enable">Use voice commands</string>
+    <string name="voice_continuous_enable">Continuous voice input (keeps listening until you say stop)</string>
+    <string name="voice_commands_list_title">Phrases</string>
+    <string name="voice_commands_list">New line / send … “enter”, “new line”, “send”\nSpace … “space”\nDelete one character … “delete”, “backspace”\nUndo the last dictation … “undo”, “scratch that”\nSelect all … “select all”\nMove the cursor … “go left”, “move left”, “go right”, “move right”\nStop voice input … “stop listening”, “stop dictation”</string>
 
-    <string name="voice_engine_title">音声認識エンジン</string>
-    <string name="voice_engine_body">「端末内のみ」は、Android 13 以降の端末内音声認識だけを使う。音声は端末から出ない。使えない端末では音声入力は動かない（黙って外部へ送る側へ切り替えたりはしない）。\n\n「自動」は、端末内認識が使えるときはそれを使い、使えないときだけ端末の音声認識サービスへ渡す。このサービスの実装しだいでは<b>音声が外部のサーバへ送られる</b>。どこへ送られるかはサービス側の仕様によるので、この IME からは保証できない。\n\nどちらを選んでも、パスワード欄では音声入力を使えない。メール欄・URL 欄・数値欄、およびシークレットタブなど学習が禁止された欄では、「自動」で外部のサービスへ渡す経路だけを止める（ネット変換と同じ基準）。</string>
-    <string name="voice_engine_ondevice">端末内のみ ― 音声を外へ出さない（既定）</string>
-    <string name="voice_engine_auto">自動 ― 端末内が使えなければ端末の音声認識サービス</string>
-    <string name="voice_state_ondevice">音声入力が使えます</string>
-    <string name="voice_state_service">音声入力が使えます（端末内認識に対応していないため、端末の音声認識サービスを使います）</string>
-    <string name="voice_state_blocked">いまの設定では音声入力は動きません（この端末は端末内認識に対応していません。「自動」を選ぶと端末の音声認識サービスを使えます）</string>
-    <string name="voice_state_none">この端末では音声入力を使えません</string>
+    <string name="voice_engine_title">Speech recognition engine</string>
+    <string name="voice_engine_body">“On-device only” uses nothing but on-device speech recognition (Android 13 or later). Audio never leaves the device. On devices without it, voice input does not work (it never silently switches to sending audio out).\n\n“Automatic” uses on-device recognition when available and otherwise hands the audio to the device\'s speech recognition service. Depending on that service, <b>audio may be sent to an external server</b>. Where it goes is up to the service, so this keyboard cannot guarantee it.\n\nEither way, voice input cannot be used in password fields. In email, URL and number fields, and in fields where learning is refused such as incognito tabs, only the “Automatic” route to an external service is blocked.</string>
+    <string name="voice_engine_ondevice">On-device only — audio never leaves the device (default)</string>
+    <string name="voice_engine_auto">Automatic — use the device\'s speech service when on-device is unavailable</string>
+    <string name="voice_state_ondevice">Voice input is available</string>
+    <string name="voice_state_service">Voice input is available (this device has no on-device recognition, so its speech recognition service is used)</string>
+    <string name="voice_state_blocked">Voice input does not work with the current setting (this device has no on-device recognition; choose “Automatic” to use its speech recognition service)</string>
+    <string name="voice_state_none">Voice input is not available on this device</string>
 
     <!-- 入力エリアに出す音声入力の状態（IME バナー） -->
-    <string name="voice_listening_ondevice">聞いています…（端末内）</string>
-    <string name="voice_listening_service">聞いています…（端末の音声認識サービス）</string>
-    <string name="voice_listening_ondevice_continuous">聞いています…（端末内・連続）</string>
-    <string name="voice_listening_service_continuous">聞いています…（端末の音声認識サービス・連続）</string>
-    <string name="voice_working">認識しています…</string>
-    <string name="voice_finished">音声入力を終了しました</string>
-    <string name="voice_need_permission">マイクの使用を許可してください</string>
-    <string name="voice_blocked_field">この欄では音声入力を使えません</string>
-    <string name="voice_blocked_field_service">この欄では端末外へ音声を出す認識を使えません</string>
-    <string name="voice_no_ondevice">この端末では端末内音声認識が使えません（設定 → 音声認識エンジン）</string>
-    <string name="voice_no_service">この端末では音声認識が使えません</string>
-    <string name="voice_error_no_match">聞き取れませんでした</string>
-    <string name="voice_error_audio">マイクを使えませんでした</string>
-    <string name="voice_error_permission">マイクの許可がありません</string>
-    <string name="voice_error_network">音声認識サービスに接続できませんでした</string>
-    <string name="voice_error_server">音声認識サービスがエラーを返しました</string>
-    <string name="voice_error_busy">音声認識が他で使われています</string>
-    <string name="voice_error_model">端末内の音声モデルを取得しています。しばらくしてからもう一度</string>
-    <string name="voice_error_unavailable">音声認識を開始できませんでした</string>
-    <string name="voice_error_client">音声認識を開始できませんでした</string>
+    <string name="voice_listening_ondevice">Listening… (on-device)</string>
+    <string name="voice_listening_service">Listening… (device speech service)</string>
+    <string name="voice_listening_ondevice_continuous">Listening… (on-device, continuous)</string>
+    <string name="voice_listening_service_continuous">Listening… (device speech service, continuous)</string>
+    <string name="voice_working">Recognising…</string>
+    <string name="voice_finished">Voice input stopped</string>
+    <string name="voice_need_permission">Please allow microphone access</string>
+    <string name="voice_blocked_field">Voice input cannot be used in this field</string>
+    <string name="voice_blocked_field_service">Recognition that sends audio off the device cannot be used in this field</string>
+    <string name="voice_no_ondevice">On-device speech recognition is not available on this device (Settings → Speech recognition engine)</string>
+    <string name="voice_no_service">Speech recognition is not available on this device</string>
+    <string name="voice_error_no_match">Could not make that out</string>
+    <string name="voice_error_audio">Could not use the microphone</string>
+    <string name="voice_error_permission">Microphone permission is missing</string>
+    <string name="voice_error_network">Could not reach the speech recognition service</string>
+    <string name="voice_error_server">The speech recognition service returned an error</string>
+    <string name="voice_error_busy">Speech recognition is in use elsewhere</string>
+    <string name="voice_error_model">Downloading the on-device speech model. Try again in a moment</string>
+    <string name="voice_error_unavailable">Could not start speech recognition</string>
+    <string name="voice_error_client">Could not start speech recognition</string>
 
     <!-- マイクの許可（透明な Activity 経由で尋ねる） -->
-    <string name="voice_permission_title">マイクの許可</string>
-    <string name="voice_permission_granted">マイクを許可しました。もう一度長押しすると音声入力を始めます</string>
-    <string name="voice_permission_denied">マイクが許可されていないため音声入力は使えません</string>
-    <string name="voice_permission_blocked">マイクの使用が拒否されています。アプリ情報の「権限」からマイクを許可すると、音声入力を使えます。</string>
-    <string name="voice_permission_open_settings">アプリ情報を開く</string>
-    <string name="voice_permission_later">あとで</string>
+    <string name="voice_permission_title">Microphone permission</string>
+    <string name="voice_permission_granted">Microphone allowed. Hold again to start voice input</string>
+    <string name="voice_permission_denied">Voice input cannot be used without microphone permission</string>
+    <string name="voice_permission_blocked">Microphone access has been denied. Allow the microphone under “Permissions” in the app info to use voice input.</string>
+    <string name="voice_permission_open_settings">Open app info</string>
+    <string name="voice_permission_later">Later</string>
 
     <!-- 速書き調査用のデバッグログ -->
-    <string name="debug_title">開発者向け</string>
-    <string name="debug_body">手書きの認識がうまくいかないときの調査用です。オンにすると、1 ストロークごとに「点数・所要時間・大きさ・認識スコア・棄却理由」を Android のログへ出します。\n\n  adb logcat -s UniStroke\n\n通常の利用では不要です（既定オフ）。入力内容そのものは出力しません。</string>
-    <string name="debug_strokes">ストロークのデバッグログを出す</string>
+    <string name="debug_title">For developers</string>
+    <string name="debug_body">For investigating strokes that are not recognised well. When on, each stroke writes its point count, duration, size, recognition score and rejection reason to the Android log.\n\n  adb logcat -s UniStroke\n\nNot needed for normal use (off by default). What you type is never logged.</string>
+    <string name="debug_strokes">Write stroke debug logs</string>
 
-    <!-- ライセンス表示（BSD-3-Clause の再配布条件を満たすために必要） -->
-    <string name="license_title">ライセンス</string>
-    <string name="btn_license">同梱データのライセンスを表示</string>
-    <string name="license_activity_label">ライセンス</string>
-    <string name="license_dict_title">端末内変換の辞書データ</string>
-    <string name="license_dict_body">端末内のかな漢字変換に使っている辞書は、Google の Mozc プロジェクトが公開している OSS 辞書（dictionary_oss の語彙・品詞定義・接続コスト）から生成しています。\n\nMozc は BSD-3-Clause ライセンスで配布されており、以下がその全文です。</string>
+    <!-- ライセンス表示（再配布条件を満たすために必要） -->
+    <string name="license_title">Licences</string>
+    <string name="btn_license">Show licences of bundled data</string>
+    <string name="license_activity_label">Licences</string>
+    <string name="license_english_title">English word list</string>
+    <string name="license_english_body">The dictionary used for English word suggestions is generated from the English word list of the Android Open Source Project\'s keyboard (LatinIME). Words flagged there as possibly offensive are left out, and rare words are dropped to keep the file small.\n\nLatinIME is distributed under the Apache License 2.0. Its copyright notice and the licence follow.</string>
+    <string name="license_dict_title">Japanese dictionary data</string>
+    <string name="license_dict_body">The dictionary used for on-device kana-kanji conversion is generated from the open-source dictionary published by Google\'s Mozc project (the vocabulary, part-of-speech definitions and connection costs of dictionary_oss).\n\nMozc is distributed under the BSD 3-Clause licence, reproduced in full below.</string>
 
-    <string name="settings_activity_label">Uni-Stroke IME の設定</string>
-    <string name="btn_settings">設定 / 学習データの管理</string>
-    <string name="settings_hand_title">利き手</string>
-    <string name="settings_hand_body">左利きを選ぶと、縦ボタン列が右端に移り、英字ゾーンと数字ゾーンの左右も入れ替わる（数字が左 1/3、英字が右 2/3）。画面を折りたたまない大画面では、入力パネルを利き手側へ寄せて配置する。\n\n大画面では、パネル上辺のつまみをドラッグして置き場所を変えられる。左右はどちらかの端へ吸い付き、上下は端の近くで離せば隅にマグネット、真ん中で離せばその高さに留まる。背後の URL 欄や送信ボタンがパネルに隠れたときは、いったん上へ逃がせばよい。位置は次に開いたときも保たれる。\n\n入力エリアの [?] を長押しすると、いつでもこの設定画面を開ける。</string>
-    <string name="settings_hand_right">右利き（ボタン列は左・英字ゾーンが左）</string>
-    <string name="settings_hand_left">左利き（ボタン列は右・英字ゾーンが右）</string>
+    <string name="settings_activity_label">Uni-Stroke IME settings</string>
+    <string name="btn_settings">Settings / learned strokes</string>
+    <string name="settings_hand_title">Writing hand</string>
+    <string name="settings_hand_body">Choosing left-handed moves the button column to the right edge and swaps the zones (digits on the left third, letters on the right two-thirds). On a large unfolded screen the panel is placed on your writing-hand side.\n\nOn a large screen you can drag the grip on the panel\'s top edge to move it. Left and right it snaps to an edge; up and down it snaps into a corner when released near one and otherwise stays where you let go. If the panel hides a URL bar or a send button, just move it up out of the way. The position is kept for next time.\n\nHold [?] in the writing area to open this screen at any time.</string>
+    <string name="settings_hand_right">Right-handed (buttons on the left, letters on the left)</string>
+    <string name="settings_hand_left">Left-handed (buttons on the right, letters on the right)</string>
 
-    <string name="training_activity_label">書き方トレーニング</string>
-    <string name="btn_training">書き方トレーニングを始める</string>
-    <string name="training_sample_label">見本（● が書き始め、矢印が書き終わり）</string>
-    <string name="training_pad_label">ここに書いてみる</string>
-    <string name="training_pad_hint">指でなぞる</string>
+    <string name="training_activity_label">Stroke training</string>
+    <string name="btn_training">Start stroke training</string>
+    <string name="training_sample_label">Sample (● is the start, the arrow is the end)</string>
+    <string name="training_pad_label">Write it here</string>
+    <string name="training_pad_hint">Trace with a finger</string>
     <string name="training_write">%s</string>
-    <string name="training_instruction">見本と同じように、下の枠に書いてください</string>
-    <string name="training_progress">%1$d / %2$d 文字目 ・ 成功 %3$d / %4$d</string>
-    <string name="training_ok">✓ 認識されました（%1$d / %2$d）</string>
-    <string name="training_ok_learned">✓ 認識されました（%1$d / %2$d）\nあなたの書き方を登録しました</string>
-    <string name="training_learned">あなたの書き方を登録しました\nもう一度書いてみてください</string>
-    <string name="training_retry">△ どの文字か判別できませんでした\n見本の書き順どおり、大きめに書いてください</string>
-    <string name="training_wrong">△「%s」と認識されました\n見本の書き順を確認して、もう一度</string>
-    <string name="training_skip_char">この文字をスキップ</string>
-    <string name="training_skip_all">トレーニングを終了</string>
-    <string name="training_close">閉じる</string>
-    <string name="training_done_title">トレーニング完了</string>
-    <string name="training_done_none">個人テンプレートの登録はありませんでした（標準の字形でうまく認識できています）</string>
-    <string name="training_done_learned">次の文字にあなたの書き方を登録しました:\n%s</string>
-    <string name="training_prompt_title">書き方トレーニング</string>
-    <string name="training_prompt_body">この入力方式には独特の字形があります（A・K・X・Y・B など）。9 文字だけ練習しておくと、あなたの書き方に合わせて認識精度が上がります。今すぐ始めますか？</string>
-    <string name="training_prompt_yes">始める</string>
-    <string name="training_prompt_later">後で</string>
+    <string name="training_instruction">Write it in the box below, the same way as the sample</string>
+    <string name="training_progress">Letter %1$d of %2$d · %3$d / %4$d correct</string>
+    <string name="training_ok">✓ Recognised (%1$d / %2$d)</string>
+    <string name="training_ok_learned">✓ Recognised (%1$d / %2$d)\nYour way of writing it has been saved</string>
+    <string name="training_learned">Your way of writing it has been saved\nPlease write it once more</string>
+    <string name="training_retry">△ Could not tell which letter that was\nFollow the stroke order of the sample and write a little larger</string>
+    <string name="training_wrong">△ Recognised as “%s”\nCheck the stroke order of the sample and try again</string>
+    <string name="training_skip_char">Skip this letter</string>
+    <string name="training_skip_all">End training</string>
+    <string name="training_close">Close</string>
+    <string name="training_done_title">Training complete</string>
+    <string name="training_done_none">No personal templates were saved (the standard shapes are being recognised well)</string>
+    <string name="training_done_learned">Your way of writing these letters has been saved:\n%s</string>
+    <string name="training_prompt_title">Stroke training</string>
+    <string name="training_prompt_body">This input method uses a few unusual letter shapes (A, K, X, Y, B and others). Practising just 9 letters lets recognition adapt to the way you write. Start now?</string>
+    <string name="training_prompt_yes">Start</string>
+    <string name="training_prompt_later">Later</string>
 
-    <string name="learning_title">書き癖の学習（自動）</string>
-    <string name="learning_body">誤認識したときに「バックスペースで消して書き直す」と、その訂正を自動で覚える。\n\n元のストロークを、書き直して確定した文字の候補として記録し、**同じ書き方が 2 回**現れたら個人テンプレートに昇格させる（1 回の書き損じは覚えない）。昇格前に他の文字の標準字形と紛らわしくないかを検査し、紛らわしければ見送る。個人テンプレートは 1 文字あたり最大 2 個、認識時の下駄はごく僅か（+0.02）なので標準字形を大きく上書きすることはない。\n\n※ 追跡できるのは「直前の 1 ストロークをちょうど取り消した」場合のみ。英字モードのバックスペース、およびかなモードでローマ字 1 文字が消えた場合が対象で、かな 1 文字ぶんまとめて消えた場合はどのストロークの訂正か特定できないため学習しない。\n\n学習済みの文字は下に並ぶ（ジェスチャー見本でも右上に印が付く）。★ 付きは「書き方トレーニング」で登録したもので、自動学習より優先して保持される。\n\nA・K・X・Y など独特の字形（K/X はループのある一筆書き、B/D/P/R は左下から縦線を上げてから膨らみ）は、上の「書き方トレーニング」で先に練習しておくと確実。\n\nトレーニングで登録した字形は、IME に切り替えた時点ですぐ認識に反映される。</string>
-    <string name="learning_empty">まだ学習していません</string>
-    <string name="btn_reset_learning">学習データをリセット</string>
+    <string name="learning_title">Stroke learning (automatic)</string>
+    <string name="learning_body">When a stroke is misread and you “erase it with backspace and write it again”, the correction is remembered automatically.\n\nThe original stroke is recorded as a candidate for the letter you ended up with, and is promoted to a personal template once <b>the same way of writing appears twice</b> (a single slip is not learned). Before promotion it is checked against the standard shapes of other letters and skipped if it could be confused with one. There are at most 2 personal templates per letter and their bonus at recognition time is tiny (+0.02), so they never override the standard shapes by much.\n\nNote: only “exactly the last stroke was erased” can be tracked — that is, a backspace that removes the letter you just wrote.\n\nLearned letters are listed below (and marked with a dot in the stroke chart). ★ marks shapes saved in Stroke training; they are kept in preference to automatically learned ones.\n\nFor the unusual shapes such as A, K, X and Y (K and X are single strokes with a loop; B, D, P and R go up from the lower left before the bumps), practising first in Stroke training above is the surest way.\n\nShapes saved in training are used as soon as you switch to the keyboard.</string>
+    <string name="learning_empty">Nothing learned yet</string>
+    <string name="btn_reset_learning">Reset learned strokes</string>
 
     <!-- 文字単位リセットの選択画面 -->
-    <string name="reset_activity_label">学習データのリセット</string>
-    <string name="reset_select_body">リセットする文字を選んでください。選んだ文字の学習データ（自動学習した書き方と「書き方トレーニング」で登録した字形 ★）が削除され、その文字は標準の字形だけで認識するようになります。</string>
-    <string name="reset_select_all">全て選択</string>
-    <string name="btn_reset_selected">選択した文字をリセット</string>
-    <string name="btn_reset_all">全ての文字をリセット</string>
-    <string name="reset_selected_title">選択した文字をリセットしますか？</string>
-    <string name="reset_selected_body">%1$s\n\n上記 %2$d 文字の学習データを削除します。元に戻せません。</string>
-    <string name="reset_selected_done">選択した文字の学習データを削除しました</string>
+    <string name="reset_activity_label">Reset learned strokes</string>
+    <string name="reset_select_body">Choose the letters to reset. Their learned data (automatically learned strokes and the shapes ★ saved in Stroke training) is deleted, and those letters go back to being recognised by the standard shapes only.</string>
+    <string name="reset_select_all">Select all</string>
+    <string name="btn_reset_selected">Reset selected letters</string>
+    <string name="btn_reset_all">Reset all letters</string>
+    <string name="reset_selected_title">Reset the selected letters?</string>
+    <string name="reset_selected_body">%1$s\n\nThe learned data for these %2$d letters will be deleted. This cannot be undone.</string>
+    <string name="reset_selected_done">Learned data for the selected letters was deleted</string>
 
     <!-- 学習リセットの確認。取り返しがつかないので、影響をはっきり書く。 -->
-    <string name="reset_learning_title">学習データをリセットしますか？</string>
-    <string name="reset_learning_body">学習した書き方が全て削除されます。認識精度が下がる場合があります。\n\n削除されるのは、自動学習した個人テンプレートと「書き方トレーニング」で登録した字形（★）です。標準の字形だけで認識するようになるため、A・K・X・Y・B など癖の出やすい文字が認識されにくくなることがあります。\n\nリセット後は「書き方トレーニング」をやり直すと、短時間で精度を戻せます。</string>
-    <string name="reset_learning_ok">リセットする</string>
-    <string name="reset_learning_cancel">やめる</string>
-    <string name="reset_done_title">学習データをリセットしました</string>
-    <string name="reset_done_body">いまは標準の字形だけで認識しています。認識精度が下がったと感じたら、書き方トレーニングで字形を登録し直してください。</string>
-    <string name="reset_done_training">トレーニングを始める</string>
-    <string name="reset_done_later">後で</string>
+    <string name="reset_learning_title">Reset learned strokes?</string>
+    <string name="reset_learning_body">Everything learned about how you write will be deleted. Recognition may get worse.\n\nThis deletes the automatically learned personal templates and the shapes (★) saved in Stroke training. Only the standard shapes will be used, so letters where personal habits show, such as A, K, X, Y and B, may be recognised less well.\n\nAfter resetting, running Stroke training again restores accuracy quickly.</string>
+    <string name="reset_learning_ok">Reset</string>
+    <string name="reset_learning_cancel">Cancel</string>
+    <string name="reset_done_title">Learned strokes were reset</string>
+    <string name="reset_done_body">Only the standard shapes are being used now. If recognition feels worse, save your shapes again in Stroke training.</string>
+    <string name="reset_done_training">Start training</string>
+    <string name="reset_done_later">Later</string>
 
     <!-- 端末に入っているビルドの識別（古い APK が残っていないかの確認用） -->
-    <string name="build_info">バージョン: %1$s (build %2$s)</string>
+    <string name="build_info">Version: %1$s (build %2$s)</string>
     <string name="build_info_short">v%1$s / %2$s</string>
 
-    <string name="strokes_title">ストローク一覧（すべて一筆書き・書き始めの向きが重要）</string>
-    <string name="strokes_body">共通（両ゾーン）\n  スペース … 左から右への横線\n  バックスペース … 右から左への横線\n  リターン … 右上から左下への斜線。<b>合成中・変換中は「確定」だけ</b>で改行しない（一般的な IME と同じ）。もう一度書くと改行が入る。検索欄など「検索」「送信」を求める入力欄では、改行のかわりにそのアクションを実行する\n  上スワイプ（下から上への縦線） … abc = シフト / かな = 一時アルファベット入力（A → a → 解除）\n  右上スワイプ（左下→右上の「／」） … abc = Extended Shift / かな = ひらがな ⇄ カタカナ\n  Extended Shift … 左上から右下への斜線「＼」（abc では「／」でも入れる）\n  タップ（点） … Punctuation Shift\n  長押し（その場で押したまま） … 音声入力（設定でオフにできる）\n\n英字ゾーン（左側）\n  A 山型（左下→頂点→右下）。頂点は丸くても左右に寄っていてもよい\n  B 左下から縦線を上げ、時計回りに上下2つの膨らみ\n  C 右上から反時計回りの開いた弧\n  D 左下から縦線を上げ、時計回りに大きな弧を1つ\n  E ギリシャ文字 ε。右上から左向きの上弧→中央で折り返し→左向きの下弧→右下へ抜ける\n  F 上を右から左へ引いてから下ろす\n  G 数字の 6 と同じ字形（右上から左下へ下り、下部で反時計回りの輪を閉じる）\n  H 縦線を下ろして右側に山を作る\n  I 上から下への縦線\n  J 下ろして左へ跳ね上げる\n  K 「∝」右上から左下がりに入り、折れ角を作らずそのまま時計回りにループして右下へ抜ける一筆の連続曲線（ループ形が正式）\n  L 下ろして右へ\n  M 左下から M 字のジグザグ\n  N 左下から N 字のジグザグ（丸い N も可）\n  O 上から反時計回りの丸\n  P 左下から縦線を上げ、上の膨らみで終わる\n  Q 反時計回りに丸を閉じ、そのまま上部を右へ払う\n  R 左下から縦線を上げ、上の膨らみ→右下への斜め脚\n  S S 字\n  T 上を左から右へ引いてから下ろす\n  U 左上から下りて底を回り右上へ\n  V 「v-」。v を書いたあと、終端を右へ水平に払う（この払いが U との識別点）\n  W W 字\n  X K の左右反転。左上から右下がりに入り、折れ角なしで反時計回りにループして左下へ抜ける（ループ形が正式）\n  Y U の谷から右上へ上げ、そのまま左下へ長く下ろす（輪を作って右上へ抜ける元の字形も可）\n  Z Z 字\n\n数字ゾーン（右側）\n  0〜9 は本方式の数字字形。0 は丸、1 は縦線、4 は左下がりの斜線から右へ、7 は上を右へ引いてから左下へ。</string>
+    <string name="strokes_title">Strokes (each is a single stroke; where it starts matters)</string>
+    <string name="strokes_body">Common (both zones)\n  Space … a horizontal line from left to right\n  Backspace … a horizontal line from right to left. Right after you pick a suggestion it puts back what you had written\n  Return … a diagonal from upper right to lower left. Commits the word in progress and sends Enter; in fields that ask for “Search” or “Send” it runs that action instead\n  Up-swipe (a vertical line from bottom to top) … Shift (next letter capital → Caps Lock → off)\n  Extended Shift … a diagonal “＼” from upper left to lower right, or “／” from lower left to upper right\n  Tap (a dot) … Punctuation Shift\n  Hold (press and stay still) … voice input (can be turned off in Settings)\n\nLetter zone (left side)\n  A  a peak (lower left → top → lower right). The top may be rounded or off-centre\n  B  up from the lower left, then two clockwise bumps, upper and lower\n  C  an open counter-clockwise arc from the upper right\n  D  up from the lower left, then one large clockwise arc\n  E  the Greek letter ε: from the upper right an upper arc to the left, back at the middle, a lower arc to the left, out to the lower right\n  F  across the top from right to left, then down\n  G  the same shape as the digit 6 (down from the upper right to the lower left, closing a counter-clockwise loop at the bottom)\n  H  a vertical line down, then a hump on the right\n  I  a vertical line from top to bottom\n  J  down, then hook up to the left\n  K  “∝”: enter from the upper right heading down-left, then without making a corner loop clockwise and leave to the lower right, as one continuous curve (the looped form is the official one)\n  L  down, then right\n  M  an M zigzag starting at the lower left\n  N  an N zigzag starting at the lower left (a rounded N also works)\n  O  a counter-clockwise circle from the top\n  P  up from the lower left, ending with the upper bump\n  Q  close a counter-clockwise circle, then flick right across the top\n  R  up from the lower left, the upper bump, then a diagonal leg to the lower right\n  S  an S\n  T  across the top from left to right, then down\n  U  down from the upper left, round the bottom, up to the upper right\n  V  “v-”: write a v, then flick the end horizontally to the right (the flick is what tells it from U)\n  W  a W\n  X  the mirror image of K: enter from the upper left heading down-right, loop counter-clockwise with no corner and leave to the lower left (the looped form is the official one)\n  Y  from the valley of a U go up to the upper right, then straight down a long way to the lower left (the original form that makes a loop and leaves to the upper right also works)\n  Z  a Z\n\nNumber zone (right side)\n  0–9 use this method\'s digit shapes. 0 is a circle, 1 a vertical line, 4 a diagonal down to the left and then right, 7 across the top to the right and then down to the left.</string>
 
-    <string name="punct_title">Punctuation mode（タップで入る／1ストロークで自動解除）</string>
-    <string name="punct_body">タップしてから次の1ストロークが記号になる。右から左への横線でキャンセル。\n\n  . もう一度タップ        , 右上→左下の短い斜線\n  \' 下ろす（縦線）        ! 上げる（縦線）\n  : 細く下ろして戻す      | 細く上げて戻す\n  - 左→右の横線          _ 右へ引いて左へ戻す\n  \" ∪ を2回              ? 上でフックを描いて下ろす\n  ( 左に膨らむ弧          ) 右に膨らむ弧\n  { Ɛ（右下で終わる）      } 3（左下で終わる）\n  [ Ɛ を下から上へ        ] 3 を下から上へ\n  &lt; 右下→左の頂点→右上   > 左下→右の頂点→左上\n  ; 「／」方向に下ろして戻す\n  @ 丸を閉じて内側へ引っ掛ける\n  # 下ろす→∪→上げる→∩→下ろす      ~ その左右反転\n  $ S を書いて左下へ      % 2つの輪を作って右上へ\n  ^ 山型                  &amp; 8の字を描いて右へ\n  * 右で輪を作って左下へ  + 「∝」（K と同じ）\n  = Z 字                  \\ 左上→右下      / 左下→右上\n  tab 上げてから右へ\n\n※ かな／カナモードでは「.」「,」「-」「?」「!」「~」が全角の「。」「、」「ー」「？」「！」「〜」になり、確定せず未確定のまま（下線付きで）合成に足される。そのまま変換できる（例: きょうは？ → 今日は？）。他の記号と abc モード・Extended モードでは半角のまま確定する。</string>
+    <string name="punct_title">Punctuation mode (enter with a tap; ends after one stroke)</string>
+    <string name="punct_body" formatted="false">After a tap, the next single stroke becomes a symbol. A horizontal line from right to left cancels.\n\n  .  tap again\n  ,  a short diagonal, upper right → lower left\n  \'  down (vertical line)\n  !  up (vertical line)\n  :  down a little and back\n  |  up a little and back\n  -  a line left → right\n  _  right, then back to the left\n  \"  a ∪ twice\n  ?  a hook at the top, then down\n  (  an arc bulging left\n  )  an arc bulging right\n  {  Ɛ (ending lower right)\n  }  3 (ending lower left)\n  [  Ɛ from bottom to top\n  ]  3 from bottom to top\n  &lt;  lower right → point on the left → upper right\n  >  lower left → point on the right → upper left\n  ;  down along “／” and back\n  @  close a circle and hook inward\n  #  down → ∪ → up → ∩ → down\n  ~  the mirror image of #\n  $  an S, then to the lower left\n  %  two loops, then to the upper right\n  ^  a peak\n  &amp;  a figure 8, then to the right\n  *  a loop on the right, then to the lower left\n  +  “∝” (same as K)\n  =  a Z\n  \\  upper left → lower right\n  /  lower left → upper right\n  tab  up, then right\n\nNote: an apostrophe written in the middle of a word stays part of that word (don\'t). Right after you pick a suggestion, . , ! ? : ; are tucked against the word and followed by a space.</string>
 
-    <string name="ext_title">Extended Character mode（「＼」で入る／1ストロークで自動解除）</string>
-    <string name="ext_body">左上→右下の斜線「＼」を書いてから、次の1ストロークが特殊文字になる。右から左への横線でキャンセル。\n\n※ abc モードでは左下→右上の「／」でも入れる。かなモードでは「／」を ひらがな ⇄ カタカナ の切替に使うので、Extended へは「＼」だけで入る。\n\n  • タップ                ° 丸\n  + 「∝」                 − 左→右の横線\n  × 右上→左下の斜線       ÷ 2つの輪を作って右上へ\n  ¡ 上げる（縦線）        = Z 字\n  £ 下ろして右へ（L）     ¿ 右下から左へ引いて上げる\n  ‘ 上げてから右へ        ’ 上げてから左へ\n  § S 字                  ß B 字\n  © C 字（上から下へ）     ¢ C 字（下から上へ）\n  € Ɛ（E と同じ）          ™ M 字      ® R 字\n  ¥ 左上から右下へ入り、下で輪を作って右上へ\n\n※ 認識器は「形そのものの性質」で明らかに違う候補を先に落としている。まっすぐなストロークでないものは直線系（I・スペース・バックスペース・リターン・シフト・＼／）にはならず、左右に 3 回折り返すストローク（E など）は F・L・T・C にはならない。おかげで E を縦長・幅狭に書いても I や F に化けにくい。\n\n※ K と X はループのある一筆書きが正式な字形。K は「右上から左下がりに入り、折れ角なしでそのまま時計回りにループして右下へ抜ける」連続曲線（X はその鏡像で反時計回り）。ループを省いた「＜」「＞」だけの形は判定が不安定になるので、見本どおりループを作って書くこと。見本は直線→270度の円弧→直線を接線で繋いだ数式で描いているので折れ角がなく、トレーニング画面では書かれていく順にアニメーションで再生する。\n※ 元となった方式にある Accent mode（アクセント付き文字）は実装していない。\n※ 元となった方式では X は「＼」＋「／」の2ストロークだが、本 IME では「＼」を Extended Shift に使うため、X は1ストローク版（K の左右反転）のみを採用している。</string>
+    <string name="ext_title">Extended Character mode (enter with “＼”; ends after one stroke)</string>
+    <string name="ext_body">Write the diagonal “＼” from upper left to lower right (or “／” from lower left to upper right), and the next single stroke becomes a special character. A horizontal line from right to left cancels.\n\n  •  tap\n  °  a circle\n  +  “∝”\n  −  a line left → right\n  ×  a diagonal, upper right → lower left\n  ÷  two loops, then to the upper right\n  ¡  up (vertical line)\n  =  a Z\n  £  down, then right (L)\n  ¿  from the lower right to the left, then up\n  ‘  up, then right\n  ’  up, then left\n  §  an S\n  ß  a B\n  ©  a C (top to bottom)\n  ¢  a C (bottom to top)\n  €  Ɛ (same as E)\n  ™  an M\n  ®  an R\n  ¥  in from the upper left to the lower right, a loop at the bottom, out to the upper right\n\nNote: the recogniser first rules out candidates that differ in “the nature of the shape itself”. A stroke that is not straight never becomes a straight-line symbol (I, space, backspace, return, shift, ＼／), and a stroke that doubles back sideways three times (such as E) never becomes F, L, T or C. This is why a tall, narrow E is unlikely to turn into I or F.\n\nNote: for K and X the single stroke with a loop is the official shape. K is a continuous curve that “enters from the upper right heading down-left and, with no corner, loops clockwise and leaves to the lower right” (X is its mirror image, counter-clockwise). The loopless “＜” and “＞” shapes are recognised unreliably, so make the loop as in the sample. The sample is drawn from a formula joining a line, a 270-degree arc and a line by their tangents, so it has no corner, and the training screen plays it back in the order it is written.\nNote: the Accent mode (accented letters) of the original method is not implemented.\nNote: in the original method X is two strokes, “＼” then “／”. Here “＼” is the Extended Shift, so only the one-stroke X (the mirror image of K) is used.</string>
+
+    <!-- 言語（日本語版 / 英語版）の切り替え。見出しと選択肢はどちらの言語でも読めるように書く。 -->
+    <string name="language_title">Language / 言語</string>
+    <string name="language_body">Switches the whole app between English and Japanese: both what you see and how the keyboard behaves.\n\n  English … letters only. The suggestion bar predicts English words and the top-left button deletes a word\n  日本語 (Japanese) … romaji-to-kana input with kana-kanji conversion. The top-left button switches abc ⇄ kana\n\n“Follow system” uses Japanese when the device language is Japanese and English otherwise.</string>
+    <string name="language_auto">Follow system / 端末の言語に合わせる</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_en">English</string>
+
+    <!-- 英語版だけの設定（日本語版では節ごと隠れる） -->
+    <string name="english_title">English typing</string>
+    <string name="english_body">The word you are writing is shown underlined, and the suggestion bar offers ways to finish it. Tap a suggestion to enter that word and a space. A space stroke commits exactly what you wrote; nothing is auto-corrected.\n\nIn password, email, URL and number fields no suggestions are shown and each letter is entered directly.</string>
+    <string name="english_predict">Show word suggestions</string>
+    <string name="english_auto_cap">Capitalise the start of sentences automatically</string>
+
+    <!-- 文字を並べて見せるときの区切り -->
+    <string name="list_separator">, </string>
 
     <!-- プレミアム（試用 → 購入で解錠） -->
-    <string name="premium_title">プレミアム</string>
-    <string name="premium_body">次の機能はプレミアムです。試用期間中はすべて使えます。\n\n・音声入力とボイスコマンド\n・拡張辞書（約 22 万語）\n・書き癖の学習\n\n<b>基本の入力（一筆書き・ローマ字かな・コア辞書での変換）は、試用期間が終わってもそのまま使えます。</b>\n\n購入は一度きりで、同じ Google アカウントなら機種変更や再インストールのあとも「購入を復元」で戻せます。</string>
-    <string name="premium_state_owned">プレミアム: 有効（購入済み）</string>
-    <string name="premium_state_trial">試用中: あと %1$d 日（全機能が使えます）</string>
-    <string name="premium_state_expired">試用期間は終了しました（基本の入力は引き続き使えます）</string>
-    <string name="premium_buy">プレミアムを購入</string>
-    <string name="premium_buy_price">プレミアムを購入（%1$s）</string>
-    <string name="premium_restore">購入を復元</string>
-    <string name="premium_toast_purchased">プレミアムが有効になりました。ありがとうございます</string>
-    <string name="premium_toast_pending">お支払いの完了を待っています。完了すると有効になります</string>
-    <string name="premium_toast_unavailable">Google Play に接続できませんでした。時間をおいてもう一度お試しください</string>
-    <string name="premium_toast_failed">購入を完了できませんでした</string>
-    <string name="premium_toast_restored">購入を復元しました</string>
-    <string name="premium_toast_not_found">この Google アカウントでの購入が見つかりませんでした</string>
-    <string name="premium_main_trial">試用中: あと %1$d 日（全機能が使えます）　▶ 設定</string>
-    <string name="premium_main_expired">試用期間は終了しました。音声入力・拡張辞書・書き癖の学習はプレミアムで使えます　▶ 設定</string>
+    <string name="premium_title">Premium</string>
+    <string name="premium_body">These features are Premium. All of them are available during the trial.\n\n• Voice input and voice commands\n• Stroke learning (adapts recognition to the way you write)\n\n<b>Basic typing — strokes and word suggestions — keeps working after the trial ends.</b>\n\nIt is a one-time purchase. With the same Google account you can get it back after changing phones or reinstalling, using “Restore purchase”.</string>
+    <string name="premium_state_owned">Premium: active (purchased)</string>
+    <string name="premium_state_trial">Trial: %1$d day(s) left (all features available)</string>
+    <string name="premium_state_expired">The trial has ended (basic typing still works)</string>
+    <string name="premium_buy">Buy Premium</string>
+    <string name="premium_buy_price">Buy Premium (%1$s)</string>
+    <string name="premium_restore">Restore purchase</string>
+    <string name="premium_toast_purchased">Premium is now active. Thank you!</string>
+    <string name="premium_toast_pending">Waiting for the payment to complete. Premium activates when it does</string>
+    <string name="premium_toast_unavailable">Could not connect to Google Play. Please try again later</string>
+    <string name="premium_toast_failed">The purchase could not be completed</string>
+    <string name="premium_toast_restored">Purchase restored</string>
+    <string name="premium_toast_not_found">No purchase was found for this Google account</string>
+    <string name="premium_main_trial">Trial: %1$d day(s) left (all features available)  ▶ Settings</string>
+    <string name="premium_main_expired">The trial has ended. Voice input and stroke learning are available with Premium  ▶ Settings</string>
 </resources>

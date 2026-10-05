@@ -1,6 +1,5 @@
 package com.unistroke.ime
 
-import android.app.Activity
 import android.os.Bundle
 import android.widget.TextView
 
@@ -12,17 +11,52 @@ import android.widget.TextView
  * 「バイナリ形式で再配布する場合、著作権表示・条件・免責事項を
  * ドキュメント等に含めること」を求めるので、この画面がその義務を果たす。
  *
+ * 英語版の単語辞書（assets/english.dic）は AOSP の LatinIME（Android 標準の
+ * キーボード）が配っている単語リストから作っている。こちらは Apache License 2.0 で、
+ * 著作権表示とライセンスの写しを添えることが条件なので、同じ画面に並べて出す。
+ *
  * ライセンス本文は原文のまま出す必要があるため、翻訳せず英語のまま表示する。
  */
-class LicenseActivity : Activity() {
+class LicenseActivity : LocalizedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_license)
         findViewById<TextView>(R.id.text_license_body).text = MOZC_LICENSE
+        findViewById<TextView>(R.id.text_license_english).text =
+            AOSP_NOTICE + "\n\n" + apacheLicense()
     }
 
+    /**
+     * Apache License 2.0 の全文。長いのでソースには埋めず、assets に置いた写しを読む。
+     * 読めなかったときは、せめて原文の場所だけは示す。
+     */
+    private fun apacheLicense(): String = runCatching {
+        assets.open(APACHE_LICENSE_ASSET).bufferedReader().use { it.readText() }
+    }.getOrDefault(APACHE_LICENSE_URL)
+
     private companion object {
+        /** Apache License 2.0 の全文（リポジトリ直下の LICENSE と同じもの）。 */
+        const val APACHE_LICENSE_ASSET = "licenses/apache-2.0.txt"
+        const val APACHE_LICENSE_URL = "http://www.apache.org/licenses/LICENSE-2.0"
+
+        /**
+         * AOSP LatinIME の NOTICE にある著作権表示（原文）。
+         * 単語リスト（dictionaries/en_wordlist.combined.gz）の出どころ。
+         */
+        val AOSP_NOTICE = """
+            Copyright (c) 2008, The Android Open Source Project
+
+            Licensed under the Apache License, Version 2.0 (the "License");
+            you may not use this file except in compliance with the License.
+
+            Unless required by applicable law or agreed to in writing, software
+            distributed under the License is distributed on an "AS IS" BASIS,
+            WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+            See the License for the specific language governing permissions and
+            limitations under the License.
+        """.trimIndent()
+
         /**
          * google/mozc の LICENSE（BSD-3-Clause）の原文。
          * 辞書データ（dictionary_oss/dictionary0[0-9].txt, id.def,

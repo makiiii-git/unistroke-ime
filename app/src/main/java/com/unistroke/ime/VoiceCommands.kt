@@ -11,6 +11,7 @@ package com.unistroke.ime
  * 「確定」という語そのものを書きたいときは文の中で言えば普通に入力できる。
  *
  * 表記ゆれは [normalize] で吸収する（カタカナ -> ひらがな、句読点と空白の除去）。
+ * 英語版の言い回しは別の表（PHRASES_EN）に持ち、[match] の引数で引き分ける。
  * 認識器は同じ発話を「確定」とも「かくてい」とも返すので、対応表には
  * 漢字とかなの両方を並べてある。
  *
@@ -89,8 +90,31 @@ object VoiceCommands {
         Command.STOP to listOf("おんせいしゅうりょう", "しゅうりょう", "おわり"),
     )
 
+    /**
+     * 英語版の言い回し。設定画面の一覧（英語の voice_commands_list）と 1 対 1 で対応する。
+     *
+     * 日本語版と同じく「発話まるごと」でしか一致させない。英語は 1 語だけの返事
+     * （"Right." など）が普通にあるので、カーソル移動は "go left" のように
+     * 2 語の言い回しだけにしてある。変換・確定に当たる操作は英語版には無い。
+     */
+    private val PHRASES_EN: List<Pair<Command, List<String>>> = listOf(
+        Command.ENTER to listOf("enter", "new line", "send"),
+        Command.SPACE to listOf("space"),
+        Command.BACKSPACE to listOf("delete", "backspace"),
+        Command.UNDO to listOf("undo", "scratch that"),
+        Command.SELECT_ALL to listOf("select all"),
+        Command.CURSOR_LEFT to listOf("go left", "move left"),
+        Command.CURSOR_RIGHT to listOf("go right", "move right"),
+        Command.STOP to listOf("stop listening", "stop dictation"),
+    )
+
     private val TABLE: Map<String, Command> =
         (PHRASES + READINGS)
+            .flatMap { (command, words) -> words.map { normalize(it) to command } }
+            .toMap()
+
+    private val TABLE_EN: Map<String, Command> =
+        PHRASES_EN
             .flatMap { (command, words) -> words.map { normalize(it) to command } }
             .toMap()
 
@@ -120,11 +144,15 @@ object VoiceCommands {
     /**
      * [text] がコマンドならそれを返す。文字として入れるべきならば null。
      * 判定は発話まるごとの完全一致のみ。
+     *
+     * 表は言語ごとに分けてある（[english] なら英語版の言い回しだけを見る）。
+     * 混ぜると、日本語で話している最中に英単語 1 語がコマンドとして奪われうる。
      */
-    fun match(text: String): Command? = TABLE[normalize(text)]
+    fun match(text: String, english: Boolean = false): Command? =
+        if (english) TABLE_EN[normalize(text)] else TABLE[normalize(text)]
 
     /** 句読点のたぐい。認識器が付けてくることがあるので落としてから突き合わせる。 */
-    private const val IGNORED = "。、．，・！？!?「」『』（）()…"
+    private const val IGNORED = "。、．，・！？!?.,「」『』（）()…"
 
     private const val KATAKANA_OFFSET = 0x60
     private const val ASCII_CASE_OFFSET = 0x20
