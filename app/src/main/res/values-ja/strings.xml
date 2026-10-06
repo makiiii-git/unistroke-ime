@@ -59,10 +59,10 @@
     <string name="dict_state_ext_locked">現在: コア辞書（約 8 万語・内蔵）\n拡張辞書 v%1$d は入っていますが、プレミアムで有効になります</string>
     <string name="dict_state_ext">現在: 拡張辞書 v%1$d（約 22 万語）</string>
     <string name="dict_btn_download">拡張辞書をダウンロード</string>
-    <string name="dict_btn_check">更新を確認</string>
+    <string name="dict_btn_check">拡張辞書の更新を確認</string>
     <string name="dict_btn_remove">拡張辞書を削除してコアに戻す</string>
-    <string name="dict_auto_update">更新を自動で確認する</string>
-    <string name="dict_auto_update_note">オンにしても定期的な通信はしません。アプリを開いたときに、前回の確認から 7 日以上経っていれば確認するだけです。</string>
+    <string name="dict_auto_update">拡張辞書の更新を自動で確認する</string>
+    <string name="dict_auto_update_note">オンにしても定期的な通信はしません。アプリの画面を開いたときに、前回の確認から 7 日以上経っていれば、拡張辞書の新しい版が出ていないかを確かめるだけです。アプリ本体の更新とは別です。</string>
 
     <string name="dict_checking">確認しています…</string>
     <string name="dict_downloading">ダウンロード中 %1$d%%（%2$.1f / %3$.1f MB）</string>
@@ -166,6 +166,9 @@
     <string name="debug_title">開発者向け</string>
     <string name="debug_body">手書きの認識がうまくいかないときの調査用です。オンにすると、1 ストロークごとに「点数・所要時間・大きさ・認識スコア・棄却理由」を Android のログへ出します。\n\n  adb logcat -s UniStroke\n\n通常の利用では不要です（既定オフ）。入力内容そのものは出力しません。</string>
     <string name="debug_strokes">ストロークのデバッグログを出す</string>
+    <!-- 隠しコマンド（「ライセンス」見出しの 5 回連打）で開発者向けの節を出し入れしたとき -->
+    <string name="developer_shown">開発者向けの項目を表示しました</string>
+    <string name="developer_hidden">開発者向けの項目を隠しました</string>
 
     <!-- ライセンス表示（BSD-3-Clause の再配布条件を満たすために必要） -->
     <string name="license_title">ライセンス</string>

@@ -613,35 +613,44 @@
 
         </LinearLayout>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/debug_title"
-            android:textColor="@color/app_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
+        <!-- 開発者向け。既定で隠す配布（Play 版）では、「ライセンス」見出しの 5 回連打で出す。 -->
+        <LinearLayout
+            android:id="@+id/section_debug"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:lineSpacingExtra="3dp"
-            android:text="@string/debug_body"
-            android:textColor="@color/app_text"
-            android:textSize="14sp" />
+            android:orientation="vertical">
 
-        <CheckBox
-            android:id="@+id/debug_strokes"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:minHeight="48dp"
-            android:text="@string/debug_strokes"
-            android:textColor="@color/app_text"
-            android:textSize="16sp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/debug_title"
+                android:textColor="@color/app_text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/debug_body"
+                android:textColor="@color/app_text"
+                android:textSize="14sp" />
+
+            <CheckBox
+                android:id="@+id/debug_strokes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:minHeight="48dp"
+                android:text="@string/debug_strokes"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+        </LinearLayout>
 
         <TextView
+            android:id="@+id/text_license_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"

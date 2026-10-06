@@ -63,10 +63,10 @@
     <string name="dict_state_ext_locked">Now: core dictionary (about 80,000 words, built in)\nExtended dictionary v%1$d is installed and becomes active with Premium</string>
     <string name="dict_state_ext">Now: extended dictionary v%1$d (about 220,000 words)</string>
     <string name="dict_btn_download">Download extended dictionary</string>
-    <string name="dict_btn_check">Check for updates</string>
+    <string name="dict_btn_check">Check for dictionary updates</string>
     <string name="dict_btn_remove">Remove extended dictionary</string>
-    <string name="dict_auto_update">Check for updates automatically</string>
-    <string name="dict_auto_update_note">Turning this on does not cause periodic network use. It only checks when you open the app and at least 7 days have passed since the last check.</string>
+    <string name="dict_auto_update">Check for dictionary updates automatically</string>
+    <string name="dict_auto_update_note">Turning this on does not cause periodic network use. It only checks whether a newer extended dictionary is out when you open the app\'s screens and at least 7 days have passed since the last check. This is separate from app updates.</string>
 
     <string name="dict_checking">Checking…</string>
     <string name="dict_downloading">Downloading %1$d%% (%2$.1f / %3$.1f MB)</string>
@@ -170,6 +170,9 @@
     <string name="debug_title">For developers</string>
     <string name="debug_body">For investigating strokes that are not recognised well. When on, each stroke writes its point count, duration, size, recognition score and rejection reason to the Android log.\n\n  adb logcat -s UniStroke\n\nNot needed for normal use (off by default). What you type is never logged.</string>
     <string name="debug_strokes">Write stroke debug logs</string>
+    <!-- 隠しコマンド（「ライセンス」見出しの 5 回連打）で開発者向けの節を出し入れしたとき -->
+    <string name="developer_shown">Developer options are now shown</string>
+    <string name="developer_hidden">Developer options are now hidden</string>
 
     <!-- ライセンス表示（再配布条件を満たすために必要） -->
     <string name="license_title">Licences</string>

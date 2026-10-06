@@ -2,6 +2,7 @@ package com.unistroke.ime
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
@@ -173,6 +174,14 @@ class SettingsActivity : LocalizedActivity() {
         debug.isChecked = Prefs.isDebugStrokes(this)
         debug.setOnCheckedChangeListener { _, on -> Prefs.setDebugStrokes(this, on) }
 
+        // 「開発者向け」の節。一般向けの配布（Play 版）では既定で隠し、
+        // 「ライセンス」の見出しを続けて 5 回タップしたときだけ表示を切り替える
+        // （ボタンのほうは 1 回目でライセンス画面が開いてしまうので、見出しを使う）。
+        refreshDeveloperSection()
+        if (DeveloperGate.HIDDEN_BY_DEFAULT) {
+            findViewById<TextView>(R.id.text_license_title).setOnClickListener { onSecretTap() }
+        }
+
         findViewById<Button>(R.id.btn_license).setOnClickListener {
             startActivity(Intent(this, LicenseActivity::class.java))
         }
@@ -208,6 +217,37 @@ class SettingsActivity : LocalizedActivity() {
     }
 
     private fun alive(): Boolean = !isFinishing && !isDestroyed
+
+    /** 隠しコマンドの進み具合。間が [SECRET_TAP_GAP_MS] 以上空いたら数え直す。 */
+    private var secretTaps = 0
+    private var secretLastTapAt = 0L
+
+    /**
+     * 「ライセンス」見出しのタップ。続けて [SECRET_TAP_COUNT] 回で
+     * 「開発者向け」の節の表示を切り替える（出ていれば隠す）。
+     * 途中経過は出さない。隠しコマンドなので、知らない人には何も起きない。
+     */
+    private fun onSecretTap() {
+        val now = SystemClock.uptimeMillis()
+        secretTaps = if (now - secretLastTapAt <= SECRET_TAP_GAP_MS) secretTaps + 1 else 1
+        secretLastTapAt = now
+        if (secretTaps < SECRET_TAP_COUNT) return
+        secretTaps = 0
+
+        val shown = !Prefs.isDeveloperShown(this)
+        Prefs.setDeveloperShown(this, shown)
+        refreshDeveloperSection()
+        Toast.makeText(
+            this,
+            if (shown) R.string.developer_shown else R.string.developer_hidden,
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+
+    private fun refreshDeveloperSection() {
+        findViewById<View>(R.id.section_debug).visibility =
+            if (Prefs.isDeveloperShown(this)) View.VISIBLE else View.GONE
+    }
 
     /** 購入画面（Google Play）を出す。 */
     private fun runPurchase() {
@@ -353,5 +393,13 @@ class SettingsActivity : LocalizedActivity() {
                 (if (trained) "★" else "") + symbol + " x" + count
             }
         }
+    }
+
+    private companion object {
+        /** 隠しコマンド: 「ライセンス」見出しを続けてこの回数タップする。 */
+        const val SECRET_TAP_COUNT = 5
+
+        /** タップの間がこれ以上空いたら「続けて」とは見なさない。 */
+        const val SECRET_TAP_GAP_MS = 1500L
     }
 }

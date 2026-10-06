@@ -36,6 +36,9 @@ object Prefs {
     /** 速書きの調査用ログ（既定オフ）。 */
     const val KEY_DEBUG_STROKES = "debug_strokes"
 
+    /** 隠しコマンドで「開発者向け」の節を出したか（Play 版のみ意味を持つ）。 */
+    const val KEY_DEVELOPER_SHOWN = "developer_shown"
+
     /** 入っている拡張辞書の版。0 / 未設定なら拡張辞書なし。 */
     const val KEY_DICT_VERSION = "dict_version"
 
@@ -272,6 +275,18 @@ object Prefs {
 
     fun setDebugStrokes(context: Context, enabled: Boolean) {
         of(context).edit().putBoolean(KEY_DEBUG_STROKES, enabled).apply()
+    }
+
+    /**
+     * 設定画面に「開発者向け」の節を出すか。
+     * 既定で隠す配布（Play 版）では、隠しコマンドで出したあと true になる。
+     * 隠さない配布（GitHub 版）では常に true。
+     */
+    fun isDeveloperShown(context: Context): Boolean =
+        !DeveloperGate.HIDDEN_BY_DEFAULT || of(context).getBoolean(KEY_DEVELOPER_SHOWN, false)
+
+    fun setDeveloperShown(context: Context, shown: Boolean) {
+        of(context).edit().putBoolean(KEY_DEVELOPER_SHOWN, shown).apply()
     }
 
     /**
