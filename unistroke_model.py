@@ -613,7 +613,9 @@ class Romaji:
                 continue
             if len(rest) < cls.MAX_KEY and rest in cls.PREFIXES:
                 break
-            n += 1
+            # 数えるのは ASCII の英字だけ（Kotlin: c.isAsciiLetter()）
+            if ("a" <= c <= "z") or ("A" <= c <= "Z"):
+                n += 1
             rest = rest[1:]
         return n
 

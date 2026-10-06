@@ -1363,29 +1363,27 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
             // 生の綴り（wordRaw）が今の合成（kana + romaji）と対応しているなら、
             // 1 文字戻した綴り全体を変換し直す。回復処理で英字のまま kana 側へ
             // 落ちた子音（"kt" -> 「k」+ 保留 "t"）も、戻せば再び変換対象へ復帰する。
-            val katakana = inputMode == InputMode.KATAKANA
-            val synced = wordRaw.isNotEmpty() &&
-                RomajiConverter.convert(wordRaw.toString(), katakana)
-                    .let { it.kana == kana.toString() && it.pending == romaji.toString() }
+            val synced = rawMatchesComposing()
             romaji.setLength(romaji.length - 1)
             if (wordRaw.isNotEmpty()) wordRaw.setLength(wordRaw.length - 1)
-            if (synced) {
-                val r = RomajiConverter.convert(wordRaw.toString(), katakana)
-                kana.setLength(0)
-                kana.append(r.kana)
-                romaji.setLength(0)
-                romaji.append(r.pending)
-            }
+            if (synced) rederiveComposingFromRaw()
             learner.onUndoLastCharacter(System.currentTimeMillis())
             updateComposing()
             scheduleLiveSuggest()
             return
         }
         if (kana.isNotEmpty()) {
-            // かな 1 文字は複数ストロークに対応しうるので、どのストロークの訂正か特定できない。
-            // 生ローマ字との対応も崩れるので、単語の履歴はここで捨てる。
-            kana.setLength(kana.length - 1)
-            endWord()
+            // かな 1 文字は複数ストロークに対応しうるので、どのストロークの訂正か特定できない
+            // （学習には流さない）。ただし生の綴りは捨てず、消したあとの表示を再現する
+            // 綴りまで巻き戻して合成を組み直す。
+            // これが無いと、回復処理で英字のまま kana 側へ落ちた子音（"sta" -> 「sた」の s）が
+            // 「た」を消したあとも英字として居座り、続けて "ya" と打ち直しても
+            // 「しゃ」にならず「sや」になる（3 文字目を書いてから気づいた訂正が全部これ）。
+            val target = kana.substring(0, kana.length - 1)
+            if (!rewindRawTo(target)) {
+                kana.setLength(kana.length - 1)
+                endWord()
+            }
             learner.onOther(System.currentTimeMillis())
             updateComposing()
             scheduleLiveSuggest()
@@ -1506,6 +1504,71 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         autoLatin && wordRaw.firstOrNull()?.isUpperCase() == true
 
     /**
+     * 生の綴り（[wordRaw]）が今の合成（[kana] + [romaji]）に対応しているか。
+     * 確定アンドゥや候補確定のあとなど、対応が崩れていたら false。
+     */
+    private fun rawMatchesComposing(): Boolean {
+        if (wordRaw.isEmpty()) return false
+        val r = RomajiConverter.convert(wordRaw.toString(), inputMode == InputMode.KATAKANA)
+        return r.kana == kana.toString() && r.pending == romaji.toString()
+    }
+
+    /** 生の綴りから [kana] / [romaji] を組み直す。 */
+    private fun rederiveComposingFromRaw() {
+        val r = RomajiConverter.convert(wordRaw.toString(), inputMode == InputMode.KATAKANA)
+        kana.setLength(0)
+        kana.append(r.kana)
+        romaji.setLength(0)
+        romaji.append(r.pending)
+    }
+
+    /** [raw] を合成したときの見え方（かな + 未確定ローマ字の表示）。 */
+    private fun shownFor(raw: String): String {
+        val katakana = inputMode == InputMode.KATAKANA
+        val r = RomajiConverter.convert(raw, katakana)
+        return r.kana + RomajiConverter.preview(r.pending, katakana)
+    }
+
+    /**
+     * 生の綴りを「表示が [target] になる綴り」まで巻き戻し、合成を組み直す。
+     * 巻き戻せたら true（[wordRaw] / [kana] / [romaji] は更新済み）。
+     * 生の綴りが今の合成と対応していないときは何もせず false。
+     *
+     * まず、表示がちょうど [target] になる最長の接頭辞を探す。
+     *   "sta"（「sた」）から「た」を消す -> "s" = 保留 "s"（続けて "ya" で「しゃ」）
+     *   "kanna"（「かんな」）から「な」を消す -> "kann" = 表示「かん」
+     *     （次に "i" と打てば「かんに」。"kanni" と打ったのと同じ）
+     *
+     * 「ちゃ」のようにストローク単位で消せないかなを消したときは、どの接頭辞も
+     * [target] にならない。そのときは表示が [target] の先頭に収まる最長の接頭辞に
+     * 残りのかなをそのまま足した綴りにする。[RomajiConverter.convert] はかなを素通し
+     * するので、この綴りからも同じ表示が組み直せる
+     * （"stya"（「sちゃ」）-> "s" + 「ち」 -> さらに消すと "s" = 保留 "s"）。
+     */
+    private fun rewindRawTo(target: String): Boolean {
+        if (!rawMatchesComposing()) return false
+        var fallback: String? = null
+        for (len in wordRaw.length - 1 downTo 0) {
+            val raw = wordRaw.substring(0, len)
+            val shown = shownFor(raw)
+            if (shown == target) {
+                wordRaw.setLength(len)
+                rederiveComposingFromRaw()
+                return true
+            }
+            if (fallback == null && target.startsWith(shown)) {
+                fallback = raw + target.substring(shown.length)
+            }
+        }
+        val raw = fallback ?: return false
+        if (shownFor(raw) != target) return false
+        wordRaw.setLength(0)
+        wordRaw.append(raw)
+        rederiveComposingFromRaw()
+        return true
+    }
+
+    /**
      * 単語の区切り。生ローマ字の履歴と自動英字化の状態を捨てる。
      * 次の単語の判定が前の単語に引きずられないようにするためのもの。
      */
@@ -1521,12 +1584,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     private fun revertAutoLatin() {
         if (!autoLatin) return
         autoLatin = false
-        val katakana = inputMode == InputMode.KATAKANA
-        val r = RomajiConverter.convert(wordRaw.toString(), katakana)
-        kana.setLength(0)
-        kana.append(r.kana)
-        romaji.setLength(0)
-        romaji.append(r.pending)
+        rederiveComposingFromRaw()
         updateComposing()
         syncView()
         scheduleLiveSuggest()

@@ -218,9 +218,48 @@ class IME:
         if not self.auto_latin:
             return
         self.auto_latin = False
+        self._rederive_from_raw()
+
+    # ---- 生の綴りと合成の対応（Kotlin: rawMatchesComposing / rederiveComposingFromRaw /
+    #      shownFor / rewindRawTo）
+    def _raw_matches_composing(self):
+        if not self.word_raw:
+            return False
+        kana, pending = Romaji.convert(self.word_raw)
+        if self.katakana:
+            kana = Romaji.to_katakana(kana)
+        return kana == self.kana and pending == self.romaji
+
+    def _rederive_from_raw(self):
         kana, pending = Romaji.convert(self.word_raw)
         self.kana = Romaji.to_katakana(kana) if self.katakana else kana
         self.romaji = pending
+
+    def _shown_for(self, raw):
+        """raw を合成したときの見え方（かな + 未確定ローマ字の表示）。"""
+        kana, pending = Romaji.convert(raw)
+        shown = kana + Romaji.preview(pending)
+        return Romaji.to_katakana(shown) if self.katakana else shown
+
+    def _rewind_raw_to(self, target):
+        """表示が target になる綴りまで生の綴りを巻き戻し、合成を組み直す。"""
+        if not self._raw_matches_composing():
+            return False
+        fallback = None
+        for ln in range(len(self.word_raw) - 1, -1, -1):
+            raw = self.word_raw[:ln]
+            shown = self._shown_for(raw)
+            if shown == target:
+                self.word_raw = raw
+                self._rederive_from_raw()
+                return True
+            if fallback is None and target.startswith(shown):
+                fallback = raw + target[len(shown):]
+        if fallback is None or self._shown_for(fallback) != target:
+            return False
+        self.word_raw = fallback
+        self._rederive_from_raw()
+        return True
 
     def candidates(self):
         """自動英字化中に候補バーへ出る 2 件。"""
@@ -392,12 +431,20 @@ class IME:
                 self._revert_auto_latin()
             return
         if self.romaji:
+            # 生の綴りが合成と対応していれば、1 文字戻した綴り全体を変換し直す
+            synced = self._raw_matches_composing()
             self.romaji = self.romaji[:-1]
             self.word_raw = self.word_raw[:-1]
+            if synced:
+                self._rederive_from_raw()
             return
         if self.kana:
-            self.kana = self.kana[:-1]
-            self._end_word()
+            # かな 1 文字を消す。生の綴りは捨てず、消したあとの表示を再現する綴りへ巻き戻す
+            # （回復処理で英字のまま落ちた子音を、再び未確定ローマ字へ戻すため）
+            target = self.kana[:-1]
+            if not self._rewind_raw_to(target):
+                self.kana = self.kana[:-1]
+                self._end_word()
             return
         self.out = self.out[:-1]
 
@@ -1035,6 +1082,99 @@ def main():
     ime.stroke(BACKSPACE)
     eq(ime.auto_latin, False, "1 文字消すと発動条件（回復 2 回）を割ってかな解釈へ戻る")
     eq(ime.composing(), "にgh", "composing が nigh のかな解釈へ戻る")
+
+    print("\n=== 3 文字目まで書いてからの打ち直し（回復処理の英字が居座らない）===")
+    # s + 誤認の t + a -> 「sた」。「た」だけ消して ya と打ち直せば「しゃ」になること。
+    # 以前は「た」を消した時点で生の綴りを捨てていたので、英字のまま落ちた s が
+    # kana 側に居座り、続けて ya と打っても「sや」になっていた。
+    ime = IME()
+    typed(ime, "sta")
+    eq(ime.composing(), "sた", "sta -> 「sた」（回復処理で s は英字のまま）")
+    ime.stroke(BACKSPACE)
+    eq(ime.composing(), "s", "「た」を消すと s だけ残る")
+    eq((ime.kana, ime.romaji, ime.word_raw), ("", "s", "s"),
+       "残った s は未確定ローマ字へ戻る（kana 側の英字ではない）")
+    typed(ime, "ya")
+    eq(ime.composing(), "しゃ", "打ち直した ya と合わせて「しゃ」になる")
+
+    # 誤認に気づかず y を足してしまった場合（stya -> 「sちゃ」）も、2 回消せば同じ
+    ime = IME()
+    typed(ime, "stya")
+    eq(ime.composing(), "sちゃ", "stya -> 「sちゃ」")
+    ime.stroke(BACKSPACE)
+    eq(ime.composing(), "sち", "1 回目で「ゃ」が消える")
+    eq(ime.word_raw, "sち", "ストローク単位で戻せないかなは、綴りにそのまま残す")
+    ime.stroke(BACKSPACE)
+    eq(ime.composing(), "s", "2 回目で「ち」が消える")
+    eq(ime.romaji, "s", "s は未確定ローマ字へ戻る")
+    typed(ime, "ya")
+    eq(ime.composing(), "しゃ", "打ち直した ya と合わせて「しゃ」になる")
+
+    # 「sち」に続けて書いても英字化しない（綴りに混ざったかなは英字の根拠にしない）
+    ime = IME()
+    typed(ime, "stya")
+    ime.stroke(BACKSPACE)
+    typed(ime, "ya")
+    eq(ime.auto_latin, False, "「sち」+ ya で自動英字化しない")
+    eq(ime.composing(), "sちや", "「sち」+ ya -> 「sちや」")
+
+    ime = IME()
+    typed(ime, "kta")
+    ime.stroke(BACKSPACE)
+    typed(ime, "a")
+    eq(ime.composing(), "か", "「kた」から「た」を消して a -> 「か」")
+
+    # 普通のかなは今までどおり 1 文字ずつ消え、続きも普通に打てる
+    ime = IME()
+    typed(ime, "kyou")
+    ime.stroke(BACKSPACE)
+    eq(ime.composing(), "きょ", "きょう -> きょ")
+    eq(ime.word_raw, "kyo", "綴りも kyo まで戻る")
+    ime.stroke(BACKSPACE)
+    eq(ime.composing(), "き", "きょ -> き（「ょ」だけ消える）")
+    typed(ime, "ta")
+    eq(ime.composing(), "きた", "消したあとの入力は普通にかなになる")
+
+    # 「ん」(nn) まで戻ると綴りも nn のまま: かんな -> かん -> i で「かんに」
+    ime = IME()
+    typed(ime, "kanna")
+    ime.stroke(BACKSPACE)
+    eq(ime.composing(), "かん", "かんな -> かん")
+    typed(ime, "i")
+    eq(ime.composing(), "かんに", "続けて i -> 「かんに」（kanni と打ったのと同じ）")
+
+    # 消しきっても壊れない
+    ime = IME()
+    typed(ime, "sta")
+    for _ in range(3):
+        ime.stroke(BACKSPACE)
+    eq((ime.composing(), ime.word_raw, ime.out), ("", "", ""), "全部消せる")
+
+    # カタカナモードでも同じ
+    ime = IME(mode="KATAKANA")
+    typed(ime, "sta")
+    ime.stroke(BACKSPACE)
+    typed(ime, "ya")
+    eq(ime.composing(), "シャ", "カタカナ: 「sタ」-> 「s」-> 「シャ」")
+
+    # 確定アンドゥで戻した合成（生の綴りが無い）は従来どおり 1 文字ずつ消える
+    ime = IME()
+    typed(ime, "sta")
+    ime._flush()
+    ime.stroke(BACKSPACE)
+    eq(ime.composing(), "sた", "確定アンドゥで「sた」へ戻る")
+    ime.stroke(BACKSPACE)
+    eq(ime.composing(), "s", "綴りが無くても 1 文字ずつ消える")
+
+    print("\n=== 合成中の全角記号は英字化の根拠にしない ===")
+    ime = IME()
+    typed(ime, "ee")
+    ime.stroke(TAP); ime.stroke(",")
+    typed(ime, "maa")
+    ime.stroke(TAP); ime.stroke(",")
+    typed(ime, "s")
+    eq(ime.auto_latin, False, "「ええ、まあ、」のあとの s で自動英字化しない")
+    eq(ime.composing(), "ええ、まあ、s", "composing は「ええ、まあ、s」")
 
     print("\n=== 日本語入力は一切影響を受けない ===")
     for word, want in [("kyou", "きょう"), ("konnichiha", "こんにちは"),

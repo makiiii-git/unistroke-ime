@@ -211,9 +211,13 @@ object RomajiConverter {
             //    長さの上限を明示して、万一テーブルが壊れても無限に溜まらないようにする。
             if (rest.length < MAX_KEY && isViablePrefix(rest)) break@loop
 
-            // 5) 回復処理: どのローマ字にもならない先頭 1 文字は英字のまま確定し、
+            // 5) 回復処理: どのローマ字にもならない先頭 1 文字はそのまま確定し、
             //    残りで再試行する（必ず 1 文字前進するので詰まらない）。
-            if (fallbacks != null) fallbacks[0]++
+            //    「日本語として無理」の証拠として数えるのは **ASCII の英字だけ**。
+            //    合成に残す全角記号（「、」「〜」）や、バックスペースの巻き戻しで
+            //    生の綴りに入ったかな（"sち"）もここを通るが、それは英単語の根拠ではない
+            //    （「ええ、まあ、s」が 2 回と数えられて英字化していた）。
+            if (fallbacks != null && c.isAsciiLetter()) fallbacks[0]++
             out.append(c)
             rest = rest.substring(1)
         }
@@ -310,6 +314,7 @@ object RomajiConverter {
      *
      * 回復処理は「どうやってもローマ字にならない文字」に対してだけ走るので、
      * この回数がそのまま「日本語として無理のある度合い」になる。
+     * 数えるのは ASCII の英字だけ（全角記号やかなが生の綴りに混ざっていても数えない）。
      * 子音の数を直接数える方式と違い、撥音（"kansha" の nsh）や
      * 促音（"issho" の ssh）を誤って数えることがない。
      */
@@ -336,6 +341,8 @@ object RomajiConverter {
 
     /** 自動英字化に必要な回復処理の回数。 */
     const val NON_JAPANESE_FALLBACKS = 2
+
+    private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 
     /** ひらがな -> カタカナ（「ー」や記号はそのまま）。 */
     fun toKatakana(s: String): String {

@@ -143,6 +143,16 @@ def main():
     eq(len(hit) >= len(ENGLISH) * 3 // 4, True,
        "英単語 %d 語中 %d 語で発動する（3/4 以上）" % (len(ENGLISH), len(hit)))
 
+    print("\n=== 回復処理で数えるのは ASCII の英字だけ ===")
+    # 合成に残す全角記号や、バックスペースの巻き戻しで綴りに入ったかなは英字の根拠にしない
+    eq(Romaji.latin_fallback_count("ee、maa、s"), 0, "「ええ、まあ、s」は 0 回")
+    eq(Romaji.looks_non_japanese("ee、maa、s"), False, "「ええ、まあ、s」で発動しない")
+    eq(Romaji.latin_fallback_count("koーhiーn"), 0, "「こーひーn」は 0 回")
+    eq(Romaji.latin_fallback_count("sちya"), 1, "「sちや」は s の 1 回だけ")
+    eq(Romaji.looks_non_japanese("sちya"), False, "「sちや」で発動しない")
+    eq(Romaji.convert("sちya"), ("sちや", ""), "かなは素通しされる")
+    eq(Romaji.latin_fallback_count("str"), 2, "str は従来どおり 2 回")
+
     print("\n=== 発動は綴りが伸びるにつれて起きる（途中で戻らない）===")
     # "strike": st では発動せず、str で発動する
     eq(Romaji.looks_non_japanese("s"), False, "s では発動しない")
