@@ -27,6 +27,7 @@ SUITES = [
     ("test_updater.py", "拡張辞書の配布マニフェストと受け入れ条件"),
     ("test_entitlement.py", "プレミアムの鍵（試用・購入・配布フレーバー）"),
     ("test_english.py", "英語版（言語の切り替え・英単語の予測・IME の英語分岐）"),
+    ("test_date_candidates.py", "日付候補（「きょう」-> 今日の日付）"),
 ]
 
 

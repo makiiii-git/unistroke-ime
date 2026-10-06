@@ -709,9 +709,14 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         }
     }
 
-    /** 入力履歴に積む。学習が禁止された欄では何もしない。 */
+    /**
+     * 入力履歴に積む。学習が禁止された欄では何もしない。
+     * 日付候補（「きょう」-> 2026/10/06 など）を含む確定も覚えない。
+     * 覚えると翌日に古い日付が予測として出てしまう。
+     */
     private fun recordHistory(reading: String, surface: String, now: Long) {
         if (!learningAllowedHere) return
+        if (DateCandidates.containsGenerated(surface, now)) return
         prediction.record(reading, surface, now)
     }
 
@@ -1826,7 +1831,14 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         }
 
         // 1) 履歴 + 2) 内蔵辞書（オフラインで即時）
-        for (c in prediction.predictLocal(reading, System.currentTimeMillis())) add(c)
+        val now = System.currentTimeMillis()
+        val local = prediction.predictLocal(reading, now)
+        // 1') 日付（「きょう」-> 2026/10/06, 2026年10月6日 …）。読みが完全に一致したときだけ。
+        //     先頭の予測（ふつうは「今日」）は動かさず、その直後に差す。
+        val dates = DateCandidates.forReading(reading, now)
+        if (local.isNotEmpty()) add(local[0])
+        for (d in dates) add(PredictionEngine.Candidate(reading, d, PredictionEngine.Source.DATE))
+        for (i in 1 until local.size) add(local[i])
 
         // 2') 端末内辞書の前方一致予測。通信できないときの予測はここが主力になる。
         if (!networkConvertOk) {
@@ -1996,7 +2008,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     }
 
     private fun startConversion(result: List<GoogleConvertClient.Segment>) {
-        segments = result
+        // 「きょう」の文節には日付候補（2026/10/06 など）を先頭候補の直後へ差す
+        segments = DateCandidates.insertInto(result)
         choices = IntArray(result.size)
         activeSegment = 0
         updateConversionComposing()

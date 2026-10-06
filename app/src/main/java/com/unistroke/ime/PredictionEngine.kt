@@ -23,9 +23,10 @@ class PredictionEngine internal constructor(private val file: File) {
 
     /**
      * 候補の出どころ。並び順の優先度でもある。
+     * [DATE] は [DateCandidates] がその場で組んだ今日の日付（履歴には積まない）。
      * [ONDEVICE] は端末内辞書（[OnDeviceConverter]）由来で、通信していないことを表す。
      */
-    enum class Source { HISTORY, DICTIONARY, ONDEVICE, CONVERSION, SUGGEST, RAW }
+    enum class Source { HISTORY, DATE, DICTIONARY, ONDEVICE, CONVERSION, SUGGEST, RAW }
 
     /** 候補 1 件。[reading] はその表記に対応する読み（履歴に記録し直すのに使う）。 */
     class Candidate(val reading: String, val surface: String, val source: Source)
