@@ -52,6 +52,16 @@ class OnDeviceDictionary private constructor(private val buf: ByteBuffer) {
     /** 符号 -> 文字。読みの復元は予測変換で 1 回に数千文字ぶん走るので逆引き表を持つ。 */
     private val decodeTable = CharArray(256)
 
+    /**
+     * グループ -> 品詞クラス / フラグ / BOS からの接続コスト / EOS への接続コスト。
+     * グループは 200 件弱しか無いので開くときに配列へ写す。予測変換は 1 文字の接頭辞で
+     * 数千語ぶんこれらを引くので、語ごとのバッファ読み（JNI 越し）を 3 回に抑えるため。
+     */
+    private val groupPosTable: IntArray
+    private val groupFlagsTable: IntArray
+    private val bosConnectionTable: IntArray
+    private val eosConnectionTable: IntArray
+
     init {
         buf.order(ByteOrder.LITTLE_ENDIAN)
         keyCount = buf.getInt(8)
@@ -78,6 +88,11 @@ class OnDeviceDictionary private constructor(private val buf: ByteBuffer) {
                 decodeTable[i + 1] = cp.toChar()
             }
         }
+
+        groupPosTable = IntArray(groupCount) { buf.get(groupTableOff + 2 * it).toInt() and 0xFF }
+        groupFlagsTable = IntArray(groupCount) { buf.get(groupTableOff + 2 * it + 1).toInt() and 0xFF }
+        bosConnectionTable = IntArray(groupCount) { connection(bosGroup, it) }
+        eosConnectionTable = IntArray(groupCount) { connection(it, bosGroup) }
     }
 
     // ------------------------------------------------------------ 符号化
@@ -145,9 +160,18 @@ class OnDeviceDictionary private constructor(private val buf: ByteBuffer) {
         return sb.toString()
     }
 
-    fun groupPos(g: Int): Int = buf.get(groupTableOff + 2 * g).toInt() and 0xFF
+    /** 鍵 [key] の [at] 文字目。予測変換で活用形を見分けるのに末尾の 1 文字だけ使う。 */
+    fun keyChar(key: Int, at: Int): Char = decodeTable[keyByte(key, at)]
 
-    fun groupFlags(g: Int): Int = buf.get(groupTableOff + 2 * g + 1).toInt() and 0xFF
+    fun groupPos(g: Int): Int = groupPosTable[g]
+
+    fun groupFlags(g: Int): Int = groupFlagsTable[g]
+
+    /** BOS から左グループ [g] の語へ繋ぐコスト（その語で文を始めるコスト）。 */
+    fun bosConnection(g: Int): Int = bosConnectionTable[g]
+
+    /** 右グループ [g] の語から EOS へ繋ぐコスト（その語で文を終えるコスト）。 */
+    fun eosConnection(g: Int): Int = eosConnectionTable[g]
 
     /** Mozc の接続コスト。[left] は左語の右グループ、[right] は右語の左グループ。 */
     fun connection(left: Int, right: Int): Int =

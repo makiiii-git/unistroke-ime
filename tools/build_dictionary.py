@@ -20,6 +20,12 @@
 約 190 の「品詞グループ」へまとめ、グループ対ごとに代表値を取って
 190x190 程度（70 KB 弱）へ畳んでから同梱する。
 これで手書きの接続ヒューリスティクスをほぼ実データで置き換えられる。
+
+畳むときに失われる「文脈 ID ごとの違い」は、語コストへ繰り込んで残す
+（[context_offsets]）。Mozc は頻出語（顔・講座・出来る・変える など）に
+語固有の文脈 ID を与えていて、その語コストは 0 付近になっている。語の出やすさは
+接続行列の BOS 側（その ID へ繋ぐコスト）に入っているので、グループへ畳むと
+消えてしまい、「て」の予測に「抵抗」が最上位で出るような事故になる。
 """
 
 from __future__ import annotations
@@ -57,6 +63,9 @@ ENCODE = {ch: i + 1 for i, ch in enumerate(ALPHABET)}
 assert len(ALPHABET) < 250, "1 バイト符号に収まらない"
 
 MAX_READING_CHARS = 24
+
+# id.def で BOS/EOS に当たる文脈 ID。接続行列の 0 行目が BOS から、0 列目が EOS へ。
+BOS_ID = 0
 
 # ------------------------------------------------------------- 品詞クラス
 
@@ -272,12 +281,25 @@ class PosTable:
         return self.group_of[ctx_id] if 0 <= ctx_id < self.max_id else 0
 
 
-def load_connection_matrix(src: str, pos: PosTable, verbose: bool) -> bytes:
+class ConnectionData:
+    """畳んだ接続行列（バイナリ）と、畳む前の BOS 列・EOS 行。"""
+
+    def __init__(self, matrix: bytes, bos_col: list[int], eos_row: list[int]):
+        self.matrix = matrix
+        # bos_col[id] = conn(BOS, id) … その文脈 ID の語で文を始めるコスト
+        self.bos_col = bos_col
+        # eos_row[id] = conn(id, EOS) … その文脈 ID の語で文を終えるコスト
+        self.eos_row = eos_row
+
+
+def load_connection_matrix(src: str, pos: PosTable, verbose: bool) -> ConnectionData:
     """2672x2672 の接続コストを、品詞グループ対の代表値へ畳む。
 
     Mozc の接続コストは matrix[左語の rightId][右語の leftId]。
     グループへ潰すときは最小値と平均を [CONNECTION_BLEND] で混ぜる
     （最小だけだと楽観的すぎ、平均だけだと外れ値に引きずられる）。
+
+    畳む前の BOS 列と EOS 行は [context_offsets] のために取っておく。
     """
     path = os.path.join(src, "connection_single_column.txt")
     if not os.path.exists(path):
@@ -288,6 +310,8 @@ def load_connection_matrix(src: str, pos: PosTable, verbose: bool) -> bytes:
     lowest = [INF] * (n * n)
     total = [0] * (n * n)
     count = [0] * (n * n)
+    bos_col = [0] * pos.max_id
+    eos_row = [0] * pos.max_id
     with open(path, encoding="utf-8") as f:
         size = int(f.readline().strip())
         if size != pos.max_id:
@@ -301,6 +325,10 @@ def load_connection_matrix(src: str, pos: PosTable, verbose: bool) -> bytes:
                     lowest[k] = v
                 total[k] += v
                 count[k] += 1
+                if left == BOS_ID:
+                    bos_col[right] = v
+                if right == BOS_ID:
+                    eos_row[left] = v
     out = bytearray()
     filled = 0
     for k in range(n * n):
@@ -316,7 +344,67 @@ def load_connection_matrix(src: str, pos: PosTable, verbose: bool) -> bytes:
     if verbose:
         print("  接続行列: %d 文脈ID -> %d グループ（%d KB, 実測 %.1f%%）" %
               (pos.max_id, n, len(out) // 1024, 100.0 * filled / (n * n)))
-    return bytes(out)
+    return ConnectionData(bytes(out), bos_col, eos_row)
+
+
+def count_context_usage(src: str, pos: PosTable) -> tuple[list[int], list[int]]:
+    """辞書の各行が使う文脈 ID の回数（左 ID 用・右 ID 用）。"""
+    use_l = [0] * pos.max_id
+    use_r = [0] * pos.max_id
+    for name in DICT_FILES:
+        path = os.path.join(src, name)
+        if not os.path.exists(path):
+            raise SystemExit("辞書が見つからない: %s（--fetch を先に実行）" % path)
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) != 5:
+                    continue
+                lid = int(parts[1])
+                rid = int(parts[2])
+                if 0 <= lid < pos.max_id:
+                    use_l[lid] += 1
+                if 0 <= rid < pos.max_id:
+                    use_r[rid] += 1
+    return use_l, use_r
+
+
+def context_offsets(pos: PosTable, conn: ConnectionData, use_l: list[int],
+                    use_r: list[int], verbose: bool) -> tuple[list[int], list[int]]:
+    """文脈 ID ごとに「同じグループの平均的な ID より、どれだけ繋がりにくいか」を出す。
+
+    左 ID については BOS からその ID へ繋ぐコスト、右 ID についてはその ID から
+    EOS へ繋ぐコストを見る。基準はグループ内の ID を**辞書の語数で重み付けした**
+    平均で、これは実質「名詞,一般,*,*,*,*,*」のような汎用 ID の値になる
+    （単純平均だと語固有 ID が数で勝ってしまい、汎用 ID 側が -3700 されて逆転する）。
+
+    返り値 (offset_l, offset_r) を語コストへ足すと、
+      語固有 ID の語   … 顔 73 -> 約 3400。頻出名詞の相場に戻る
+      汎用 ID の語     … ほぼ 0。何も変わらない
+      文頭に立てない ID … 連用形など。その性質ぶんだけ上がる
+    となり、グループへ畳んでも「どの語が出やすいか」が語コストに残る。
+    BOS 列だけを使うのは、全文脈の平均を使う案より変換品質の劣化が小さかったため
+    （tools/README.md）。
+    """
+    n = pos.max_id
+    members: dict[int, list[int]] = {}
+    for i in range(n):
+        members.setdefault(pos.group_of[i], []).append(i)
+    off_l = [0] * n
+    off_r = [0] * n
+    for ids in members.values():
+        wl = sum(use_l[i] for i in ids) or 1
+        wr = sum(use_r[i] for i in ids) or 1
+        mean_l = sum(conn.bos_col[i] * use_l[i] for i in ids) / wl
+        mean_r = sum(conn.eos_row[i] * use_r[i] for i in ids) / wr
+        for i in ids:
+            off_l[i] = int(round(conn.bos_col[i] - mean_l))
+            off_r[i] = int(round(conn.eos_row[i] - mean_r))
+    if verbose:
+        shifted = sum(1 for i in range(n) if abs(off_l[i]) >= 1000)
+        print("  文脈 ID の補正: %d ID のうち %d ID が 1000 以上ずれる（語固有 ID など）" %
+              (n, shifted))
+    return off_l, off_r
 
 
 def encode_reading(reading: str) -> bytes | None:
@@ -329,8 +417,12 @@ def encode_reading(reading: str) -> bytes | None:
     return bytes(out)
 
 
-def load_entries(src: str, pos: PosTable):
-    """(読み, 表記) -> (コスト, 左グループ, 右グループ)。同じ組は最小コストへ畳む。"""
+def load_entries(src: str, pos: PosTable, off_l: list[int], off_r: list[int]):
+    """(読み, 表記) -> (コスト, 左グループ, 右グループ)。同じ組は最小コストへ畳む。
+
+    コストには [context_offsets] の補正を足してから比べる。補正前の最小値で選ぶと、
+    語固有 ID や稀な活用形の「文脈内では安い」エントリばかりが勝ってしまう。
+    """
     best: dict[tuple[str, str], tuple[int, int, int]] = {}
     scanned = 0
     for name in DICT_FILES:
@@ -350,11 +442,18 @@ def load_entries(src: str, pos: PosTable):
                     continue
                 if encode_reading(reading) is None:
                     continue
+                lid_i = int(lid)
+                rid_i = int(rid)
                 c = int(cost)
+                if 0 <= lid_i < pos.max_id:
+                    c += off_l[lid_i]
+                if 0 <= rid_i < pos.max_id:
+                    c += off_r[rid_i]
+                c = max(0, c)
                 key = (reading, surface)
                 cur = best.get(key)
                 if cur is None or c < cur[0]:
-                    best[key] = (c, pos.group(int(lid)), pos.group(int(rid)))
+                    best[key] = (c, pos.group(lid_i), pos.group(rid_i))
     return best, scanned
 
 
@@ -502,12 +601,14 @@ def main() -> int:
     if verbose:
         print("読み込み: %s" % args.src)
     pos = PosTable(args.src)
-    best, scanned = load_entries(args.src, pos)
+    conn = load_connection_matrix(args.src, pos, verbose)
+    use_l, use_r = count_context_usage(args.src, pos)
+    off_l, off_r = context_offsets(pos, conn, use_l, use_r, verbose)
+    best, scanned = load_entries(args.src, pos, off_l, off_r)
     if verbose:
         print("  原本 %d 行 -> ひらがな読み %d 組" % (scanned, len(best)))
     kept = trim(best, pos, args.limit, verbose)
-    matrix = load_connection_matrix(args.src, pos, verbose)
-    build(kept, pos, matrix, args.out, verbose)
+    build(kept, pos, conn.matrix, args.out, verbose)
     return 0
 
 

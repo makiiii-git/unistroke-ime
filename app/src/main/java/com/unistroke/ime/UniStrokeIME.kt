@@ -1841,10 +1841,14 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      * 候補バーの中身を組み立て直す。
      *
      * 並び順は
-     *   [履歴予測] -> [フレーズ辞書予測] -> [端末内辞書予測] -> [変換候補]
-     *   -> [Suggest 予測] -> [ひらがな/カタカナ]
+     *   [履歴予測] -> [フレーズ辞書予測] -> [句なら変換の最良経路] -> [端末内辞書予測]
+     *   -> [変換候補] -> [Suggest 予測] -> [ひらがな/カタカナ]
      * すべて「読み全体を置き換える文字列」なので、どれをタップしても全文確定できる。
-     * 端末内辞書の予測は、通信していないとき（＝それが予測の主力になるとき）だけ足す。
+     * 履歴・フレーズ辞書・端末内辞書は同期で即答するので、1 文字書いた時点で
+     * 候補バーが埋まる。変換候補と Suggest は非同期で、届いたぶんだけ足す。
+     * 予測と変換はモードとして切り替えるのではなく 1 本のリストに混ぜる。読みが
+     * 単語のうちは予測（完全一致の語を含む）が主役で、句になって前方一致が尽きると
+     * 変換だけが残る。
      */
     private fun rebuildCandidates() {
         // 自動英字化中は「打った綴り」と「かな解釈」の 2 つだけ出す。
@@ -1898,17 +1902,28 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         for (d in dates) add(PredictionEngine.Candidate(reading, d, PredictionEngine.Source.DATE))
         for (i in 1 until local.size) add(local[i])
 
-        // 2') 端末内辞書の前方一致予測。通信できないときの予測はここが主力になる。
-        if (!networkConvertOk) {
-            onDevice?.predict(reading, ON_DEVICE_PREDICTIONS)?.forEach { add(it) }
+        val segs = if (liveReading == reading) liveSegments else emptyList()
+        fun full(index: Int, alt: String): String = buildString {
+            for (i in segs.indices) append(if (i == index) alt else segs[i].candidates[0])
         }
 
-        // 3) 変換候補（transliterate の結果）
-        if (liveReading == reading && liveSegments.isNotEmpty()) {
-            val segs = liveSegments
-            fun full(index: Int, alt: String): String = buildString {
-                for (i in segs.indices) append(if (i == index) alt else segs[i].candidates[0])
-            }
+        // 2') 読みが 2 文節以上に切れた ＝ 単語ではなく句。「きょうは」に前方一致の補完
+        //     （「脅迫」）を先に出しても仕方がないので、変換の最良経路（「今日は」）を
+        //     予測より前に置く。1 文節なら同じ語が予測の側にコスト順で入っているので、
+        //     予測を先にして変換は重複として吸収させる。これで、読みが伸びて語から句へ
+        //     変わるにつれ、候補バーの先頭が予測から変換へ自然に移る。
+        if (segs.size > 1) {
+            add(PredictionEngine.Candidate(reading, full(-1, ""), PredictionEngine.Source.CONVERSION))
+        }
+
+        // 2'') 端末内辞書の前方一致予測。1 文字目から出す。
+        //      読みと同じ長さの語（完全一致）も含むので、変換の往復を待たずに
+        //      「かいしゃ」->「会社」が並ぶ。ネット変換を使うときも、通信を待つあいだ
+        //      こちらが先に出て、変換結果と Suggest はあとから足される。
+        onDevice?.predict(reading, ON_DEVICE_PREDICTIONS)?.forEach { add(it) }
+
+        // 3) 変換候補（transliterate / 端末内変換の結果）
+        if (segs.isNotEmpty()) {
             add(PredictionEngine.Candidate(reading, full(-1, ""), PredictionEngine.Source.CONVERSION))
             for (c in segs[0].candidates) {
                 add(PredictionEngine.Candidate(reading, full(0, c), PredictionEngine.Source.CONVERSION))
@@ -2785,10 +2800,14 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         const val LIVE_SUGGEST_DELAY_MS = 120L
 
         /** 候補バーに並べる自動候補の最大数（横スクロールで全部見られる）。 */
-        const val MAX_LIVE_CANDIDATES = 15
+        const val MAX_LIVE_CANDIDATES = 20
 
-        /** 端末内辞書から取る前方一致予測の件数。 */
-        const val ON_DEVICE_PREDICTIONS = 5
+        /**
+         * 端末内辞書から取る前方一致予測の件数。
+         * 履歴とフレーズ辞書のあとに並ぶ。完全一致の語も含むので、短い読みでは
+         * ここが変換候補の代わりにもなる。
+         */
+        const val ON_DEVICE_PREDICTIONS = 10
 
         /** 自動アルファベット化中の状態チップ。 */
         const val AUTO_LATIN_CHIP = "abc自動"

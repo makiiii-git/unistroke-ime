@@ -47,9 +47,23 @@ SHORT_CONTENT_PENALTY = 1500  # 1 文字の自立語（名詞・動詞など）�
 PROPER_PENALTY = 700         # 固有名詞へのペナルティ
 UNKNOWN_CONNECTION = 5000    # かなノードの接続コスト（品詞が分からないので固定）
 MAX_ALTERNATIVES = 5         # 1 文節あたりに返す代替候補の数
-PREDICT_LENGTH_COST = 300    # 予測変換で 1 文字よけいに補完するたびに足すコスト
-PREDICT_SCAN_KEYS = 600      # 予測変換でなめる鍵の上限
-MIN_PREDICT_PREFIX = 2       # これより短い読みでは予測を出さない
+
+# ---- 前方一致予測のスコア。OnDeviceConverter.kt の同名定数と必ず一致させること ----
+PREDICT_LENGTH_COST = 300    # 1 文字よけいに補完するたびに足すコスト
+PREDICT_CONTEXT_PERCENT = 50  # BOS/EOS 接続コスト（文頭・文末に立てるか）を効かせる割合
+PREDICT_PROPER_PENALTY = 2000  # 固有名詞
+PREDICT_BOUND_PENALTY = 3000  # 助詞・助動詞・接尾・記号など、単独で立たない語
+PREDICT_NONFINAL_PENALTY = 3000  # 未然形・連用形・命令形など、言い切りでない活用形
+PREDICT_NUMBER_PENALTY = 1500  # 数詞（澗・垓のような大数が 0 コストで入っている）
+PREDICT_PREFIX_PENALTY = 1500  # 接頭詞（快・各・新）。予測としては「会社」より後でよい
+PREDICT_MAX_SCORE = 9000     # これを超える候補は出さない（珍しい語の長い補完を切る）
+PREDICT_SCAN_WORDS = 50000   # 1 回の予測でなめる語数の上限（メインスレッドの保険）
+MIN_PREDICT_PREFIX = 1       # 1 文字目から予測する
+MIN_PREDICT_READING = 2      # 読みが 1 文字の語（蚊・可・科）は予測に出さない
+
+# 動詞の基本形はウ段で終わる。終止形フラグが立っていてウ段でもイでもなければ命令形。
+# イで終わる命令形（ください・なさい）は単独で使う語なので許す。
+PREDICT_U_ROW = "うくぐすずつづぬふぶぷむゆる"
 
 
 def node_penalty(pos: int, flags: int, length: int) -> int:
@@ -336,8 +350,44 @@ class Converter:
 
     # ------------------------------------------------------------ 前方一致予測
 
-    def predict(self, prefix: str, limit: int = 8) -> list[tuple[str, str]]:
-        """prefix を接頭辞に持つ辞書語を (読み, 表記) で返す。"""
+    def predict_score(self, w: int, extra: int, last: str) -> int:
+        """語 w を「prefix の続きとして出す」ときのスコア（小さいほど上）。
+
+        Kotlin の OnDeviceConverter.predictScore と同じ式。
+          語コスト + 補完量 + BOS/EOS 接続コストの半分 + 品詞・活用形の補正
+        """
+        dic = self.dic
+        surface, cost, lg, rg = dic.word(w)
+        pos, flags = dic.group_attr(lg)
+        bos = dic.bos_group
+        score = cost + PREDICT_LENGTH_COST * extra
+        score += (dic.connection(bos, lg) + dic.connection(rg, bos)) * PREDICT_CONTEXT_PERCENT // 100
+        if pos == POS_PROPER:
+            score += PREDICT_PROPER_PENALTY
+        elif pos == POS_NUMBER:
+            score += PREDICT_NUMBER_PENALTY
+        elif pos == POS_PREFIX:
+            score += PREDICT_PREFIX_PENALTY
+        elif pos in (POS_PARTICLE, POS_AUX, POS_SUFFIX, POS_SYMBOL, POS_OTHER):
+            score += PREDICT_BOUND_PENALTY
+        if flags & FLAG_NONFINAL:
+            # 形容詞の連用ゴザイ接続（ありがとう・おめでとう）は挨拶として単独で立つ
+            if not (pos == POS_ADJ and last == "う"):
+                score += PREDICT_NONFINAL_PENALTY
+        elif flags & FLAG_FINAL:
+            if pos == POS_VERB and last != "い" and last not in PREDICT_U_ROW:
+                score += PREDICT_NONFINAL_PENALTY
+            if pos == POS_ADJ and last != "い":
+                score += PREDICT_NONFINAL_PENALTY
+        return score
+
+    def predict_scored(self, prefix: str, limit: int = 8) -> list[tuple[int, str, str]]:
+        """prefix を接頭辞に持つ辞書語を (スコア, 読み, 表記) で返す。
+
+        接頭辞の範囲を**全部**なめる（鍵は辞書順なので、先頭だけ見ると
+        3 文字目が五十音の前のほうの語に偏る）。読みが prefix と同じ語も含めるので、
+        変換を待たずに「でんわ」->「電話」が出る。
+        """
         if len(prefix) < MIN_PREDICT_PREFIX or limit <= 0:
             return []
         q = self.dic.encode(prefix)
@@ -348,29 +398,39 @@ class Converter:
             lo, hi = self.dic._narrow(lo, hi, depth, q[depth])
             if lo >= hi:
                 return []
-        hi = min(hi, lo + PREDICT_SCAN_KEYS)
         scored = []
+        scanned = 0
         for i in range(lo, hi):
             r = self.dic.key_str(i)
-            if len(r) <= len(prefix):
+            if len(r) < MIN_PREDICT_READING:
                 continue
-            for w in list(self.dic.words_of(i))[:MAX_ALTERNATIVES]:
-                s, cost, _lg, _rg = self.dic.word(w)
-                if s == r:
+            words = self.dic.words_of(i)
+            scanned += len(words)
+            if scanned > PREDICT_SCAN_WORDS:
+                break
+            extra = len(r) - len(prefix)
+            for w in words:
+                score = self.predict_score(w, extra, r[-1])
+                if score > PREDICT_MAX_SCORE:
                     continue
-                # 補完量が多いほど後ろへ回す（「おは」->「おはよう」を先に出す）
-                scored.append((cost + PREDICT_LENGTH_COST * (len(r) - len(prefix)), r, s))
-        scored.sort()
+                scored.append((score, w, r))
+        # 同点は語番号順（Kotlin の挿入ソートと同じ並び）
+        scored.sort(key=lambda t: (t[0], t[1]))
         out = []
         seen = set()
-        for _score, r, s in scored:
+        for score, w, r in scored:
+            s = self.dic.word(w)[0]
             if s in seen:
                 continue
             seen.add(s)
-            out.append((r, s))
+            out.append((score, r, s))
             if len(out) >= limit:
                 break
         return out
+
+    def predict(self, prefix: str, limit: int = 8) -> list[tuple[str, str]]:
+        """prefix を接頭辞に持つ辞書語を (読み, 表記) で返す。"""
+        return [(r, s) for _score, r, s in self.predict_scored(prefix, limit)]
 
 
 _shared = None

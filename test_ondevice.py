@@ -106,8 +106,12 @@ def python_int_consts(mod, names) -> dict[str, int]:
 SHARED_COST_NAMES = [
     "WORD_PENALTY", "UNKNOWN_BASE", "UNKNOWN_PER_CHAR", "UNKNOWN_MAX_LEN",
     "SHORT_CONTENT_PENALTY", "PROPER_PENALTY", "UNKNOWN_CONNECTION",
-    "MAX_ALTERNATIVES", "PREDICT_LENGTH_COST", "PREDICT_SCAN_KEYS",
-    "MIN_PREDICT_PREFIX",
+    "MAX_ALTERNATIVES",
+    # 前方一致予測のスコア
+    "PREDICT_LENGTH_COST", "PREDICT_CONTEXT_PERCENT", "PREDICT_PROPER_PENALTY",
+    "PREDICT_BOUND_PENALTY", "PREDICT_NONFINAL_PENALTY", "PREDICT_NUMBER_PENALTY",
+    "PREDICT_PREFIX_PENALTY", "PREDICT_MAX_SCORE", "PREDICT_SCAN_WORDS",
+    "MIN_PREDICT_PREFIX", "MIN_PREDICT_READING",
 ]
 
 POS_NAMES = [
@@ -135,6 +139,11 @@ def main() -> int:
         pv = getattr(M, name, None)
         check(kv is not None and kv == pv,
               "%s: Kotlin %s == Python %s" % (name, kv, pv))
+    m = re.search(r'const val PREDICT_U_ROW = "([^"]+)"', kt)
+    check(m is not None and m.group(1) == M.PREDICT_U_ROW,
+          "PREDICT_U_ROW（動詞基本形の末尾）が Kotlin と Python で一致")
+    check("PREDICT_SCAN_KEYS" not in kt,
+          "辞書順の先頭だけをなめる旧実装（PREDICT_SCAN_KEYS）が残っていない")
 
     print("== 2. 品詞クラスが 3 者で一致 ==")
     for name in POS_NAMES + FLAG_NAMES:
@@ -195,18 +204,45 @@ def main() -> int:
           "辞書に無いかな列でも読みを保ったまま返す")
 
     print("== 5. 前方一致予測 ==")
-    for prefix in ("おは", "あり", "よろ", "でんわ"):
-        got = conv.predict(prefix, 8)
+    for prefix in ("か", "おは", "あり", "よろ", "でんわ"):
+        got = conv.predict(prefix, 10)
         check(len(got) > 0, "「%s」に予測が出る（%d 件）" % (prefix, len(got)))
         check(all(r.startswith(prefix) for r, _ in got),
               "「%s」の予測がすべて前方一致" % prefix)
-        check(all(len(r) > len(prefix) for r, _ in got),
-              "「%s」の予測が読みを伸ばしている" % prefix)
+        check(all(len(r) >= M.MIN_PREDICT_READING for r, _ in got),
+              "「%s」の予測に 1 文字の読みが混ざらない" % prefix)
         check(len({s for _, s in got}) == len(got),
               "「%s」の予測に重複が無い" % prefix)
     check(conv.predict("", 8) == [], "空の接頭辞では予測を出さない")
-    check(conv.predict("あ", 8) == [],
-          "MIN_PREDICT_PREFIX 未満（1 文字）では予測を出さない")
+    check(len(conv.predict("か", 10)) >= 5, "1 文字目から予測が出る（「か」）")
+
+    def surfaces(prefix, n=10):
+        return [s for _, s in conv.predict(prefix, n)]
+
+    # 完全一致の語も含める（変換の往復を待たずに出る）
+    check(("でんわ", "電話") in conv.predict("でんわ", 10),
+          "「でんわ」に完全一致の「電話」が出る")
+    check("電話番号" in surfaces("でんわ"), "「でんわ」に補完した「電話番号」も出る")
+    # 接頭辞の範囲を全部なめる（辞書順の後ろにある「かいしゃ」が出る）
+    check("会社" in surfaces("かい", 10)[:6], "「かい」の上位に「会社」が出る")
+    # 並びの質。挨拶・言い切りの形が先に来て、活用途中の形と命令形が沈む
+    check(surfaces("おは")[0] == "おはよう", "「おは」の先頭は「おはよう」")
+    check(surfaces("すみ")[0] == "すみません", "「すみ」の先頭は「すみません」")
+    check(surfaces("ごめ")[0] == "ごめん", "「ごめ」の先頭は「ごめん」")
+    check("ありがとう" in surfaces("あり", 5), "「あり」の上位に「ありがとう」（連用ゴザイ接続の例外）")
+    check(surfaces("たべ")[0] == "食べる", "「たべ」の先頭は基本形の「食べる」")
+    check("食べろ" not in surfaces("たべ", 3) and "食べよ" not in surfaces("たべ", 3),
+          "「たべ」の上位 3 件に命令形が来ない")
+    check(surfaces("でき")[0] in ("できる", "出来る"), "「でき」の先頭は「できる」")
+    check(any(s in ("ください", "下さい") for s in surfaces("くだ", 5)),
+          "「くだ」の上位に「ください」（イで終わる命令形の例外）")
+    check("ございます" in surfaces("ござ", 10), "「ござ」に「ございます」が出る")
+    # 語固有の文脈 ID のコストが語コストへ繰り込まれている
+    check("抵抗" not in surfaces("て", 3), "「て」の上位に「抵抗」が来ない")
+    check("顔" not in surfaces("か", 3), "「か」の上位に「顔」（かお）が来ない")
+    check("澗" not in surfaces("か", 10), "「か」に大数の「澗」が出ない")
+    check(all(sc <= M.PREDICT_MAX_SCORE for sc, _, _ in conv.predict_scored("に", 20)),
+          "スコアが PREDICT_MAX_SCORE を超える候補は出さない")
 
     print("== 6. 速度の目安 ==")
     long_reading = "でんわばんごうをおしえてくださいませんか"
@@ -219,8 +255,26 @@ def main() -> int:
           (len(long_reading), ms))
     print("       ※ Kotlin 実装は IntArray ベースでこれより大幅に速い")
 
+    t0 = time.time()
+    for _ in range(5):
+        conv.predict("お", 10)
+    ms = (time.time() - t0) * 1000 / 5
+    check(ms < 300, "最大の 1 文字接頭辞「お」の予測が Python で %.1f ms（300 ms 未満）" % ms)
+
     print("== 7. IME 側の結線 ==")
     ime = read(os.path.join(KT, "UniStrokeIME.kt"))
+    check("onDevice?.predict(reading, ON_DEVICE_PREDICTIONS)" in ime,
+          "候補バーの組み立てで端末内辞書の予測を引いている")
+    check("if (!networkConvertOk) {\n            onDevice?.predict" not in ime,
+          "端末内辞書の予測をネット変換の有無で止めていない")
+    check("if (segs.size > 1) {" in ime and
+          ime.index("if (segs.size > 1) {") < ime.index("onDevice?.predict(reading, ON_DEVICE_PREDICTIONS)"),
+          "2 文節以上に切れた読み（句）では変換の最良経路を予測より先に出す")
+    ime_consts = kotlin_int_consts(ime)
+    check(ime_consts.get("ON_DEVICE_PREDICTIONS", 0) >= 8,
+          "端末内辞書の予測を 8 件以上取る（実際 %s）" % ime_consts.get("ON_DEVICE_PREDICTIONS"))
+    check(ime_consts.get("MAX_LIVE_CANDIDATES", 0) >= ime_consts.get("ON_DEVICE_PREDICTIONS", 0) + 5,
+          "候補バーの上限に予測と変換候補の両方が収まる")
     check("OnDeviceConverter.get(this)" in ime, "IME が端末内エンジンを取得する")
     check("requestOnDeviceSuggest" in ime, "通信できないとき端末内で予測変換する")
     check(ime.count("requestOnDeviceSuggest") >= 3,

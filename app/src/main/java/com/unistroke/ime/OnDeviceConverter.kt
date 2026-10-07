@@ -78,52 +78,124 @@ class OnDeviceConverter private constructor(private val dic: OnDeviceDictionary)
     }
 
     /**
-     * 前方一致の予測変換。[prefix] を読みの先頭に持つ語を返す。
+     * 前方一致の予測変換。[prefix] を読みの先頭に持つ語を、出やすい順に返す。
      *
-     * 読みの短い順（＝補完量の少ない順）に並んだ鍵をコスト順に見るだけなので、
-     * メインスレッドから呼んでも問題ない程度に軽い。
+     * 接頭辞の範囲を**全部**なめる。鍵は辞書順に並んでいるので、先頭の数百件だけ見ると
+     * 3 文字目が五十音の前のほうの語（「かいあ…」「かいい…」）に偏って
+     * 「会社」「会議」が出てこない。走査中は読みも表記も復元せず、コストと品詞だけを
+     * 読んで上位 N 件を保持し、最後に N 件ぶんだけ文字列にする。1 文字の接頭辞でも
+     * 数千語 x 数回のバッファ読みで済むので、メインスレッドから呼べる。
+     *
+     * 読みが [prefix] と同じ語（完全一致）も含める。変換の往復を待たずに
+     * 「でんわ」->「電話」が即座に出る。候補バー側は表記で重複を省くので、
+     * あとから来る変換結果と二重には並ばない。
      */
     fun predict(prefix: String, limit: Int): List<PredictionEngine.Candidate> {
         if (prefix.length < MIN_PREDICT_PREFIX || limit <= 0) return emptyList()
+        // メインスレッドから呼ぶので、壊れた辞書で IME ごと落ちないようにする
+        return runCatching { predictUnsafe(prefix, limit) }.getOrDefault(emptyList())
+    }
+
+    private fun predictUnsafe(prefix: String, limit: Int): List<PredictionEngine.Candidate> {
         val q = ByteArray(dic.maxKeyChars)
         val qlen = dic.encodeInto(prefix, 0, dic.maxKeyChars, q)
         if (qlen != prefix.length) return emptyList()
         val range = dic.prefixRange(q, qlen)
-        var key = range[0]
-        val end = minOf(range[1], range[0] + PREDICT_SCAN_KEYS)
+        if (range[0] >= range[1]) return emptyList()
 
-        // (コスト, 読み, 表記) を軽く並べ替えるだけ。件数が少ないので素朴な実装で足りる。
-        val scored = ArrayList<Triple<Int, String, String>>()
-        while (key < end) {
+        // スコア昇順に保つ小さな配列。表記の重複で間引かれるぶん、limit より多めに持つ。
+        val cap = limit * 2 + 4
+        val topScore = IntArray(cap)
+        val topWord = IntArray(cap)
+        val topKey = IntArray(cap)
+        var n = 0
+        var scanned = 0
+        var wStart = dic.wordStart(range[0])
+        for (key in range[0] until range[1]) {
+            // 次の鍵の開始番号がこの鍵の終端。読み直さずに持ち回る
+            val wEnd = dic.wordStart(key + 1)
+            val wFrom = wStart
+            wStart = wEnd
             val len = dic.keyLength(key)
-            if (len > prefix.length) {
-                val reading = dic.keyReading(key)
-                var w = dic.wordStart(key)
-                val wEnd = dic.wordStart(key + 1)
-                var taken = 0
-                while (w < wEnd && taken < MAX_ALTERNATIVES) {
-                    val surface = dic.wordSurface(w)
-                    if (surface != reading) {
-                        // 補完量が多いほど後ろへ回す（「おは」->「おはよう」を先に出す）
-                        val score = dic.wordCost(w) + PREDICT_LENGTH_COST * (len - prefix.length)
-                        scored.add(Triple(score, reading, surface))
-                    }
-                    w++
-                    taken++
+            if (len < MIN_PREDICT_READING) continue
+            scanned += wEnd - wFrom
+            if (scanned > PREDICT_SCAN_WORDS) break
+            val lengthCost = PREDICT_LENGTH_COST * (len - prefix.length)
+            val last = dic.keyChar(key, len - 1)
+            for (w in wFrom until wEnd) {
+                val score = predictScore(w, lengthCost, last)
+                if (score > PREDICT_MAX_SCORE) continue
+                // 同点は先に見つかった（語番号の小さい）ほうを残す
+                if (n == cap && score >= topScore[n - 1]) continue
+                var i = if (n < cap) n++ else n - 1
+                while (i > 0 && topScore[i - 1] > score) {
+                    topScore[i] = topScore[i - 1]
+                    topWord[i] = topWord[i - 1]
+                    topKey[i] = topKey[i - 1]
+                    i--
                 }
+                topScore[i] = score
+                topWord[i] = w
+                topKey[i] = key
             }
-            key++
         }
-        scored.sortBy { it.first }
+
         val out = ArrayList<PredictionEngine.Candidate>(limit)
         val seen = HashSet<String>()
-        for ((_, reading, surface) in scored) {
+        for (i in 0 until n) {
             if (out.size >= limit) break
+            val surface = dic.wordSurface(topWord[i])
             if (seen.add(surface)) {
-                out.add(PredictionEngine.Candidate(reading, surface, PredictionEngine.Source.ONDEVICE))
+                out.add(
+                    PredictionEngine.Candidate(
+                        dic.keyReading(topKey[i]), surface, PredictionEngine.Source.ONDEVICE,
+                    ),
+                )
             }
         }
         return out
+    }
+
+    /**
+     * 語 [w] を「接頭辞の続きとして出す」ときのスコア。小さいほど上。
+     * ondevice_model.py の predict_score と同じ式。
+     *
+     *   語コスト + 補完量 + BOS/EOS 接続コストの半分 + 品詞・活用形の補正
+     *
+     * BOS/EOS 接続コストは「その語だけで文を始めて終えられるか」の目安。
+     * 連用形や助詞はここで自然に沈む。ただし全部は効かせない（[PREDICT_CONTEXT_PERCENT]）。
+     * 「ください」「ございます」のように文頭には立たないが単語として打つ語が
+     * 消えてしまうため。[last] は読みの末尾 1 文字で、活用形の見分けに使う。
+     */
+    private fun predictScore(w: Int, lengthCost: Int, last: Char): Int {
+        val lg = dic.wordLeftGroup(w)
+        val rg = dic.wordRightGroup(w)
+        val pos = dic.groupPos(lg)
+        val flags = dic.groupFlags(lg)
+        var score = dic.wordCost(w) + lengthCost +
+            Math.floorDiv(
+                (dic.bosConnection(lg) + dic.eosConnection(rg)) * PREDICT_CONTEXT_PERCENT,
+                100,
+            )
+        when (pos) {
+            POS_PROPER -> score += PREDICT_PROPER_PENALTY
+            POS_NUMBER -> score += PREDICT_NUMBER_PENALTY
+            POS_PREFIX -> score += PREDICT_PREFIX_PENALTY
+            POS_PARTICLE, POS_AUX, POS_SUFFIX, POS_SYMBOL, POS_OTHER ->
+                score += PREDICT_BOUND_PENALTY
+        }
+        if ((flags and FLAG_NONFINAL) != 0) {
+            // 形容詞の連用ゴザイ接続（ありがとう・おめでとう）は挨拶として単独で立つ
+            if (!(pos == POS_ADJ && last == 'う')) score += PREDICT_NONFINAL_PENALTY
+        } else if ((flags and FLAG_FINAL) != 0) {
+            // 基本形はウ段（動詞）／イ（形容詞）で終わる。それ以外の終止は命令形。
+            // イで終わる命令形（ください・なさい）は単独で打つ語なので許す。
+            if (pos == POS_VERB && last != 'い' && last !in PREDICT_U_ROW) {
+                score += PREDICT_NONFINAL_PENALTY
+            }
+            if (pos == POS_ADJ && last != 'い') score += PREDICT_NONFINAL_PENALTY
+        }
+        return score
     }
 
     // ------------------------------------------------------------ 候補の組み立て
@@ -394,18 +466,50 @@ class OnDeviceConverter private constructor(private val dic: OnDeviceDictionary)
         /** 1 文節あたりに返す代替候補の数。 */
         const val MAX_ALTERNATIVES = 5
 
-        /** 予測変換で「1 文字よけいに補完するたび」に足すコスト。 */
+        // ---- 前方一致予測のスコア。ondevice_model.py の同名定数と必ず一致させること ----
+
+        /** 1 文字よけいに補完するたびに足すコスト。 */
         const val PREDICT_LENGTH_COST = 300
 
-        /**
-         * 予測変換でなめる鍵の上限。
-         * 鍵は読みの短い順に並んでいるので、先頭だけ見れば補完量の少ない候補が揃う。
-         * メインスレッドから呼ぶので、1 文字の接頭辞で数万件を走査しないよう抑える。
-         */
-        const val PREDICT_SCAN_KEYS = 600
+        /** BOS/EOS 接続コスト（文頭・文末に立てるか）を効かせる割合（%）。 */
+        const val PREDICT_CONTEXT_PERCENT = 50
 
-        /** これより短い読みでは予測を出さない（候補がノイズになる）。 */
-        const val MIN_PREDICT_PREFIX = 2
+        /** 固有名詞。 */
+        const val PREDICT_PROPER_PENALTY = 2000
+
+        /** 助詞・助動詞・接尾・記号など、単独で立たない語。 */
+        const val PREDICT_BOUND_PENALTY = 3000
+
+        /** 未然形・連用形・命令形など、言い切りでない活用形。 */
+        const val PREDICT_NONFINAL_PENALTY = 3000
+
+        /** 数詞（澗・垓のような大数が 0 コストで入っている）。 */
+        const val PREDICT_NUMBER_PENALTY = 1500
+
+        /** 接頭詞（快・各・新）。変換なら正解になりうるが、予測としては「会社」より後でよい。 */
+        const val PREDICT_PREFIX_PENALTY = 1500
+
+        /** これを超える候補は出さない（珍しい語の長い補完を切る）。 */
+        const val PREDICT_MAX_SCORE = 9000
+
+        /**
+         * 1 回の予測でなめる語数の上限。
+         * 1 文字の接頭辞でもコア辞書で 6 千語、拡張辞書で 2 万語程度なので普段は届かない。
+         * メインスレッドから呼ぶので、壊れた辞書で暴走しないための保険。
+         */
+        const val PREDICT_SCAN_WORDS = 50000
+
+        /** 1 文字目から予測する。 */
+        const val MIN_PREDICT_PREFIX = 1
+
+        /** 読みが 1 文字の語（蚊・可・科）は予測に出さない。 */
+        const val MIN_PREDICT_READING = 2
+
+        /**
+         * 動詞の基本形はウ段で終わる。終止形フラグが立っていてウ段でもイでもなければ命令形
+         * （書け・食べろ・食べよ）。イで終わる命令形（ください・なさい）は単独で使う語なので許す。
+         */
+        const val PREDICT_U_ROW = "うくぐすずつづぬふぶぷむゆる"
 
         // ---- 品詞クラス。tools/build_dictionary.py の POS_* と一致させること ----
 
