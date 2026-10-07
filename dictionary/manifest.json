@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "dictVersion": 1,
+  "dictVersion": 2,
   "formatVersion": 2,
   "words": 220000,
-  "size": 6994322,
-  "sha256": "c8e1c6f42f97af4173bdb85abf383edf7b2c16a27cb13bb631f46b6f4ec5e49e",
-  "url": "https://github.com/makiiii-git/unistroke-ime/releases/download/dict-v1/ondevice-ext.dic",
-  "minAppVersionCode": 1
+  "size": 6998580,
+  "sha256": "85acef7bfc012f04db412964ffd27c560df0648da42a79941ccecec924c597ab",
+  "url": "https://github.com/makiiii-git/unistroke-ime/releases/download/v1.5.0/ondevice-ext.dic",
+  "minAppVersionCode": 13
 }
