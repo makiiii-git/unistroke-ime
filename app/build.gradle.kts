@@ -150,8 +150,8 @@ android {
         targetSdk = 36
         // 端末上での識別用。APK を差し替えたら versionCode を上げる。
         // versionName は「メジャー.マイナー.パッチ」の 3 段階で管理する。
-        versionCode = 13
-        versionName = "1.5.0"
+        versionCode = 14
+        versionName = "1.5.1"
 
         // 「バージョン: 1.0 (build 2026-08-11 10:43)」の build 部分。
         buildConfigField("String", "BUILD_TIME", "\"${sourceBuildStamp()}\"")
@@ -227,4 +227,16 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     // Google Play の課金。play フレーバーにだけ入れる（github 版には課金のコードが入らない）。
     "playImplementation"("com.android.billingclient:billing:8.0.0")
+
+    constraints {
+        // 課金ライブラリが play-services-base/basement 経由で androidx.fragment 1.1.0（2019 年）を
+        // 引き込み、Play Console が「お使いの SDK バージョンは最新ではありません」と通知してくる
+        // （2026-10-08、9 (1.3.0) に対して）。basement は最新の 18.12.0 でも宣言が 1.1.0 のままなので、
+        // 課金ライブラリを上げても直らない。ここで版を引き上げて解消する。
+        // アプリ自身は fragment を使わないので implementation ではなく constraints
+        // （= 依存グラフに入っているときだけ版を上げる。github 版には入らない）。
+        "playImplementation"("androidx.fragment:fragment:1.8.9") {
+            because("Play Console の SDK 警告（fragment 1.1.0 は古い）を避ける")
+        }
+    }
 }
