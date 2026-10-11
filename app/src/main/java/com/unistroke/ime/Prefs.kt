@@ -57,8 +57,14 @@ object Prefs {
     /** 最後にアプリの更新を確認した時刻。 */
     const val KEY_APP_LAST_CHECK = "app_last_check"
 
-    /** 大画面でパネルを寄せた側（[SIDE_LEFT] / [SIDE_RIGHT]）。未設定なら利き手側。 */
+    /**
+     * 大画面でパネルを寄せた側（[SIDE_LEFT] / [SIDE_RIGHT]）。v1.5.3 までの形式。
+     * 今は [KEY_PANEL_X] で覚える。[KEY_PANEL_X] が無いときの移行元としてだけ読む。
+     */
     const val KEY_PANEL_SIDE = "panel_side"
+
+    /** 大画面でのパネル左右位置（0 = 左端 / 1 = 右端）。未設定なら利き手側。 */
+    const val KEY_PANEL_X = "panel_x"
 
     /** 大画面でのパネル上下位置（0 = 最上 / 1 = 最下）。 */
     const val KEY_PANEL_Y = "panel_y"
@@ -133,27 +139,32 @@ object Prefs {
             // 利き手を変えたら、大画面のパネルも新しい利き手側へ戻す。
             // 以前ドラッグして置いた側に居座ると、設定を変えたのに効かないように見える。
             .remove(KEY_PANEL_SIDE)
+            .remove(KEY_PANEL_X)
             .apply()
     }
 
     /**
-     * 大画面でパネルを左端側へ置くか。
-     * ユーザーがドラッグで決めた側があればそれを、無ければ利き手側を使う。
+     * 大画面でのパネル左右位置（0 = 左端 / 1 = 右端）。
+     * ユーザーがドラッグで決めた位置があればそれを、無ければ利き手側の端を使う。
+     * v1.5.3 までの「左か右か」（[KEY_PANEL_SIDE]）しか無ければ、その端へ置く。
      */
-    fun panelOnLeft(context: Context, leftHanded: Boolean): Boolean =
-        when (of(context).getString(KEY_PANEL_SIDE, null)) {
-            SIDE_LEFT -> true
-            SIDE_RIGHT -> false
-            else -> leftHanded
+    fun panelXRatio(context: Context, leftHanded: Boolean): Float {
+        val p = of(context)
+        if (p.contains(KEY_PANEL_X)) return p.getFloat(KEY_PANEL_X, 1f).coerceIn(0f, 1f)
+        return when (p.getString(KEY_PANEL_SIDE, null)) {
+            SIDE_LEFT -> 0f
+            SIDE_RIGHT -> 1f
+            else -> if (leftHanded) 0f else 1f
         }
+    }
 
     /** 大画面でのパネル上下位置。既定は最下（＝従来と同じ画面下）。 */
     fun panelYRatio(context: Context): Float =
         of(context).getFloat(KEY_PANEL_Y, 1f).coerceIn(0f, 1f)
 
-    fun setPanelPosition(context: Context, onLeft: Boolean, yRatio: Float) {
+    fun setPanelPosition(context: Context, xRatio: Float, yRatio: Float) {
         of(context).edit()
-            .putString(KEY_PANEL_SIDE, if (onLeft) SIDE_LEFT else SIDE_RIGHT)
+            .putFloat(KEY_PANEL_X, xRatio.coerceIn(0f, 1f))
             .putFloat(KEY_PANEL_Y, yRatio.coerceIn(0f, 1f))
             .apply()
     }

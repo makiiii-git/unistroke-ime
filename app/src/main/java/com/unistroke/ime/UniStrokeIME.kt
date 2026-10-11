@@ -627,13 +627,13 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         view.leftHanded = leftHanded
         view.expandedScreen =
             resources.configuration.smallestScreenWidthDp >= EXPANDED_MIN_SW_DP
-        view.panelOnLeft = Prefs.panelOnLeft(this, leftHanded)
+        view.panelXRatio = Prefs.panelXRatio(this, leftHanded)
         view.panelYRatio = Prefs.panelYRatio(this)
     }
 
     /** 大画面でパネルをドラッグして置き直した。次に開くときも同じ場所へ出す。 */
-    override fun onPanelMoved(onLeft: Boolean, yRatio: Float) {
-        Prefs.setPanelPosition(this, onLeft, yRatio)
+    override fun onPanelMoved(xRatio: Float, yRatio: Float) {
+        Prefs.setPanelPosition(this, xRatio, yRatio)
     }
 
     /**

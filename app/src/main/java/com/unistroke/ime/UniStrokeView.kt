@@ -102,10 +102,10 @@ class UniStrokeView @JvmOverloads constructor(
          * 大画面でパネルをドラッグして置き直した（指を離して位置が確定した）。
          * 次に開いたときも同じ場所へ出せるよう、実装側で覚えておく。
          *
-         * @param onLeft 画面の左端側へ寄せたか
+         * @param xRatio 左右位置。0 = 左端 / 1 = 右端
          * @param yRatio 上下位置。0 = いちばん上 / 1 = いちばん下
          */
-        fun onPanelMoved(onLeft: Boolean, yRatio: Float) = Unit
+        fun onPanelMoved(xRatio: Float, yRatio: Float) = Unit
 
         /**
          * これから書かれる 1 ストロークについて、文脈から期待される文字の集合。
@@ -181,13 +181,14 @@ class UniStrokeView @JvmOverloads constructor(
         }
 
     /**
-     * 展開時にパネルを画面の左端側へ置くか（既定は利き手側。IME が設定から与える）。
+     * 展開時のパネル左右位置。0 = 左端 / 1 = 右端（既定は利き手側。IME が設定から与える）。
      * ドラッグで動かすとこの値も変わる。
      */
-    var panelOnLeft: Boolean = false
+    var panelXRatio: Float = 1f
         set(value) {
-            if (field != value) {
-                field = value
+            val v = value.coerceIn(0f, 1f)
+            if (field != v) {
+                field = v
                 invalidate()
             }
         }
@@ -892,9 +893,12 @@ class UniStrokeView @JvmOverloads constructor(
         get() = when {
             !floating -> null
             dragging -> dragLeft
-            panelOnLeft -> 0f
-            else -> width - panelWidth
+            else -> panelXRange * panelXRatio
         }
+
+    /** パネル左端が動ける範囲（0 のときは動かせない）。 */
+    private val panelXRange: Float
+        get() = max(0f, width - panelWidth)
 
     /** ドラッグ中（指で移動中、または離した後の吸い付きアニメ中）。 */
     private var dragging = false
@@ -1921,34 +1925,35 @@ class UniStrokeView @JvmOverloads constructor(
     }
 
     /**
-     * 指を離した位置から、いちばん近い端へ吸い付かせる。
+     * 指を離した位置で、パネルの置き場所を決める。
      *
-     * 左右は必ずどちらかの端まで寄せる（中途半端な位置に置くと書ける幅が減るだけ）。
-     * 上下は端の近くでだけ吸い付き、真ん中で離せばそこに留まる。
+     * 上下・左右とも、端の近くで離したときだけその端へ吸い付き、真ん中で離せばそこに留まる。
      * 背後のアプリの送信ボタンや URL 欄が隠れるときに、そこだけ避けて置けるようにするため。
+     * 横に広い画面（Fold の内側を横にしたときなど）では、中央寄りにも置ける。
      */
     private fun settlePanel() {
         if (!dragging) return
-        val toLeft = dragLeft + panelWidth / 2f < width / 2f
-        val targetLeft = if (toLeft) 0f else width - panelWidth
-        val range = panelYRange
-        val raw = if (range <= 0f) 0f else (dragTop - gripHeight) / range
-        val ratio = when {
-            raw < SNAP_RATIO -> 0f
-            raw > 1f - SNAP_RATIO -> 1f
-            else -> raw.coerceIn(0f, 1f)
-        }
-        val targetTop = gripHeight + range * ratio
-        animatePanelTo(targetLeft, targetTop) {
-            panelOnLeft = toLeft
-            panelYRatio = ratio
+        val xRange = panelXRange
+        val xRatio = snapRatio(if (xRange <= 0f) 0f else dragLeft / xRange)
+        val yRange = panelYRange
+        val yRatio = snapRatio(if (yRange <= 0f) 0f else (dragTop - gripHeight) / yRange)
+        animatePanelTo(xRange * xRatio, gripHeight + yRange * yRatio) {
+            panelXRatio = xRatio
+            panelYRatio = yRatio
             dragging = false
             // 位置が変わったら IME 側にも知らせて覚えてもらう。
             // requestLayout で touchableRegion の再計算も確実に走らせる。
-            listener?.onPanelMoved(toLeft, ratio)
+            listener?.onPanelMoved(xRatio, yRatio)
             requestLayout()
             invalidate()
         }
+    }
+
+    /** 可動範囲に対する位置（0〜1）を、端の近くなら端へ吸い付かせる。 */
+    private fun snapRatio(raw: Float): Float = when {
+        raw < SNAP_RATIO -> 0f
+        raw > 1f - SNAP_RATIO -> 1f
+        else -> raw.coerceIn(0f, 1f)
     }
 
     private fun animatePanelTo(targetLeft: Float, targetTop: Float, onSettled: () -> Unit) {
@@ -2178,7 +2183,7 @@ class UniStrokeView @JvmOverloads constructor(
         private const val GRIP_H_DP = 22f
 
         /**
-         * 上下方向で端へ吸い付く範囲（可動域に対する割合）。
+         * 上下・左右それぞれで端へ吸い付く範囲（可動域に対する割合）。
          * これより内側で離せば、その場に留まる（＝自由配置）。
          */
         private const val SNAP_RATIO = 0.12f
