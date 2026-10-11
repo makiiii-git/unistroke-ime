@@ -14,6 +14,7 @@ import re
 import sys
 
 from unistroke_model import SRC, TPL, Romaji
+from unistroke_model import read as read_kotlin
 
 FAILURES = []
 
@@ -408,7 +409,7 @@ class IME:
             return
         self._flush()
         self.out += "\n"
-        # 改行は sendKeyEvent で送るので確定として記録できない。
+        # 改行は読みを渡さない確定（commitFinal(ic, "\\n")）なので記録は捨てられる。
         # 記録が残っていると次のバックスペースで実体とずれる。
         self._clear_undo()
 
@@ -2031,6 +2032,23 @@ def main():
           "検索・送信などのアクションを要求する欄ではそちらを実行する")
     check("IME_FLAG_NO_ENTER_ACTION" in src,
           "改行が正解の欄（NO_ENTER_ACTION）は従来どおり改行する")
+    enter_fn = src[src.index("private fun sendEnter"):src.index("// ------------------------------------------------------------- composing")]
+    check('commitFinal(ic, "\\n")' in enter_fn,
+          "改行は文字として確定する（キーイベントだと Discord などが送信扱いにする）")
+    check("info?.inputType == InputType.TYPE_NULL" in enter_fn and
+          enter_fn.index("TYPE_NULL") < enter_fn.index('commitFinal(ic, "\\n")'),
+          "TYPE_NULL の欄はキーイベントで Enter を送る")
+    check("info?.inputType == InputType.TYPE_NULL || Prefs.isEnterAsKey(this)" in enter_fn,
+          "設定で「Enter キーとして送る」を選んだときもキーイベントにする")
+    prefs_src = read_kotlin("Prefs.kt")
+    check("getString(KEY_ENTER_MODE, ENTER_NEWLINE)" in prefs_src,
+          "リターンの既定は「改行を文字として入れる」")
+    check("ENTER_KEY -> ENTER_KEY" in prefs_src and "else -> ENTER_NEWLINE" in prefs_src,
+          "知らない値が保存されていても改行（既定）に倒す")
+    settings_src = read_kotlin("SettingsActivity.kt")
+    check("R.id.enter_newline to Prefs.ENTER_NEWLINE" in settings_src and
+          "R.id.enter_key to Prefs.ENTER_KEY" in settings_src,
+          "設定画面でリターンの動きを選べる")
 
     print("\n=== 「ん」で終わる語を確定しても「ん」が取り残されない ===")
     # 実機バグ: syakenn -> 変換 -> 確定 のあとに余分な「ん」が出た。

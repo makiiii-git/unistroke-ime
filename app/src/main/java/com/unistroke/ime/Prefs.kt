@@ -81,6 +81,9 @@ object Prefs {
     /** 英語版: 単語の予測（候補バー）を使うか（既定オン）。 */
     const val KEY_EN_PREDICT = "en_predict"
 
+    /** リターンで改行をどう入れるか（[ENTER_NEWLINE] / [ENTER_KEY]）。 */
+    const val KEY_ENTER_MODE = "enter_mode"
+
     const val HAND_RIGHT = "right"
     const val HAND_LEFT = "left"
 
@@ -98,6 +101,18 @@ object Prefs {
 
     /** 端末内が使えないときは端末の音声認識サービスへ渡す（外部送信の可能性あり）。 */
     const val VOICE_AUTO = "auto"
+
+    /**
+     * 改行を文字として入れる（既定。Gboard と同じ）。
+     * Discord のように Enter キーで送信するアプリでも、改行だけが入る。
+     */
+    const val ENTER_NEWLINE = "newline"
+
+    /**
+     * 改行を Enter キーの押下として送る（v1.5.1 までの動き）。
+     * Enter キーで送信するアプリ（Discord など）では送信になる。
+     */
+    const val ENTER_KEY = "key"
 
     /** 端末の言語に合わせる（日本語なら日本語版、それ以外は英語版）。 */
     const val LANG_AUTO = "auto"
@@ -325,5 +340,23 @@ object Prefs {
 
     fun setEnglishPrediction(context: Context, enabled: Boolean) {
         of(context).edit().putBoolean(KEY_EN_PREDICT, enabled).apply()
+    }
+
+    /**
+     * リターンで改行をどう入れるか。既定は [ENTER_NEWLINE]（文字として入れる）。
+     *
+     * 効くのは改行を受け付ける欄だけ。「検索」「送信」などを求める欄では、
+     * どちらを選んでも欄の指定どおりのアクションを実行する。
+     */
+    fun enterMode(context: Context): String =
+        when (of(context).getString(KEY_ENTER_MODE, ENTER_NEWLINE)) {
+            ENTER_KEY -> ENTER_KEY
+            else -> ENTER_NEWLINE
+        }
+
+    fun isEnterAsKey(context: Context): Boolean = enterMode(context) == ENTER_KEY
+
+    fun setEnterMode(context: Context, mode: String) {
+        of(context).edit().putString(KEY_ENTER_MODE, mode).apply()
     }
 }

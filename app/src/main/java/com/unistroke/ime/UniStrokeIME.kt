@@ -1454,9 +1454,20 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      * 生の Enter ではなくそのアクションを実行する（検索欄で改行だけ入って
      * 検索が走らない、という状態を避ける）。
      * [EditorInfo.IME_FLAG_NO_ENTER_ACTION] が立っている欄は改行が正解なので従う。
+     *
+     * 改行そのものは **文字 "\n" として確定する**（Gboard / AOSP LatinIME と同じ）。
+     * KEYCODE_ENTER のキーイベントで送ると、アプリ側の「Enter キーが押された」
+     * ハンドラ（React Native の onKeyPress など）が反応して、枠組みが入れる改行と
+     * 同時に送信まで走る。Discord の投稿欄（MULTI_LINE + NO_ENTER_ACTION）で
+     * 「改行したいのに送信される」のはこれ。文字として入れればテキスト変更しか起きない。
+     *
+     * キーイベントで送るのは次の 2 つ。
+     *   - 文字列を受け取れない欄（[InputType.TYPE_NULL]）
+     *   - 設定で「Enter キーとして送る」を選んでいるとき（[Prefs.ENTER_KEY]。
+     *     Discord などで Enter を送信に使いたい人向け。v1.5.1 までの動き）
      */
     private fun sendEnter(ic: InputConnection) {
-        // 改行・エディタアクションは commitFinal を通らない文書の変更なので、
+        // エディタアクション・キーイベントは commitFinal を通らない文書の変更なので、
         // ここで確定アンドゥを無効にする（記録とアプリ側の実体をずらさない）。
         clearUndo()
         val info = currentInputEditorInfo
@@ -1470,8 +1481,13 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
             ic.performEditorAction(action)
             return
         }
-        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+        if (info?.inputType == InputType.TYPE_NULL || Prefs.isEnterAsKey(this)) {
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+            return
+        }
+        // 読みを渡さない確定なので記録は捨てられる（改行はバックスペースで普通に消せる）
+        commitFinal(ic, "\n")
     }
 
     // ------------------------------------------------------------- composing

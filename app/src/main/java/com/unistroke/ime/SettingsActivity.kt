@@ -73,6 +73,19 @@ class SettingsActivity : LocalizedActivity() {
         right.setOnClickListener { Prefs.setLeftHanded(this, false) }
         left.setOnClickListener { Prefs.setLeftHanded(this, true) }
 
+        // リターンの改行の入れ方。既定は文字として入れる（Discord などでも送信にならない）。
+        // IME はリターンのたびに読みに来るので、保存だけでよい。
+        val enterMode = Prefs.enterMode(this)
+        for ((id, value) in listOf(
+            R.id.enter_newline to Prefs.ENTER_NEWLINE,
+            R.id.enter_key to Prefs.ENTER_KEY,
+        )) {
+            findViewById<RadioButton>(id).apply {
+                isChecked = enterMode == value
+                setOnClickListener { Prefs.setEnterMode(this@SettingsActivity, value) }
+            }
+        }
+
         // ネット変換を提供しない配布（Google Play 版）では、変換エンジンの選択ごと隠す。
         // かな漢字変換そのものを持たない英語版でも隠す（拡張辞書の節も同じ）。
         findViewById<View>(R.id.section_net_convert).visibility =
