@@ -770,7 +770,7 @@ class UniStrokeView @JvmOverloads constructor(
      *
      * ドッキング時は、下端の帯を [navInset] から [bottomReserve] へ広げたぶんだけ詰める。
      * ビュー全体の高さ（= パネル上端の画面上の位置）は変えずに、下だけを明け渡す。
-     * 浮動時はパネルを詰めず、可動範囲のほうから除く。
+     * 浮動時はパネルを詰めない（下端の帯はパネルが重なったときに隠す。[syncImeNavBar]）。
      */
     private val bodyHeight: Float
         get() {
@@ -779,17 +779,20 @@ class UniStrokeView @JvmOverloads constructor(
             return max(min(full, dp(MIN_HEIGHT_DP)), full - (bottomReserve - navInset))
         }
 
-    /** パネル上端が動ける範囲（0 のときは動かせない）。 */
+    /**
+     * パネル上端が動ける範囲（0 のときは動かせない）。浮動時だけ意味を持つ。
+     * 下端の帯は避けず、画面の下端まで下ろせる。
+     */
     private val panelYRange: Float
-        get() = max(0f, height - bottomReserve - panelHeight - gripHeight)
+        get() = max(0f, height - panelHeight - gripHeight)
 
     /**
      * 画面下端のナビゲーションバー（ジェスチャーバー、IME 切替ボタンの帯）の高さ。
      *
      * Android 15 以降は IME のウィンドウも画面の下端まで広がり、システムは余白を
      * 取ってくれない。何もしないとパネル最下段のボタンがバーと重なって押せなくなる。
-     * そこで、ドッキング時はビューをこのぶんだけ下へ伸ばしてパネルをバーの上に載せ、
-     * 浮動時はパネルの可動範囲から除く。**パネルの中の座標は一切変わらない**
+     * そこで、ドッキング時はビューをこのぶんだけ下へ伸ばしてパネルをバーの上に載せる。
+     * 浮動時はパネルを動かせるので避けない。**パネルの中の座標は一切変わらない**
      * （パネル上端が原点のまま）ので、ストロークの扱いには影響しない。
      */
     private var navInset = 0
@@ -805,20 +808,30 @@ class UniStrokeView @JvmOverloads constructor(
      */
     private var bottomReserve = 0
 
+    /**
+     * 下端の帯の高さを、帯を隠しているときも含めて覚えておく値。
+     * 浮動時に「パネルが帯にかかっているか」を判定するのに使う。
+     * 見えている高さで判定すると、帯を隠した途端に判定が変わって出し入れを繰り返す。
+     */
+    private var bottomStrip = 0
+
     override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
         val nav: Int
         val reserve: Int
+        val strip: Int
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bars = WindowInsets.Type.systemBars() or WindowInsets.Type.tappableElement()
             nav = insets.getInsets(WindowInsets.Type.navigationBars()).bottom
-            reserve = insets.getInsets(
-                WindowInsets.Type.systemBars() or WindowInsets.Type.tappableElement()
-            ).bottom
+            reserve = insets.getInsets(bars).bottom
+            strip = insets.getInsetsIgnoringVisibility(bars).bottom
         } else {
             @Suppress("DEPRECATION")
             nav = insets.systemWindowInsetBottom
             reserve = nav
+            strip = nav
         }
         val newReserve = max(nav, reserve)
+        bottomStrip = max(newReserve, strip)
         if (nav != navInset || newReserve != bottomReserve) {
             navInset = nav
             bottomReserve = newReserve
@@ -826,6 +839,37 @@ class UniStrokeView @JvmOverloads constructor(
             invalidate()
         }
         return super.onApplyWindowInsets(insets)
+    }
+
+    /**
+     * 下端のシステムの帯（「キーボードを閉じる」「IME 切替」ボタン）を隠しているか。
+     * null = まだ一度も指示していない（ウィンドウに付いた直後は必ず指示し直す）。
+     */
+    private var imeNavBarHidden: Boolean? = null
+
+    /**
+     * 浮動時、パネルが下端の帯にかかっているあいだだけ帯を隠す。
+     *
+     * 帯のボタンはパネルより手前に描かれてタッチも取るので、重ねたままだと
+     * パネル最下段の一部が書けない・押すとキーボードが閉じる。パネルを上へ動かせば
+     * 帯は戻る。ドッキング時は常に出す（パネルは帯の上に載るので重ならない）。
+     *
+     * 帯は IME の窓が出している captionBar で、IME 自身が隠せる。
+     * 隠せない古い版では何も起きないだけ。ドラッグ中は切り替えず、置いた位置で決める。
+     */
+    private fun syncImeNavBar() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        if (dragging || !isAttachedToWindow) return
+        val hide = floating && bottomStrip > 0 &&
+            panelTop + panelHeight > height - bottomStrip + 0.5f
+        if (hide == imeNavBarHidden) return
+        imeNavBarHidden = hide
+        // 描画の途中でウィンドウの状態を変えないよう、次のループで指示する
+        post {
+            val controller = windowInsetsController ?: return@post
+            if (hide) controller.hide(WindowInsets.Type.captionBar())
+            else controller.show(WindowInsets.Type.captionBar())
+        }
     }
 
     /** 浮動時のパネル幅。1 画面のスマホと同じ書き心地になる幅で頭打ちにする。 */
@@ -880,6 +924,7 @@ class UniStrokeView @JvmOverloads constructor(
             floatLeft = panelLeftPx,
         )
         layoutGrip()
+        syncImeNavBar()
     }
 
     /** つまみはパネル上辺の中央、パネルの外側に置く。 */
@@ -2045,6 +2090,12 @@ class UniStrokeView @JvmOverloads constructor(
         strokeFade.cancel()
         strokeAlpha = 0f
         invalidate()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // 前の入力ビューが帯を隠したままかもしれないので、付いたら必ず指示し直す
+        imeNavBarHidden = null
     }
 
     override fun onDetachedFromWindow() {
