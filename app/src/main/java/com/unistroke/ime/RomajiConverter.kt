@@ -143,7 +143,63 @@ object RomajiConverter {
      * @param katakana true ならカタカナで返す
      */
     fun convert(buffer: String, katakana: Boolean = false): Result =
-        convertInternal(buffer, katakana, null)
+        convertInternal(buffer, katakana, null, null, null)
+
+    /**
+     * 「nn + 母音」の解釈を指定して変換する。
+     *
+     * [nnSplit] の k 番目は、[buffer] を頭から変換していって k 回目に出会う「nn + 母音」の扱い。
+     *   false … 従来どおり n を 1 つだけ消費する（"konnichiha" -> こんにちは）
+     *   true  … n を 2 つとも消費して「ん」+ あ行にする（"menneki" -> めんえき）
+     * 足りない分は false（従来の解釈）。どちらにするかは [chooseNnSplits] が辞書で決める。
+     */
+    fun convert(buffer: String, katakana: Boolean, nnSplit: List<Boolean>): Result =
+        convertInternal(buffer, katakana, null, nnSplit, null)
+
+    /** [buffer] を変換するあいだに「nn + 母音」の分かれ道に何回出会うか。 */
+    fun ambiguousNnCount(buffer: String): Int {
+        val counter = IntArray(1)
+        convertInternal(buffer, false, null, null, counter)
+        return counter[0]
+    }
+
+    /**
+     * 「nn + 母音」の分かれ道ごとに、「ん + な行」と「ん + あ行」のどちらで読むかを選ぶ。
+     *
+     * 「ん」の明示入力は "nn" だが、そのあとに母音が来ると綴りだけでは決められない。
+     *   "minna"   -> みんな（ん + な）   "menneki" -> めんえき（ん + え）
+     * 前者を優先していたため、後者（免疫・原因・全員・恋愛・範囲 …）が打てなかった。
+     *
+     * そこで両方の読みを [cost]（オンデバイス辞書の最小経路コスト。小さいほど自然）にかけ、
+     * あ行のほうが [NN_SPLIT_MARGIN] 以上自然なときだけあ行を選ぶ。僅差なら従来どおりな行。
+     * 分かれ道が複数あれば頭から 1 つずつ決める（それより前は決定済み、後ろは従来の解釈）。
+     * [cost] が null を返したら、その分かれ道は従来の解釈のまま。
+     *
+     * どうしてもな行／あ行を強制したいときの綴り:
+     *   "nnn" + 母音 -> ん + な行（"tennnin" -> てんにん）
+     *   "n'"  + 母音 -> ん + あ行（"ten'in"  -> てんいん）
+     */
+    fun chooseNnSplits(raw: String, cost: (String) -> Int?): List<Boolean> {
+        val n = minOf(ambiguousNnCount(raw), MAX_NN_CHOICES)
+        val choice = ArrayList<Boolean>(n)
+        // 比べるのは画面に見えているかな（末尾の "nn" =「ん」も含める。"genninn" -> げんいん）
+        fun reading(c: List<Boolean>): String =
+            convert(raw, false, c).let { it.kana + settledPending(it.pending) }
+        for (i in 0 until n) {
+            choice.add(false)
+            val asNa = cost(reading(choice))
+            choice[i] = true
+            val asA = cost(reading(choice))
+            choice[i] = asNa != null && asA != null && asA + NN_SPLIT_MARGIN <= asNa
+        }
+        return choice
+    }
+
+    /** あ行を選ぶのに要るコストの差。僅差では従来の解釈（な行）を保つ。 */
+    const val NN_SPLIT_MARGIN = 500
+
+    /** 辞書で決める分かれ道の数の上限（1 文字ごとに 2 回ずつ経路を引くので抑える）。 */
+    const val MAX_NN_CHOICES = 4
 
     /**
      * [buffer] を変換しつつ、回復処理（下の 5.）が何回起きたかを [fallbacks] へ数える。
@@ -153,17 +209,28 @@ object RomajiConverter {
         buffer: String,
         katakana: Boolean,
         fallbacks: IntArray?,
+        nnSplit: List<Boolean>?,
+        nnForks: IntArray?,
     ): Result {
         val out = StringBuilder()
         var rest = buffer
+        var fork = 0
         loop@ while (rest.isNotEmpty()) {
             // 0) "nn" は次の 1 文字を見てから決める。
-            //    nn + 母音 -> 「ん」で n を 1 つだけ消費（konnichiha -> こんにちは）
+            //    nn + 母音 -> 既定は「ん」で n を 1 つだけ消費（konnichiha -> こんにちは）。
+            //                [nnSplit] で指定されたら 2 つ消費（menneki -> めんえき）
             //    nn + それ以外 -> 「ん」で n を 2 つ消費（kinnyoubi -> きんようび / zennbu -> ぜんぶ）
             if (rest.startsWith("nn")) {
                 if (rest.length == 2) break@loop // 続きを待つ
                 out.append("ん")
-                rest = rest.substring(if (rest[2] in VOWELS) 1 else 2)
+                val consume = if (rest[2] in VOWELS) {
+                    val split = nnSplit?.getOrNull(fork) == true
+                    fork++
+                    if (split) 2 else 1
+                } else {
+                    2
+                }
+                rest = rest.substring(consume)
                 continue@loop
             }
 
@@ -222,6 +289,7 @@ object RomajiConverter {
             rest = rest.substring(1)
         }
 
+        if (nnForks != null) nnForks[0] = fork
         val kana = out.toString()
         return Result(if (katakana) toKatakana(kana) else kana, rest)
     }
@@ -321,7 +389,7 @@ object RomajiConverter {
     fun latinFallbackCount(raw: String): Int {
         if (raw.isEmpty()) return 0
         val counter = IntArray(1)
-        convertInternal(raw, false, counter)
+        convertInternal(raw, false, counter, null, null)
         return counter[0]
     }
 

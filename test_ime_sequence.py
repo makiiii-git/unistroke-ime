@@ -50,7 +50,9 @@ UNRECOGNIZED = "#none"
 class IME:
     """UniStrokeIME の入力ディスパッチ部分の写し（通信・候補バーは除く）。"""
 
-    def __init__(self, mode="HIRAGANA"):
+    def __init__(self, mode="HIRAGANA", cost=None):
+        self.cost = cost          # 辞書の経路コスト（Kotlin: OnDeviceConverter.pathCost）/ None = 辞書なし
+        self.nn_split = []        # 「nn + 母音」の読み（True = ん + あ行）
         self.mode = mode          # LATIN / HIRAGANA / KATAKANA
         self.shift = "OFF"        # OFF / ONCE / LOCK
         self.temp_latin = "NONE"  # NONE / UPPER / LOWER
@@ -212,6 +214,7 @@ class IME:
 
     def _end_word(self):
         self.word_raw = ""
+        self.nn_split = []
         self.auto_latin = False
 
     def _revert_auto_latin(self):
@@ -226,19 +229,31 @@ class IME:
     def _raw_matches_composing(self):
         if not self.word_raw:
             return False
-        kana, pending = Romaji.convert(self.word_raw)
+        kana, pending = Romaji.convert(self.word_raw, self.nn_split)
         if self.katakana:
             kana = Romaji.to_katakana(kana)
         return kana == self.kana and pending == self.romaji
 
     def _rederive_from_raw(self):
-        kana, pending = Romaji.convert(self.word_raw)
+        kana, pending = Romaji.convert(self.word_raw, self.nn_split)
         self.kana = Romaji.to_katakana(kana) if self.katakana else kana
         self.romaji = pending
+        del self.nn_split[Romaji.ambiguous_nn_count(self.word_raw):]
+
+    def _choose_nn(self):
+        """Kotlin: chooseNnInterpretation。文字を書くたびに辞書で読みを選び直す。"""
+        if Romaji.ambiguous_nn_count(self.word_raw) == 0 or self.cost is None:
+            return
+        if not self._raw_matches_composing():
+            return
+        chosen = Romaji.choose_nn_splits(self.word_raw, self.cost)
+        if chosen != self.nn_split:
+            self.nn_split = chosen
+            self._rederive_from_raw()
 
     def _shown_for(self, raw):
         """raw を合成したときの見え方（かな + 未確定ローマ字の表示）。"""
-        kana, pending = Romaji.convert(raw)
+        kana, pending = Romaji.convert(raw, self.nn_split)
         shown = kana + Romaji.preview(pending)
         return Romaji.to_katakana(shown) if self.katakana else shown
 
@@ -393,6 +408,7 @@ class IME:
         kana, pending = Romaji.convert(self.romaji)
         self.kana += Romaji.to_katakana(kana) if self.katakana else kana
         self.romaji = pending
+        self._choose_nn()
         # 日本語のローマ字として無理があればこの単語だけ英字へ倒す（ひらがなのみ）
         if self.mode == "HIRAGANA" and Romaji.looks_non_japanese(self.word_raw):
             self.auto_latin = True
@@ -1166,6 +1182,32 @@ def main():
     eq(ime.composing(), "sた", "確定アンドゥで「sた」へ戻る")
     ime.stroke(BACKSPACE)
     eq(ime.composing(), "s", "綴りが無くても 1 文字ずつ消える")
+
+    print("\n=== 「nn + 母音」を辞書で読み分ける（めんえき / みんな）===")
+    import ondevice_model
+    cost = ondevice_model.shared().path_cost
+    ime = IME(cost=cost)
+    typed(ime, "menne")
+    eq(ime.composing(), "めんね", "menne の時点では「めんね」")
+    typed(ime, "ki")
+    eq(ime.composing(), "めんえき", "ki まで書くと辞書で「めんえき」に読み直す")
+    ime.stroke(BACKSPACE)
+    eq(ime.composing(), "めんえ", "「き」を消しても読みは戻らない（めんえ）")
+    eq(ime.word_raw, "menne", "綴りは menne まで戻る")
+    typed(ime, "ki")
+    eq(ime.composing(), "めんえき", "書き直しても「めんえき」")
+    for word, want in [("minna", "みんな"), ("konnichiha", "こんにちは"),
+                       ("genninn", "げんいん"), ("rennai", "れんあい"),
+                       ("minnanomenneki", "みんなのめんえき")]:
+        eq(typed(IME(cost=cost), word).composing(), want, "%r -> %s" % (word, want))
+    eq(typed(IME(cost=cost, mode="KATAKANA"), "menneki").composing(), "メンエキ",
+       "カタカナでも同じ読み分け（メンエキ）")
+    eq(typed(IME(), "menneki").composing(), "めんねき", "辞書が無ければ従来どおり（めんねき）")
+    ime = IME(cost=cost)
+    typed(ime, "menneki")
+    ime.stroke(SPACE)
+    ime._flush()
+    eq(ime.out, "めんえき", "確定もそのまま「めんえき」")
 
     print("\n=== 合成中の全角記号は英字化の根拠にしない ===")
     ime = IME()

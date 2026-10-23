@@ -100,6 +100,16 @@ def main():
     for buf, kana, pending in CONVERT_CASES:
         eq(Romaji.convert(buf), (kana, pending), "convert(%r)" % buf)
 
+    print("\n=== 「nn + 母音」の読みの指定 ===")
+    eq(Romaji.ambiguous_nn_count("menneki"), 1, "menneki の分かれ道は 1 つ")
+    eq(Romaji.ambiguous_nn_count("kinnyoubi"), 0, "nn + 子音は分かれ道ではない")
+    eq(Romaji.ambiguous_nn_count("menn"), 0, "末尾の nn（続き待ち）は数えない")
+    eq(Romaji.ambiguous_nn_count("minnanomenneki"), 2, "2 か所")
+    eq(Romaji.convert("menneki"), ("めんねき", ""), "既定は従来どおり（ん + な行）")
+    eq(Romaji.convert("menneki", [True]), ("めんえき", ""), "指定すれば ん + あ行")
+    eq(Romaji.convert("minnanomenneki", [False, True]), ("みんなのめんえき", ""), "分かれ道ごとに指定できる")
+    eq(Romaji.convert("tennnin", [True]), ("てんに", "n"), "nnn + 母音は指定に関わらず な行")
+
     print("\n=== flush()（末尾の単独 n は Latin の n） ===")
     for buf, want in FLUSH_CASES:
         eq(Romaji.flush(buf), want, "flush(%r)" % buf)

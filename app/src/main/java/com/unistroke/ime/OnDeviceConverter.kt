@@ -78,6 +78,27 @@ class OnDeviceConverter private constructor(private val dic: OnDeviceDictionary)
     }
 
     /**
+     * [reading] を変換したときの最小経路コスト（BOS から EOS まで）。小さいほど日本語として自然。
+     * 読みの解釈が分かれるとき（[RomajiConverter.chooseNnSplits]）の比較に使う。
+     *
+     * ラティスは呼び出しごとに作り捨てるのでメインスレッドから呼べる（数文字〜十数文字で数ミリ秒）。
+     * 経路が無い・辞書が壊れているときは null。
+     */
+    fun pathCost(reading: String): Int? {
+        if (reading.isEmpty()) return null
+        return runCatching {
+            val lattice = buildLattice(reading)
+            val path = lattice.bestPath()
+            if (path.isEmpty()) {
+                null
+            } else {
+                val last = path[path.size - 1]
+                lattice.total[last] + connectionOf(lattice, last, -1)
+            }
+        }.getOrNull()
+    }
+
+    /**
      * 前方一致の予測変換。[prefix] を読みの先頭に持つ語を、出やすい順に返す。
      *
      * 接頭辞の範囲を**全部**なめる。鍵は辞書順に並んでいるので、先頭の数百件だけ見ると

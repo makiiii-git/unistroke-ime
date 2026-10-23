@@ -1119,6 +1119,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         kana.append(r.kana)
         romaji.setLength(0)
         romaji.append(r.pending)
+        // 「nn + 母音」は「ん + な行」と「ん + あ行」のどちらにも読める。辞書で自然なほうを選ぶ
+        chooseNnInterpretation()
 
         // 日本語のローマ字として無理がある綴りになったら、この単語だけ英字へ倒す。
         // ひらがなモードのみ（カタカナ入力は意図的な選択なので触らない）。
@@ -1525,24 +1527,54 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      */
     private fun rawMatchesComposing(): Boolean {
         if (wordRaw.isEmpty()) return false
-        val r = RomajiConverter.convert(wordRaw.toString(), inputMode == InputMode.KATAKANA)
+        val r = RomajiConverter.convert(wordRaw.toString(), inputMode == InputMode.KATAKANA, nnSplit)
         return r.kana == kana.toString() && r.pending == romaji.toString()
     }
 
     /** 生の綴りから [kana] / [romaji] を組み直す。 */
     private fun rederiveComposingFromRaw() {
-        val r = RomajiConverter.convert(wordRaw.toString(), inputMode == InputMode.KATAKANA)
+        val raw = wordRaw.toString()
+        val r = RomajiConverter.convert(raw, inputMode == InputMode.KATAKANA, nnSplit)
         kana.setLength(0)
         kana.append(r.kana)
         romaji.setLength(0)
         romaji.append(r.pending)
+        // 綴りが縮んで消えた分かれ道の選択は捨てる（同じ位置にまた来たら選び直す）
+        val forks = RomajiConverter.ambiguousNnCount(raw)
+        while (nnSplit.size > forks) nnSplit.removeAt(nnSplit.size - 1)
     }
 
     /** [raw] を合成したときの見え方（かな + 未確定ローマ字の表示）。 */
     private fun shownFor(raw: String): String {
         val katakana = inputMode == InputMode.KATAKANA
-        val r = RomajiConverter.convert(raw, katakana)
+        val r = RomajiConverter.convert(raw, katakana, nnSplit)
         return r.kana + RomajiConverter.preview(r.pending, katakana)
+    }
+
+    /**
+     * いまの単語の「nn + 母音」それぞれを、「ん + な行」（false）と「ん + あ行」（true）の
+     * どちらで読んでいるか。[RomajiConverter.chooseNnSplits] が辞書で決める。
+     * 単語の区切り（[endWord]）で捨てる。
+     */
+    private val nnSplit = ArrayList<Boolean>()
+
+    /**
+     * 文字を書くたびに「nn + 母音」の読みを辞書で選び直し、変われば合成を組み直す。
+     *   "minna" -> みんな / "menneki" -> めんえき / "konnichiha" -> こんにちは
+     * 書いている途中で表示が入れ替わることがある（"menne" は「めんね」、"ki" まで来て「めんえき」）。
+     * バックスペースでは選び直さない（消したら読みが変わる、という動きにしない）。
+     * 辞書が無い・綴りと合成の対応が崩れているときは何もしない（従来どおりな行）。
+     */
+    private fun chooseNnInterpretation() {
+        val raw = wordRaw.toString()
+        if (RomajiConverter.ambiguousNnCount(raw) == 0) return
+        val engine = onDevice ?: return
+        if (!rawMatchesComposing()) return
+        val chosen = RomajiConverter.chooseNnSplits(raw) { engine.pathCost(it) }
+        if (chosen == nnSplit) return
+        nnSplit.clear()
+        nnSplit.addAll(chosen)
+        rederiveComposingFromRaw()
     }
 
     /**
@@ -1590,6 +1622,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      */
     private fun endWord() {
         wordRaw.setLength(0)
+        nnSplit.clear()
         autoLatin = false
     }
 

@@ -308,6 +308,41 @@ def main() -> int:
     check('noCompress += "dic"' in gradle,
           "辞書を無圧縮にして mmap できるようにしている")
 
+    print("\n=== 8. 「nn + 母音」の読み分け（ん + な行 / ん + あ行）===")
+    from unistroke_model import Romaji
+    cost = conv.path_cost
+    for raw, want in [
+        # ん + あ行（以前は打てなかった）
+        ("menneki", "めんえき"), ("genninn", "げんいん"), ("zenninn", "ぜんいん"),
+        ("rennai", "れんあい"), ("tenninn", "てんいん"), ("hanni", "はんい"),
+        # ん + な行（従来どおり）
+        ("konnichiha", "こんにちは"), ("minna", "みんな"), ("konna", "こんな"),
+        ("sonna", "そんな"), ("donna", "どんな"), ("annai", "あんない"),
+        ("onna", "おんな"), ("tennou", "てんのう"), ("hannou", "はんのう"),
+        ("kinniku", "きんにく"), ("honninn", "ほんにん"), ("konnann", "こんなん"),
+        ("minnade", "みんなで"), ("tennnenn", "てんねん"),
+        # 2 か所: どちらも辞書で決まる
+        ("minnanomenneki", "みんなのめんえき"),
+        # 明示の綴りはそのまま（nnn + 母音 = な行、n' + 母音 = あ行）
+        ("tennnin", "てんにn"), ("ten'in", "てんいn"),
+    ]:
+        split = Romaji.choose_nn_splits(raw, cost)
+        kana, pending = Romaji.convert(raw, split)
+        kana += Romaji.preview(pending)
+        check(kana == want, "%r -> %s（選択 %s）" % (raw, kana, split))
+    check(Romaji.choose_nn_splits("menneki", lambda r: None) == [False],
+          "辞書が無ければ従来どおり（めんねき）")
+    t0 = time.time()
+    for _ in range(20):
+        Romaji.choose_nn_splits("minnanomenneki", cost)
+    check(True, "読み分け 1 回の時間（Python）: %.1f ms" % ((time.time() - t0) * 50))
+
+    ime = read(os.path.join(KT, "UniStrokeIME.kt"))
+    check("RomajiConverter.chooseNnSplits(raw) { engine.pathCost(it) }" in ime,
+          "IME が辞書のコストで「nn + 母音」の読みを選んでいる")
+    check("fun pathCost(reading: String): Int?" in read(os.path.join(KT, "OnDeviceConverter.kt")),
+          "変換器が最小経路コストを返せる")
+
     print()
     if FAILURES:
         print("test_ondevice: %d FAIL" % len(FAILURES))

@@ -535,15 +535,51 @@ class Romaji:
     VOWELS = "aiueo"
 
     @classmethod
-    def convert(cls, buffer: str) -> Tuple[str, str]:
+    def convert(cls, buffer: str, nn_split=None) -> Tuple[str, str]:
+        return cls._convert(buffer, nn_split)[:2]
+
+    @classmethod
+    def ambiguous_nn_count(cls, buffer: str) -> int:
+        """「nn + 母音」の分かれ道の数（Kotlin: RomajiConverter.ambiguousNnCount）。"""
+        return cls._convert(buffer, None)[2]
+
+    # Kotlin: RomajiConverter.NN_SPLIT_MARGIN / MAX_NN_CHOICES
+    NN_SPLIT_MARGIN = int(re.search(r"NN_SPLIT_MARGIN\s*=\s*(\d+)", _RO).group(1))
+    MAX_NN_CHOICES = int(re.search(r"MAX_NN_CHOICES\s*=\s*(\d+)", _RO).group(1))
+
+    @classmethod
+    def choose_nn_splits(cls, raw: str, cost) -> list:
+        """分かれ道ごとに「ん + あ行」（True）か「ん + な行」（False）かを辞書コストで選ぶ。"""
+        n = min(cls.ambiguous_nn_count(raw), cls.MAX_NN_CHOICES)
+        choice = []
+        def reading(c):
+            kana, pending = cls.convert(raw, c)
+            return kana + cls.settled_pending(pending)
+        for i in range(n):
+            choice.append(False)
+            as_na = cost(reading(choice))
+            choice[i] = True
+            as_a = cost(reading(choice))
+            choice[i] = as_na is not None and as_a is not None \
+                and as_a + cls.NN_SPLIT_MARGIN <= as_na
+        return choice
+
+    @classmethod
+    def _convert(cls, buffer: str, nn_split):
         out = []
         rest = buffer
+        fork = 0
         while rest:
             if rest.startswith("nn"):
                 if len(rest) == 2:
                     break
                 out.append("ん")
-                rest = rest[1:] if rest[2] in cls.VOWELS else rest[2:]
+                if rest[2] in cls.VOWELS:
+                    split = nn_split is not None and fork < len(nn_split) and nn_split[fork]
+                    fork += 1
+                    rest = rest[2:] if split else rest[1:]
+                else:
+                    rest = rest[2:]
                 continue
             matched = False
             ln = min(cls.MAX_KEY, len(rest))
@@ -572,7 +608,7 @@ class Romaji:
                 break
             out.append(c)
             rest = rest[1:]
-        return "".join(out), rest
+        return "".join(out), rest, fork
 
     # 「ん」を明示入力する綴り（Kotlin: RomajiConverter.SOKUON_N）
     SOKUON_N = re.search(r'SOKUON_N\s*=\s*"([^"]+)"', _RO).group(1)

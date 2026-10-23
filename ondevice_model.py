@@ -319,6 +319,15 @@ class Converter:
         path.reverse()
         return path
 
+    def path_cost(self, reading: str):
+        """最小経路コスト（Kotlin: OnDeviceConverter.pathCost）。経路が無ければ None。"""
+        if not reading:
+            return None
+        path = self.best_path(reading)
+        if not path:
+            return None
+        return path[-1].total + self.conn(path[-1], None)
+
     # ------------------------------------------------------------ 候補生成
 
     def convert(self, reading: str) -> list[Segment]:
