@@ -20,6 +20,8 @@ class TrainingActivity : LocalizedActivity() {
 
     private lateinit var sampleView: StrokeSampleView
     private lateinit var padView: PracticePadView
+    private lateinit var sampleLabel: TextView
+    private lateinit var padLabel: TextView
     private lateinit var titleText: TextView
     private lateinit var instructionText: TextView
     private lateinit var progressText: TextView
@@ -45,6 +47,8 @@ class TrainingActivity : LocalizedActivity() {
 
         sampleView = findViewById(R.id.training_sample)
         padView = findViewById(R.id.training_pad)
+        sampleLabel = findViewById(R.id.training_sample_label)
+        padLabel = findViewById(R.id.training_pad_label)
         titleText = findViewById(R.id.training_title)
         instructionText = findViewById(R.id.training_instruction)
         progressText = findViewById(R.id.training_progress)
@@ -133,6 +137,8 @@ class TrainingActivity : LocalizedActivity() {
         sampleView.setStroke(c, samples[c].orEmpty())
         sampleView.visibility = View.VISIBLE
         padView.visibility = View.VISIBLE
+        sampleLabel.visibility = View.VISIBLE
+        padLabel.visibility = View.VISIBLE
         padView.setHint(getString(R.string.training_pad_hint))
         skipButton.visibility = View.VISIBLE
         skipButton.text = getString(R.string.training_skip_char)
@@ -149,9 +155,14 @@ class TrainingActivity : LocalizedActivity() {
         titleText.text = ""
         instructionText.setText(R.string.training_done_title)
         instructionText.visibility = View.VISIBLE
+        // 完了後に残すのは結果と「閉じる」だけ。パッドを消しても見出しが残ると
+        // 「ここに書いてみる」の下に何も無い画面になるので、見出しも一緒に消す。
         sampleView.visibility = View.GONE
         padView.visibility = View.GONE
+        sampleLabel.visibility = View.GONE
+        padLabel.visibility = View.GONE
         skipButton.visibility = View.GONE
+        progressText.visibility = View.GONE
         finishButton.text = getString(R.string.training_close)
         progressText.text = ""
         setFeedback(

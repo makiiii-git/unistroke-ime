@@ -78,6 +78,7 @@
     <!-- ================= 中央: 見本 ================= -->
 
     <TextView
+        android:id="@+id/training_sample_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingStart="20dp"
@@ -127,6 +128,7 @@
     <!-- ================= 下部: 練習パッド ================= -->
 
     <TextView
+        android:id="@+id/training_pad_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingStart="20dp"
