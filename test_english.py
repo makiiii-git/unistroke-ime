@@ -332,8 +332,9 @@ def main() -> int:
     check(word_ms >= 4 * cursor_ms,
           "単語削除のリピート %dms はカーソルの %dms よりずっと遅い（消しすぎない）"
           % (word_ms, cursor_ms))
-    check("enPredictHere = english && Prefs.isEnglishPrediction(this) && allowsPrediction(info)"
-          in ime_src, "予測は英語版・設定オン・許される欄の 3 つが揃ったときだけ")
+    check("enPredictHere = english && premiumUnlocked &&\n"
+          "            Prefs.isEnglishPrediction(this) && allowsPrediction(info)"
+          in ime_src, "予測は英語版・プレミアム・設定オン・許される欄の 4 つが揃ったときだけ")
     allow = ime_src[ime_src.find("private fun allowsPrediction"):][:400]
     check("isLatinOnlyField(info)" in allow and "TYPE_TEXT_FLAG_NO_SUGGESTIONS" in allow
           and "TYPE_NULL" in allow,

@@ -134,8 +134,19 @@ def main() -> int:
     check("if (Entitlement.isUnlocked(app)) {\n                mapFromFile(extFile(app))" in dic,
           "拡張辞書はプレミアム")
     check("mapFromAssets(app)?.let { return it }" in dic, "コア辞書は鍵に関係なく開く")
-    check("Prefs.KEY_PREMIUM_PURCHASED -> syncEntitlement()" in ime,
-          "購入・復元の直後に IME へ反映する")
+    check("Prefs.KEY_PREMIUM_PURCHASED -> if (syncEntitlement() && english) {" in ime,
+          "購入・復元の直後に IME へ反映する（英単語の予測の可否も引き直す）")
+    check("enPredictHere = english && premiumUnlocked &&" in ime,
+          "英単語の予測（と定型文）はプレミアム。試用後は 1 文字ずつそのまま確定する")
+    check("enShortcuts = if (enPredictHere) TextShortcuts.load(this) else emptyList()" in ime,
+          "定型文は予測が使える欄でだけ出す")
+    theme = read(os.path.join(KT, "PadTheme.kt"))
+    check("if (Entitlement.isUnlocked(context)) selected(context) else CLASSIC" in theme,
+          "テーマはプレミアム。試用後は Classic で描く")
+    check("if (PadTheme.selected(this) != PadTheme.CLASSIC) recreateInputView()" in ime,
+          "鍵が変わったらテーマを描き直す")
+    check("context.getColor(" not in code(read(os.path.join(KT, "UniStrokeView.kt"))),
+          "入力ビューの色はすべてテーマから取る")
     view = read(os.path.join(KT, "UniStrokeView.kt"))
     check(ime.count("premiumNotice = !premiumUnlocked") == 2,
           "試用終了後は手書きゾーンの背景に案内を出す（ビュー生成時と鍵の引き直し時）")

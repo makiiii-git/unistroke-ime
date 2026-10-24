@@ -161,6 +161,69 @@
                 android:textSize="16sp" />
         </RadioGroup>
 
+        <!-- キーボードの配色（プレミアム）。両言語で出す。 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/theme_title"
+            android:textColor="@color/app_text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/theme_body"
+            android:textColor="@color/app_text"
+            android:textSize="14sp" />
+
+        <RadioGroup
+            android:id="@+id/theme_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/theme_classic"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/theme_classic"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <RadioButton
+                android:id="@+id/theme_lcd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/theme_lcd"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <RadioButton
+                android:id="@+id/theme_midnight"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/theme_midnight"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <RadioButton
+                android:id="@+id/theme_paper"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/theme_paper"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+        </RadioGroup>
+
         <!-- リターンで改行をどう入れるか（文字として / Enter キーとして）。両言語で出す。 -->
         <TextView
             android:layout_width="wrap_content"
@@ -249,6 +312,39 @@
                 android:text="@string/english_auto_cap"
                 android:textColor="@color/app_text"
                 android:textSize="16sp" />
+
+            <!-- 定型文（プレミアム）。綴りを書くと候補バーの先頭に文章が出る。 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/shortcuts_title"
+                android:textColor="@color/app_text"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/shortcuts_body"
+                android:textColor="@color/app_text"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:id="@+id/list_shortcuts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="vertical" />
+
+            <Button
+                android:id="@+id/btn_shortcut_add"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/shortcuts_add" />
         </LinearLayout>
 
         <!--

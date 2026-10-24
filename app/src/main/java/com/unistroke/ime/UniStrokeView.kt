@@ -7,7 +7,6 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
@@ -314,6 +313,9 @@ class UniStrokeView @JvmOverloads constructor(
     // ------------------------------------------------------------ candidates
 
     private var candidates: List<String> = emptyList()
+
+    /** 候補バーに描く文字（[candidates] と同じ並び）。英語版では定型文の長い文章や改行を詰める。 */
+    private var candidateLabels: List<String> = emptyList()
     private var candidateIndex: Int = 0
     private var candidateScroll = 0f
     private val candidateRects = ArrayList<RectF>()
@@ -355,6 +357,8 @@ class UniStrokeView @JvmOverloads constructor(
         pendingCandidates = null
         val wasVisible = candidates.isNotEmpty()
         candidates = items
+        // 詰めるのは英語版だけ（日本語の変換候補は長い文でも全部見えないと選べない）
+        candidateLabels = if (english) items.map { candidateLabel(it) } else items
         candidateIndex = selected
         segmentNav = withSegmentNav
         candidateScroll = 0f
@@ -516,32 +520,41 @@ class UniStrokeView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * キーボードの配色（[PadTheme]）。下の Paint が初期化時に読むので、それより前に置く。
+     * テーマを替えたら IME がビューを作り直す（色をあとから塗り替える仕組みは持たない）。
+     */
+    private val palette = PadTheme.palette(context)
+
+    /** 見本オーバーレイの地。テーマのステータス帯の色を少しだけ透かす。 */
+    private val overlayBg = (palette.status and 0x00FFFFFF) or (246 shl 24)
+
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
     private val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = context.getColor(R.color.pad_divider)
+        color = palette.color(R.color.pad_divider)
         strokeWidth = dp(1.2f)
         pathEffect = DashPathEffect(floatArrayOf(dp(6f), dp(7f)), 0f)
     }
 
     private val solidLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = context.getColor(R.color.pad_divider)
+        color = palette.color(R.color.pad_divider)
         strokeWidth = dp(1f)
     }
 
     /** 浮動パネルのつまみに引く横線。掴めることが分かればいいので細く。 */
     private val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = context.getColor(R.color.pad_divider)
+        color = palette.color(R.color.pad_divider)
         strokeWidth = dp(1.6f)
         strokeCap = Paint.Cap.ROUND
     }
 
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = context.getColor(R.color.pad_ink)
+        color = palette.color(R.color.pad_ink)
         strokeWidth = dp(5f)
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
@@ -550,14 +563,14 @@ class UniStrokeView @JvmOverloads constructor(
     private val fadePaint = Paint(strokePaint)
 
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_text)
+        color = palette.color(R.color.pad_text)
         textSize = dp(13f)
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
     }
 
     private val buttonPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_text)
+        color = palette.color(R.color.pad_text)
         textSize = dp(15f)
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
@@ -574,21 +587,21 @@ class UniStrokeView @JvmOverloads constructor(
 
     /** 「端末内」チップの文字。候補より一段小さく、目立ちすぎないようにする。 */
     private val chipTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_text)
+        color = palette.color(R.color.pad_text)
         textSize = dp(11f)
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
     }
 
     private val candidateTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_text)
+        color = palette.color(R.color.pad_text)
         textSize = dp(17f)
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
     }
 
     private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_hint)
+        color = palette.color(R.color.pad_hint)
         textSize = dp(26f)
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
@@ -596,7 +609,7 @@ class UniStrokeView @JvmOverloads constructor(
 
     /** 音声入力バナーの見出し（「聞いています…」など）。 */
     private val voiceTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_text)
+        color = palette.color(R.color.pad_text)
         textSize = dp(16f)
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
@@ -604,7 +617,7 @@ class UniStrokeView @JvmOverloads constructor(
 
     /** バナーの補足行と、ゾーンに出す「長押しで音声入力」の案内。 */
     private val voiceHintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_hint)
+        color = palette.color(R.color.pad_hint)
         textSize = dp(11f)
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
@@ -613,26 +626,26 @@ class UniStrokeView @JvmOverloads constructor(
     // 見本オーバーレイ用
     private val samplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = context.getColor(R.color.pad_ink)
+        color = palette.color(R.color.pad_ink)
         strokeWidth = dp(2.4f)
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
     private val sampleDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = context.getColor(R.color.pad_ink)
+        color = palette.color(R.color.pad_ink)
     }
     /** 見本セルの正解ラベルの基準サイズ。長い名前はここから縮めて収める。 */
     private val sampleLabelTextSize = dp(16f)
 
     private val sampleLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_text)
+        color = palette.color(R.color.pad_text)
         textSize = sampleLabelTextSize
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
     }
     private val sampleTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_hint)
+        color = palette.color(R.color.pad_hint)
         textSize = dp(12f)
         textAlign = Paint.Align.LEFT
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
@@ -640,7 +653,7 @@ class UniStrokeView @JvmOverloads constructor(
 
     /** ジェスチャー見本の隅に出すビルド印（古い APK が残っていないかの確認用）。 */
     private val buildStampPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.pad_hint)
+        color = palette.color(R.color.pad_hint)
         textSize = dp(9f)
         textAlign = Paint.Align.RIGHT
         typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
@@ -996,7 +1009,7 @@ class UniStrokeView @JvmOverloads constructor(
 
         // ドッキング時、パネルの下（システムの帯）はパネルと同じ色で埋めておく
         if (!floating && bottomReserve > 0) {
-            fillPaint.color = context.getColor(R.color.pad_bezel)
+            fillPaint.color = palette.color(R.color.pad_bezel)
             canvas.drawRect(0f, panelHeight, width.toFloat(), height.toFloat(), fillPaint)
         }
 
@@ -1009,7 +1022,7 @@ class UniStrokeView @JvmOverloads constructor(
 
     private fun drawPanel(canvas: Canvas, w: Float, h: Float) {
         // 展開時はパネル以外を塗らない。背後のアプリがそのまま透けて見える。
-        fillPaint.color = context.getColor(R.color.pad_bezel)
+        fillPaint.color = palette.color(R.color.pad_bezel)
         if (layout.hasInactiveArea) {
             canvas.drawRect(layout.panelLeft, contentTop, layout.panelRight, h, fillPaint)
             if (candidateBarVisible) {
@@ -1035,9 +1048,9 @@ class UniStrokeView @JvmOverloads constructor(
         val bottom = h - dp(4f)
         val zoneH = bottom - top
 
-        fillPaint.color = context.getColor(R.color.pad_zone_alpha)
+        fillPaint.color = palette.color(R.color.pad_zone_alpha)
         canvas.drawRect(layout.alphaLeft, top, layout.alphaRight, bottom, fillPaint)
-        fillPaint.color = context.getColor(R.color.pad_zone_number)
+        fillPaint.color = palette.color(R.color.pad_zone_number)
         canvas.drawRect(layout.numberLeft, top, layout.numberRight, bottom, fillPaint)
 
         val dx = layout.dividerX
@@ -1109,14 +1122,14 @@ class UniStrokeView @JvmOverloads constructor(
             layout.zoneRight - dp(10f), zoneBottomY - dp(10f),
         )
         val radius = dp(12f)
-        fillPaint.color = context.getColor(R.color.pad_status)
+        fillPaint.color = palette.color(R.color.pad_status)
         canvas.drawRoundRect(rect, radius, radius, fillPaint)
-        solidLinePaint.color = context.getColor(
+        solidLinePaint.color = palette.color(
             if (voiceState == VoiceState.LISTENING) R.color.pad_ink else R.color.pad_divider,
         )
         canvas.drawRoundRect(rect, radius, radius, solidLinePaint)
         // 他の線と共用の Paint なので色を戻しておく
-        solidLinePaint.color = context.getColor(R.color.pad_divider)
+        solidLinePaint.color = palette.color(R.color.pad_divider)
 
         val stopping = voiceState == VoiceState.LISTENING || voiceState == VoiceState.WORKING
         if (stopping) {
@@ -1126,7 +1139,7 @@ class UniStrokeView @JvmOverloads constructor(
                 rect.right - pad - size, rect.top + pad,
                 rect.right - pad, rect.top + pad + size,
             )
-            fillPaint.color = context.getColor(R.color.pad_zone_alpha)
+            fillPaint.color = palette.color(R.color.pad_zone_alpha)
             canvas.drawRoundRect(voiceCancelRect, dp(6f), dp(6f), fillPaint)
             labelPaint.textSize = dp(15f)
             canvas.drawText(
@@ -1171,11 +1184,11 @@ class UniStrokeView @JvmOverloads constructor(
         val w = min(dp(170f), maxWidth)
         val h = dp(6f)
         val track = RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f)
-        fillPaint.color = context.getColor(R.color.pad_zone_alpha)
+        fillPaint.color = palette.color(R.color.pad_zone_alpha)
         canvas.drawRoundRect(track, h / 2f, h / 2f, fillPaint)
         val lit = w * voiceLevel.coerceIn(0f, 1f)
         if (lit > h) {
-            fillPaint.color = context.getColor(R.color.pad_ink)
+            fillPaint.color = palette.color(R.color.pad_ink)
             canvas.drawRoundRect(
                 RectF(track.left, track.top, track.left + lit, track.bottom),
                 h / 2f, h / 2f, fillPaint,
@@ -1215,11 +1228,11 @@ class UniStrokeView @JvmOverloads constructor(
     private fun drawGrip(canvas: Canvas) {
         if (!floating || gripRect.isEmpty) return
         val r = dp(9f)
-        fillPaint.color = context.getColor(R.color.pad_status)
+        fillPaint.color = palette.color(R.color.pad_status)
         canvas.drawRoundRect(gripRect, r, r, fillPaint)
         canvas.drawRect(gripRect.left, gripRect.bottom - r, gripRect.right, gripRect.bottom, fillPaint)
 
-        gripPaint.color = context.getColor(if (dragging) R.color.pad_ink else R.color.pad_divider)
+        gripPaint.color = palette.color(if (dragging) R.color.pad_ink else R.color.pad_divider)
         val half = gripRect.width() * 0.16f
         val cx = gripRect.centerX()
         val cy = gripRect.centerY()
@@ -1252,7 +1265,7 @@ class UniStrokeView @JvmOverloads constructor(
         val right = rightEdge - dp(8f)
         val topY = zoneTopY + dp(5f)
         val chip = RectF(right - tw - padH * 2, topY, right, topY + h)
-        fillPaint.color = context.getColor(R.color.pad_status)
+        fillPaint.color = palette.color(R.color.pad_status)
         canvas.drawRoundRect(chip, dp(4f), dp(4f), fillPaint)
         labelPaint.textAlign = Paint.Align.CENTER
         canvas.drawText(
@@ -1280,7 +1293,7 @@ class UniStrokeView @JvmOverloads constructor(
     }
 
     private fun drawButtonColumn(canvas: Canvas, h: Float) {
-        fillPaint.color = context.getColor(R.color.pad_status)
+        fillPaint.color = palette.color(R.color.pad_status)
         canvas.drawRect(layout.columnLeft, contentTop, layout.columnRight, h, fillPaint)
 
         for (i in 0 until BUTTON_COUNT) {
@@ -1288,7 +1301,7 @@ class UniStrokeView @JvmOverloads constructor(
             val target = buttonTarget(i)
             // ? ボタンはオーバーレイ表示中もアクティブ表示にする
             val active = pressed == target || (i == BUTTON_COUNT - 1 && overlayVisible)
-            fillPaint.color = context.getColor(
+            fillPaint.color = palette.color(
                 if (active) R.color.pad_divider else R.color.pad_zone_alpha,
             )
             canvas.drawRoundRect(r, dp(6f), dp(6f), fillPaint)
@@ -1350,7 +1363,7 @@ class UniStrokeView @JvmOverloads constructor(
     private fun drawCandidateBar(canvas: Canvas, w: Float) {
         val top = candidateTop
         val bottom = candidateBottom
-        fillPaint.color = context.getColor(R.color.pad_zone_number)
+        fillPaint.color = palette.color(R.color.pad_zone_number)
         canvas.drawRect(layout.barLeft, top, layout.barRight, bottom, fillPaint)
 
         layoutCandidates(w)
@@ -1366,22 +1379,22 @@ class UniStrokeView @JvmOverloads constructor(
             val r = candidateRects[i]
             if (r.right < left || r.left > right) continue
             if (i == candidateIndex) {
-                fillPaint.color = context.getColor(R.color.pad_zone_alpha)
+                fillPaint.color = palette.color(R.color.pad_zone_alpha)
                 canvas.drawRoundRect(
                     RectF(r.left + dp(2f), top + dp(4f), r.right - dp(2f), bottom - dp(4f)),
                     dp(5f), dp(5f), fillPaint,
                 )
             }
-            canvas.drawText(candidates[i], r.centerX(), baseline, candidateTextPaint)
+            canvas.drawText(candidateLabels[i], r.centerX(), baseline, candidateTextPaint)
         }
         canvas.restore()
 
         if (segmentNav) {
-            fillPaint.color = context.getColor(
+            fillPaint.color = palette.color(
                 if (pressed == UiTarget.SEG_PREV) R.color.pad_divider else R.color.pad_status,
             )
             canvas.drawRect(layout.barLeft, top, layout.barLeft + segArrowWidth, bottom, fillPaint)
-            fillPaint.color = context.getColor(
+            fillPaint.color = palette.color(
                 if (pressed == UiTarget.SEG_NEXT) R.color.pad_divider else R.color.pad_status,
             )
             canvas.drawRect(layout.barRight - segArrowWidth, top, layout.barRight, bottom, fillPaint)
@@ -1405,7 +1418,7 @@ class UniStrokeView @JvmOverloads constructor(
         if (cw <= 0f) return
         val right = layout.barRight - barInset - dp(2f)
         val rect = RectF(right - cw + dp(4f), top + dp(7f), right, bottom - dp(7f))
-        fillPaint.color = context.getColor(R.color.pad_status)
+        fillPaint.color = palette.color(R.color.pad_status)
         canvas.drawRoundRect(rect, dp(4f), dp(4f), fillPaint)
         val baseline = rect.centerY() -
             (chipTextPaint.descent() + chipTextPaint.ascent()) / 2f
@@ -1420,7 +1433,7 @@ class UniStrokeView @JvmOverloads constructor(
         var x = left + dp(4f) - candidateScroll
         val top = candidateTop
         val bottom = candidateBottom
-        for (c in candidates) {
+        for (c in candidateLabels) {
             val cw = max(dp(48f), candidateTextPaint.measureText(c) + dp(24f))
             candidateRects.add(RectF(x, top, x + cw, bottom))
             x += cw
@@ -1513,7 +1526,7 @@ class UniStrokeView @JvmOverloads constructor(
     private fun drawOverlay(canvas: Canvas, w: Float, h: Float) {
         val left = layout.zoneLeft
         val top = contentTop
-        fillPaint.color = OVERLAY_BG
+        fillPaint.color = overlayBg
         canvas.drawRect(left, top, layout.zoneRight, h, fillPaint)
 
         // ビルド印は右下の隅に固定で出す（スクロールしても、見本の組み立てに
@@ -2158,7 +2171,7 @@ class UniStrokeView @JvmOverloads constructor(
 
         private val PREMIUM_NOTICE_LINES_EN = listOf(
             "Your trial has ended (typing still works)",
-            "Voice input & stroke learning are Premium ▶ app settings",
+            "Suggestions, voice input & themes are Premium ▶ app settings",
         )
         private const val VOICE_FOOTER_LISTENING_EN = "Commits when you stop talking / ✕ to cancel"
         private const val VOICE_FOOTER_CONTINUOUS_EN =
@@ -2173,7 +2186,15 @@ class UniStrokeView @JvmOverloads constructor(
         private const val RMS_MIN_DB = -2f
         private const val RMS_MAX_DB = 10f
 
-        private val OVERLAY_BG = Color.argb(246, 22, 28, 24)
+        /** 候補バーに描く長さの上限（文字数）。定型文の文章がバーを占領しないように。 */
+        private const val CANDIDATE_LABEL_MAX = 40
+
+        /** 候補の表示用の文字。改行は記号にし、長ければ末尾を「…」で詰める（確定するのは元の文字）。 */
+        fun candidateLabel(text: String): String {
+            val flat = text.replace("\r\n", "\n").replace('\n', '⏎')
+            return if (flat.length <= CANDIDATE_LABEL_MAX) flat
+            else flat.take(CANDIDATE_LABEL_MAX - 1) + "…"
+        }
 
         /** 展開時にパネルへ与える最大幅（1 画面のスマホと同じ書き心地にする）。 */
         private const val PANEL_MAX_WIDTH_DP = 420f

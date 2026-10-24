@@ -75,6 +75,9 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      */
     private var enPredictHere = false
 
+    /** 英語版の定型文（[TextShortcuts]）。設定が変わったら読み直す。 */
+    private var enShortcuts: List<TextShortcuts.Shortcut> = emptyList()
+
     /** 設定で文頭の自動大文字がオンか。 */
     private var enAutoCap = true
 
@@ -120,8 +123,15 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
                     inputView?.debugStrokes = Prefs.isDebugStrokes(this)
                 Prefs.KEY_VOICE_INPUT, Prefs.KEY_VOICE_ENGINE -> syncVoiceAvailability()
                 // 設定画面で購入・復元した直後に、入力欄を開き直さなくても鍵が開く
-                Prefs.KEY_PREMIUM_PURCHASED -> syncEntitlement()
+                Prefs.KEY_PREMIUM_PURCHASED -> if (syncEntitlement() && english) {
+                    // 英単語の予測の可否も変わる。書きかけの単語は確定してから切り替える
+                    flushComposing()
+                    applyEnglishPrefs(currentInputEditorInfo)
+                }
                 Prefs.KEY_LANGUAGE -> onLanguageChanged()
+                Prefs.KEY_PAD_THEME -> recreateInputView()
+                Prefs.KEY_TEXT_SHORTCUTS ->
+                    enShortcuts = if (enPredictHere) TextShortcuts.load(this) else emptyList()
                 Prefs.KEY_EN_AUTO_CAP, Prefs.KEY_EN_PREDICT -> if (english) {
                     // 予測を切り替える前に、書きかけの単語は確定しておく
                     flushComposing()
@@ -272,7 +282,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     private var onDevice: OnDeviceConverter? = null
 
     /**
-     * プレミアム機能（音声入力・拡張辞書・書き癖の学習）を使ってよいか。
+     * プレミアム機能（音声入力・拡張辞書・書き癖の学習・英単語の予測と定型文・テーマ）を使ってよいか。
      *
      * 購入済みか試用中なら true。入力欄を開くたびに [syncEntitlement] で引き直す。
      * ここで見るのは設定に残っている結果だけで、Google Play へは問い合わせない
@@ -520,10 +530,18 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         updateAutoShift()
     }
 
-    /** 英語版の設定と、この入力欄で単語の予測を使ってよいかを引き直す。 */
+    /**
+     * 英語版の設定と、この入力欄で単語の予測を使ってよいかを引き直す。
+     *
+     * 英単語の予測（と、その候補に出る定型文）はプレミアム。試用が終わって未購入なら
+     * 書いた文字を 1 文字ずつそのまま確定する（予測をオフにしたときと同じ）。
+     * 日本語版の予測変換は基本の入力なので、ここに関係なく動く。
+     */
     private fun applyEnglishPrefs(info: EditorInfo?) {
         enAutoCap = Prefs.isEnglishAutoCap(this)
-        enPredictHere = english && Prefs.isEnglishPrediction(this) && allowsPrediction(info)
+        enPredictHere = english && premiumUnlocked &&
+            Prefs.isEnglishPrediction(this) && allowsPrediction(info)
+        enShortcuts = if (enPredictHere) TextShortcuts.load(this) else emptyList()
     }
 
     /**
@@ -1193,13 +1211,17 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         enPredictor.record(word, System.currentTimeMillis())
     }
 
-    /** 英語版の候補バーを、いまの綴りから作り直す。端末内で即答できるので待たない。 */
+    /**
+     * 英語版の候補バーを、いまの綴りから作り直す。端末内で即答できるので待たない。
+     * 綴りが定型文と一致したら、その文章を予測より先に並べる。
+     */
     private fun rebuildEnglishCandidates() {
         val typed = enWord.toString()
         val words = if (typed.isEmpty() || !enPredictHere) {
             emptyList()
         } else {
-            enPredictor.predict(typed, System.currentTimeMillis())
+            val phrases = TextShortcuts.matching(enShortcuts, typed)
+            (phrases + enPredictor.predict(typed, System.currentTimeMillis())).distinct()
         }
         liveCandidates = words.map {
             PredictionEngine.Candidate(typed, it, PredictionEngine.Source.DICTIONARY)
@@ -2444,14 +2466,28 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      *
      * 開閉が切り替わったら辞書を開き直す。拡張辞書を使うかどうかは
      * [OnDeviceDictionary.open] が鍵を見て決めるので、開き直すだけで入れ替わる。
+     * 切り替わったら true（英単語の予測の可否は呼び出し側で引き直す）。
      */
-    private fun syncEntitlement() {
+    private fun syncEntitlement(): Boolean {
         val unlocked = Entitlement.isUnlocked(this)
-        if (unlocked == premiumUnlocked) return
+        if (unlocked == premiumUnlocked) return false
         premiumUnlocked = unlocked
         OnDeviceConverter.reset()
         onDevice = OnDeviceConverter.get(this)
         syncVoiceAvailability()
+        // テーマもプレミアム。Classic 以外を選んでいたら、描き直すためにビューを作り直す
+        if (PadTheme.selected(this) != PadTheme.CLASSIC) recreateInputView()
+        return true
+    }
+
+    /**
+     * 入力ビューを作り直す（テーマの切り替え）。色は Paint を作るときに読むので、
+     * 塗り替えるより作り直すほうが確実。書きかけの単語や合成中の文字は IME 側にあるので失われない。
+     */
+    private fun recreateInputView() {
+        if (inputView == null) return
+        setInputView(onCreateInputView())
+        syncCandidateBar()
     }
 
     /** この端末・この設定で音声認識を始められるか（マイクの許可はここでは見ない）。 */

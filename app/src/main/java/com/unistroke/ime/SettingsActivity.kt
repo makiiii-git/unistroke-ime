@@ -1,11 +1,16 @@
 package com.unistroke.ime
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
+import android.text.InputType
+import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.TextView
 import android.widget.Toast
@@ -63,6 +68,8 @@ class SettingsActivity : LocalizedActivity() {
                 Prefs.setEnglishAutoCap(this@SettingsActivity, on)
             }
         }
+        findViewById<Button>(R.id.btn_shortcut_add).setOnClickListener { editShortcut(-1) }
+        renderShortcuts()
 
         val right = findViewById<RadioButton>(R.id.hand_right)
         val left = findViewById<RadioButton>(R.id.hand_left)
@@ -72,6 +79,21 @@ class SettingsActivity : LocalizedActivity() {
         // 設定は即座に保存する。IME 側は変更を購読していてすぐ反映される。
         right.setOnClickListener { Prefs.setLeftHanded(this, false) }
         left.setOnClickListener { Prefs.setLeftHanded(this, true) }
+
+        // キーボードの配色（プレミアム）。保存すると IME がビューを作り直して反映する。
+        // 試用が終わって未購入なら、選んでいても Classic で描く（PadTheme.current）。
+        val theme = PadTheme.selected(this)
+        for ((id, value) in listOf(
+            R.id.theme_classic to PadTheme.CLASSIC,
+            R.id.theme_lcd to PadTheme.LCD,
+            R.id.theme_midnight to PadTheme.MIDNIGHT,
+            R.id.theme_paper to PadTheme.PAPER,
+        )) {
+            findViewById<RadioButton>(id).apply {
+                isChecked = theme == value
+                setOnClickListener { PadTheme.select(this@SettingsActivity, value) }
+            }
+        }
 
         // リターンの改行の入れ方。既定は文字として入れる（Discord などでも送信にならない）。
         // IME はリターンのたびに読みに来るので、保存だけでよい。
@@ -230,6 +252,94 @@ class SettingsActivity : LocalizedActivity() {
     }
 
     private fun alive(): Boolean = !isFinishing && !isDestroyed
+
+    // ------------------------------------------------------------ 定型文
+
+    /** 定型文の一覧を描き直す。1 行 = 「綴り → 文章」。タップで編集・削除。 */
+    private fun renderShortcuts() {
+        val list = findViewById<LinearLayout>(R.id.list_shortcuts)
+        list.removeAllViews()
+        val items = TextShortcuts.load(this)
+        if (items.isEmpty()) {
+            list.addView(shortcutRow(getString(R.string.shortcuts_empty), null))
+            return
+        }
+        items.forEachIndexed { i, s ->
+            val label = "${s.key}  →  ${UniStrokeView.candidateLabel(s.phrase)}"
+            list.addView(shortcutRow(label) { editShortcut(i) })
+        }
+    }
+
+    private fun shortcutRow(text: String, onClick: (() -> Unit)?): TextView =
+        TextView(this).apply {
+            this.text = text
+            textSize = 16f
+            setTextColor(getColor(R.color.app_text))
+            minHeight = (48 * resources.displayMetrics.density).toInt()
+            gravity = Gravity.CENTER_VERTICAL
+            if (onClick != null) setOnClickListener { onClick() }
+        }
+
+    /** 定型文を足す（[index] = -1）か、[index] 番目を直す・消すダイアログ。 */
+    private fun editShortcut(index: Int) {
+        val items = TextShortcuts.load(this).toMutableList()
+        val editing = items.getOrNull(index)
+        if (editing == null && items.size >= TextShortcuts.MAX_COUNT) {
+            Toast.makeText(this, R.string.shortcuts_too_many, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val keyField = EditText(this).apply {
+            hint = getString(R.string.shortcuts_key_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            isSingleLine = true
+            setText(editing?.key.orEmpty())
+        }
+        val phraseField = EditText(this).apply {
+            hint = getString(R.string.shortcuts_phrase_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            setText(editing?.phrase.orEmpty())
+        }
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+            addView(keyField)
+            addView(phraseField)
+        }
+        val builder = AlertDialog.Builder(this)
+            .setTitle(if (editing == null) R.string.shortcuts_add else R.string.shortcuts_edit)
+            .setView(form)
+            .setPositiveButton(R.string.shortcuts_save, null)
+            .setNegativeButton(android.R.string.cancel, null)
+        if (editing != null) {
+            builder.setNeutralButton(R.string.shortcuts_delete) { _, _ ->
+                items.removeAt(index)
+                TextShortcuts.save(this, items)
+                renderShortcuts()
+            }
+        }
+        val dialog = builder.create()
+        dialog.setOnShowListener {
+            // 入力が正しくないときは閉じずに知らせる（既定の動きだと押した時点で閉じてしまう）
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val key = TextShortcuts.normalizeKey(keyField.text.toString())
+                val phrase = phraseField.text.toString().trim()
+                    .take(TextShortcuts.MAX_PHRASE_LENGTH)
+                when {
+                    key == null -> keyField.error = getString(R.string.shortcuts_invalid_key)
+                    phrase.isEmpty() -> phraseField.error = getString(R.string.shortcuts_empty_phrase)
+                    else -> {
+                        val item = TextShortcuts.Shortcut(key, phrase)
+                        if (editing == null) items.add(item) else items[index] = item
+                        TextShortcuts.save(this, items)
+                        renderShortcuts()
+                        dialog.dismiss()
+                    }
+                }
+            }
+        }
+        dialog.show()
+    }
 
     /** 隠しコマンドの進み具合。間が [SECRET_TAP_GAP_MS] 以上空いたら数え直す。 */
     private var secretTaps = 0

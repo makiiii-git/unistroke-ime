@@ -87,6 +87,12 @@ object Prefs {
     /** 英語版: 単語の予測（候補バー）を使うか（既定オン）。 */
     const val KEY_EN_PREDICT = "en_predict"
 
+    /** 英語版: 定型文（[TextShortcuts]、JSON の配列）。 */
+    const val KEY_TEXT_SHORTCUTS = "text_shortcuts"
+
+    /** キーボードの配色（[PadTheme] の id）。 */
+    const val KEY_PAD_THEME = "pad_theme"
+
     /** リターンで改行をどう入れるか（[ENTER_NEWLINE] / [ENTER_KEY]）。 */
     const val KEY_ENTER_MODE = "enter_mode"
 

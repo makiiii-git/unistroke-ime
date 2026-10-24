@@ -185,6 +185,13 @@
     <string name="settings_hand_body">左利きを選ぶと、縦ボタン列が右端に移り、英字ゾーンと数字ゾーンの左右も入れ替わる（数字が左 1/3、英字が右 2/3）。画面を折りたたまない大画面では、入力パネルを利き手側へ寄せて配置する。\n\n大画面では、パネル上辺のつまみをドラッグして置き場所を変えられる。左右はどちらかの端へ吸い付き、上下は端の近くで離せば隅にマグネット、真ん中で離せばその高さに留まる。背後の URL 欄や送信ボタンがパネルに隠れたときは、いったん上へ逃がせばよい。位置は次に開いたときも保たれる。\n\n入力エリアの [?] を長押しすると、いつでもこの設定画面を開ける。</string>
     <string name="settings_hand_right">右利き（ボタン列は左・英字ゾーンが左）</string>
     <string name="settings_hand_left">左利き（ボタン列は右・英字ゾーンが右）</string>
+
+    <string name="theme_title">キーボードのテーマ</string>
+    <string name="theme_body">手書きエリアの配色を替える。テーマはプレミアムで、試用期間が終わって未購入ならクラシックに戻る。</string>
+    <string name="theme_classic">クラシック（深緑）</string>
+    <string name="theme_lcd">液晶（PDA の画面風）</string>
+    <string name="theme_midnight">ミッドナイト（黒と青）</string>
+    <string name="theme_paper">ペーパー（白）</string>
     <string name="enter_title">リターン（改行）</string>
     <string name="enter_body">リターン（右上から左下への斜線）や音声の「改行」で、改行をどう入れるかを選ぶ。\n\n検索欄など「検索」「送信」「次へ」を求める入力欄では、どちらを選んでも欄の指定どおりのアクションを実行する。合成中・変換中のリターンは、どちらでも「確定」だけになる。</string>
     <string name="enter_newline">改行を入れる（おすすめ。Discord などでも送信されない）</string>
@@ -261,16 +268,29 @@
 
     <!-- 英語版だけの設定（日本語版では節ごと隠れる） -->
     <string name="english_title">英語入力</string>
-    <string name="english_body">英語版では、書いている単語が下線付きの未確定表示になり、候補バーに続きの予測が出る。候補をタップすると、その単語と空白が入る。スペースを書けば、打った綴りのまま確定する（勝手に別の語へ直すことはしない）。\n\nパスワード・メールアドレス・URL・数値の欄では予測を出さず、書いた文字をそのまま入れる。</string>
+    <string name="english_body">英語版では、書いている単語が下線付きの未確定表示になり、候補バーに続きの予測が出る。候補をタップすると、その単語と空白が入る。スペースを書けば、打った綴りのまま確定する（勝手に別の語へ直すことはしない）。\n\nパスワード・メールアドレス・URL・数値の欄では予測を出さず、書いた文字をそのまま入れる。\n\n英語版の単語の予測はプレミアム。試用期間が終わって未購入なら、書いた文字をそのまま入れる。</string>
     <string name="english_predict">単語の予測を使う</string>
     <string name="english_auto_cap">文頭を自動で大文字にする</string>
+
+    <string name="shortcuts_title">定型文</string>
+    <string name="shortcuts_body">「brb」のような短い綴りを書くと、登録した文章が候補バーの先頭に出る。タップでその文章が入る。定型文はプレミアムで、この端末の中にだけ保存する。</string>
+    <string name="shortcuts_empty">まだ登録がありません</string>
+    <string name="shortcuts_add">定型文を追加</string>
+    <string name="shortcuts_edit">定型文を編集</string>
+    <string name="shortcuts_key_hint">綴り（英字 a〜z。例: brb）</string>
+    <string name="shortcuts_phrase_hint">文章（例: be right back）</string>
+    <string name="shortcuts_save">保存</string>
+    <string name="shortcuts_delete">削除</string>
+    <string name="shortcuts_invalid_key">英字 a〜z を 1〜16 文字で入れてください</string>
+    <string name="shortcuts_empty_phrase">入れる文章を書いてください</string>
+    <string name="shortcuts_too_many">登録できるのは 50 件までです</string>
 
     <!-- 文字を並べて見せるときの区切り -->
     <string name="list_separator">・</string>
 
     <!-- プレミアム（試用 → 購入で解錠） -->
     <string name="premium_title">プレミアム</string>
-    <string name="premium_body">次の機能はプレミアムです。試用期間中はすべて使えます。\n\n・音声入力とボイスコマンド\n・拡張辞書（約 22 万語）\n・書き癖の学習\n\n<b>基本の入力（一筆書き・ローマ字かな・コア辞書での変換）は、試用期間が終わってもそのまま使えます。</b>\n\n購入は一度きりで、同じ Google アカウントなら機種変更や再インストールのあとも「購入を復元」で戻せます。</string>
+    <string name="premium_body">次の機能はプレミアムです。試用期間中はすべて使えます。\n\n・音声入力とボイスコマンド\n・拡張辞書（約 22 万語）\n・書き癖の学習\n・キーボードのテーマ\n・英語版の単語の予測と定型文\n\n<b>基本の入力（一筆書き・ローマ字かな・コア辞書での変換）は、試用期間が終わってもそのまま使えます。</b>\n\n購入は一度きりで、同じ Google アカウントなら機種変更や再インストールのあとも「購入を復元」で戻せます。</string>
     <string name="premium_state_owned">プレミアム: 有効（購入済み）</string>
     <string name="premium_state_trial">試用中: あと %1$d 日（全機能が使えます）</string>
     <string name="premium_state_expired">試用期間は終了しました（基本の入力は引き続き使えます）</string>
@@ -284,5 +304,5 @@
     <string name="premium_toast_restored">購入を復元しました</string>
     <string name="premium_toast_not_found">この Google アカウントでの購入が見つかりませんでした</string>
     <string name="premium_main_trial">試用中: あと %1$d 日（全機能が使えます）　▶ 設定</string>
-    <string name="premium_main_expired">試用期間は終了しました。音声入力・拡張辞書・書き癖の学習はプレミアムで使えます　▶ 設定</string>
+    <string name="premium_main_expired">試用期間は終了しました。音声入力・拡張辞書・書き癖の学習・テーマはプレミアムで使えます　▶ 設定</string>
 </resources>

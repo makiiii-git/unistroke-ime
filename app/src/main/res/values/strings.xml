@@ -189,6 +189,13 @@
     <string name="settings_hand_body">Choosing left-handed moves the button column to the right edge and swaps the zones (digits on the left third, letters on the right two-thirds). On a large unfolded screen the panel is placed on your writing-hand side.\n\nOn a large screen you can drag the grip on the panel\'s top edge to move it. Left and right it snaps to an edge; up and down it snaps into a corner when released near one and otherwise stays where you let go. If the panel hides a URL bar or a send button, just move it up out of the way. The position is kept for next time.\n\nHold [?] in the writing area to open this screen at any time.</string>
     <string name="settings_hand_right">Right-handed (buttons on the left, letters on the left)</string>
     <string name="settings_hand_left">Left-handed (buttons on the right, letters on the right)</string>
+
+    <string name="theme_title">Keyboard theme</string>
+    <string name="theme_body">Changes the colours of the writing area. Themes are part of Premium; after the trial ends without a purchase the keyboard returns to Classic.</string>
+    <string name="theme_classic">Classic (dark green)</string>
+    <string name="theme_lcd">LCD (like a PDA screen)</string>
+    <string name="theme_midnight">Midnight (black and blue)</string>
+    <string name="theme_paper">Paper (white)</string>
     <string name="enter_title">Return</string>
     <string name="enter_body">Choose how Return (the diagonal from upper right to lower left, or the voice command “new line”) starts a new line.\n\nIn fields that ask for Search, Send or Next, Return runs that action whichever you choose.</string>
     <string name="enter_newline">Insert a line break (recommended; apps such as Discord will not send the message)</string>
@@ -265,16 +272,29 @@
 
     <!-- 英語版だけの設定（日本語版では節ごと隠れる） -->
     <string name="english_title">English typing</string>
-    <string name="english_body">The word you are writing is shown underlined, and the suggestion bar offers ways to finish it. Tap a suggestion to enter that word and a space. A space stroke commits exactly what you wrote; nothing is auto-corrected.\n\nIn password, email, URL and number fields no suggestions are shown and each letter is entered directly.</string>
+    <string name="english_body">The word you are writing is shown underlined, and the suggestion bar offers ways to finish it. Tap a suggestion to enter that word and a space. A space stroke commits exactly what you wrote; nothing is auto-corrected.\n\nIn password, email, URL and number fields no suggestions are shown and each letter is entered directly.\n\nWord suggestions are part of Premium. After the trial ends without a purchase, each letter is entered as you write it.</string>
     <string name="english_predict">Show word suggestions</string>
     <string name="english_auto_cap">Capitalise the start of sentences automatically</string>
+
+    <string name="shortcuts_title">Text shortcuts</string>
+    <string name="shortcuts_body">Write a short code such as “brb” and the phrase you saved for it appears first in the suggestion bar. Tap it to enter the phrase. Shortcuts are part of Premium and are kept only on this device.</string>
+    <string name="shortcuts_empty">No shortcuts yet</string>
+    <string name="shortcuts_add">Add shortcut</string>
+    <string name="shortcuts_edit">Edit shortcut</string>
+    <string name="shortcuts_key_hint">Code (letters a–z, e.g. brb)</string>
+    <string name="shortcuts_phrase_hint">Phrase (e.g. be right back)</string>
+    <string name="shortcuts_save">Save</string>
+    <string name="shortcuts_delete">Delete</string>
+    <string name="shortcuts_invalid_key">Use 1 to 16 letters from a to z</string>
+    <string name="shortcuts_empty_phrase">Enter the phrase to insert</string>
+    <string name="shortcuts_too_many">You can save up to 50 shortcuts</string>
 
     <!-- 文字を並べて見せるときの区切り -->
     <string name="list_separator">, </string>
 
     <!-- プレミアム（試用 → 購入で解錠） -->
     <string name="premium_title">Premium</string>
-    <string name="premium_body">These features are Premium. All of them are available during the trial.\n\n• Voice input and voice commands\n• Stroke learning (adapts recognition to the way you write)\n\n<b>Basic typing — strokes and word suggestions — keeps working after the trial ends.</b>\n\nIt is a one-time purchase. With the same Google account you can get it back after changing phones or reinstalling, using “Restore purchase”.</string>
+    <string name="premium_body">These features are Premium. All of them are available during the trial.\n\n• Word suggestions and text shortcuts\n• Voice input and voice commands\n• Stroke learning (adapts recognition to the way you write)\n• Keyboard themes\n\n<b>Writing letters, numbers and symbols keeps working after the trial ends.</b> Each letter is then entered as you write it, without suggestions.\n\nIt is a one-time purchase. With the same Google account you can get it back after changing phones or reinstalling, using “Restore purchase”.</string>
     <string name="premium_state_owned">Premium: active (purchased)</string>
     <string name="premium_state_trial">Trial: %1$d day(s) left (all features available)</string>
     <string name="premium_state_expired">The trial has ended (basic typing still works)</string>
@@ -288,5 +308,5 @@
     <string name="premium_toast_restored">Purchase restored</string>
     <string name="premium_toast_not_found">No purchase was found for this Google account</string>
     <string name="premium_main_trial">Trial: %1$d day(s) left (all features available)  ▶ Settings</string>
-    <string name="premium_main_expired">The trial has ended. Voice input and stroke learning are available with Premium  ▶ Settings</string>
+    <string name="premium_main_expired">The trial has ended. Word suggestions, voice input and more are available with Premium  ▶ Settings</string>
 </resources>
