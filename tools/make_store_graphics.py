@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Google Play 掲載用のアイコン（512x512）とフィーチャー画像（1024x500）を作る。
+"""Google Play 掲載用のアイコン（512x512）とフィーチャー画像（1024x500、日本語・英語）を作る。
 
     python3 tools/make_store_graphics.py
 
@@ -85,7 +85,31 @@ def make_icon():
     return path
 
 
-def make_feature():
+# フィーチャー画像の文言。Play の掲載情報は言語ごとに画像を持てるので、言語ごとに 1 枚作る。
+# 英語版は英語圏向けなので「日本語入力」とは書かない（日本語も打てることは説明文に書く）。
+FEATURE_TEXT = {
+    "ja": ("feature-graphic-1024x500.png",
+           "一筆書きの日本語入力",
+           "変換も予測も端末内で完結",
+           "入力した内容を外へ送りません"),
+    "en": ("feature-graphic-en-1024x500.png",
+           "Handwriting keyboard",
+           "One stroke per letter, like a classic PDA",
+           "Offline, private, no ads"),
+}
+
+
+def fitted(text, weight, size, width):
+    """幅 width に収まるまで size を縮めたフォントを返す。"""
+    f = font(weight, size)
+    while f.getlength(text) > width:
+        size -= SS
+        f = font(weight, size)
+    return f
+
+
+def make_feature(lang):
+    name, tagline, hint1, hint2 = FEATURE_TEXT[lang]
     w, h = 1024 * SS, 500 * SS
     img = Image.new("RGB", (w, h), BEZEL)
     d = ImageDraw.Draw(img)
@@ -98,17 +122,18 @@ def make_feature():
     draw_glyph(d, zone[0], zone[1] - 0.5 * scale, scale)
     # 右に名前と説明（右端に余白を残す。Play は端を切り落とすことがある）
     x = zone[2] + 50 * SS
+    room = w - 40 * SS - x
     d.text((x, 122 * SS), "Uni-Stroke IME", font=font(7, 58 * SS), fill=TEXT)
-    d.text((x, 212 * SS), "一筆書きの日本語入力", font=font(6, 42 * SS), fill=INK)
-    d.text((x, 296 * SS), "変換も予測も端末内で完結", font=font(4, 27 * SS), fill=HINT)
-    d.text((x, 338 * SS), "入力した内容を外へ送りません", font=font(4, 27 * SS), fill=HINT)
+    d.text((x, 212 * SS), tagline, font=fitted(tagline, 6, 42 * SS, room), fill=INK)
+    d.text((x, 296 * SS), hint1, font=fitted(hint1, 4, 27 * SS, room), fill=HINT)
+    d.text((x, 338 * SS), hint2, font=fitted(hint2, 4, 27 * SS, room), fill=HINT)
     img = img.resize((1024, 500), Image.LANCZOS)
-    path = os.path.join(OUT, "feature-graphic-1024x500.png")
+    path = os.path.join(OUT, name)
     img.save(path)
     return path
 
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    for p in (make_icon(), make_feature()):
+    for p in (make_icon(), make_feature("ja"), make_feature("en")):
         print(os.path.relpath(p, ROOT), Image.open(p).size)

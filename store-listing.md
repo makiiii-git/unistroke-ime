@@ -49,6 +49,7 @@ Uni-Stroke IME：一筆書きの日本語入力
 ・音声入力とボイスコマンド：手書きゾーンを長押しすると音声入力に切り替わります。端末内の音声認識だけを使うので、音声が端末の外へ出ることはありません。「エンター」「確定」「削除」などと言えば、文字ではなく操作として実行します
 ・拡張辞書（約 22 万語）：より語彙の広い辞書を追加できます
 ・書き癖の学習：誤認識を書き直すと、その訂正を覚えて次から正しく認識します
+・キーボードのテーマ：クラシック・液晶（PDA の画面風）・ミッドナイト・ペーパーから選べます
 
 試用期間が終わっても、上の「主な機能」はそのまま使えます。入力できなくなることはありません。
 購入は Google アカウントに紐づくので、機種変更や再インストールのあとも「購入を復元」で戻せます。
@@ -58,7 +59,7 @@ Uni-Stroke IME：一筆書きの日本語入力
 ・パスワード欄では、音声入力と入力履歴の保存を行いません。
 ・音声入力（端末内認識）は Android 13 以降の対応端末で使えます。
 ・拡張辞書の取得と更新の確認のときだけ、辞書ファイルを受け取るために通信します（入力内容は送りません）。
-・画面表示は日本語のみです。
+・画面表示は日本語と英語に対応しています（設定 → 言語）。英語にすると英字入力と英単語の予測で動きます。
 ・本アプリは個人が開発しています。
 
 ■ プライバシー
@@ -71,6 +72,96 @@ https://github.com/makiiii-git/unistroke-ime
 
 ---
 
+# English listing (en-US)
+
+**英語圏の収益を軸にする**（2026-10-24 のユーザー方針）。英語圏の利用者を第一の読み手として書き、日本語入力はおまけとして最後に触れるだけにする。
+製品版の公開時に「ストアの掲載情報 → 翻訳を管理」で en-US として追加する（既定の言語を en-US に替える案は下の設定メモ）。
+特集画像は `store-assets/feature-graphic-en-1024x500.png`。スクリーンショットは `store-assets/en/screenshot-1〜5`（1080×2160、原寸は `store-assets/original/en/`）。
+5 枚目（プレミアム）は、Play がこの端末の国の通貨（円）で出す購入ボタンを写さない位置で切り出してある。
+
+狙う人: Palm などの PDA で一筆書きの手書き入力に慣れていた人と、片手・画面を見ずに打ちたい人、通信しないキーボードを探している人。
+商標の都合で製品名（Graffiti・Palm）は書けないので、「classic PDA」「1990s PDA」で伝える。
+
+## App name (30 chars max / 30)
+
+Uni-Stroke: Handwrite Keyboard
+
+（検索されやすい「handwrite」「keyboard」を入れた。英語圏では「IME」はほぼ通じない）
+
+## Short description (80 chars max / 74)
+
+Write one stroke per letter, like a classic PDA. Offline, private, no ads.
+
+## Full description (4000 chars max)
+
+Remember writing on a PDA with a stylus, one quick stroke per letter? Uni-Stroke brings that single-stroke alphabet back as a keyboard for your Android phone.
+
+Instead of hunting for tiny keys, you keep writing in the same spot. Once your hand knows the strokes, you can type without looking at the screen — on the bus, while walking, with one hand.
+
+■ Nothing you type leaves your device
+A keyboard sees every character you enter, so this one is built to keep it to itself:
+
+・Stroke recognition and word suggestions run entirely on the device
+・No network access while you type
+・No ads, no analytics, no account
+・Your typing history and learned handwriting stay on the device, and you can erase them from Settings at any time
+
+The English dictionary (about 77,000 words) is built in, so suggestions work just the same offline or in airplane mode.
+
+■ Getting started
+1. Open the app and tap “Enable keyboard” to turn on Uni-Stroke IME
+2. Tap “Switch keyboard” to select it as your input method
+3. Tap any text box and the writing area opens
+
+The left two-thirds of the writing area is for letters and the right third is for numbers — just like the PDAs you may remember.
+
+■ New to single-stroke writing?
+A few letters have their own shapes (A, K, X, Y, B and others). The built-in “Stroke training” has you write just 9 letters while an animated guide shows each stroke, and it tunes recognition to the way you write. A stroke chart is always one tap away.
+
+■ Free features
+・Letters, numbers and symbols, each in one stroke
+・Automatic capitals at the start of a sentence
+・Stroke training and a stroke chart
+・Left-handed layout (mirrors the buttons and zones)
+・Floating panel on foldables and tablets (drag it wherever you like)
+
+■ Premium (one-time purchase, no subscription)
+Every feature is unlocked for the first 5 days after installing. To keep the premium features after that, unlock them once — no subscription, no ads.
+
+・Word suggestions: finish words with one tap, from the built-in dictionary and the words you use (apostrophes optional: “dont” → don't)
+・Text shortcuts: write a short code like “brb” and your saved phrase appears first in the suggestion bar
+・Voice input and voice commands: hold a finger in the writing zone to dictate. Only on-device speech recognition is used by default, so your voice never leaves the device. Say “enter”, “delete” or “undo” on its own and it is carried out as a command. Continuous mode keeps listening until you say “stop listening”
+・Handwriting learning: correct a misread letter and it remembers, so it gets your handwriting right next time
+・Keyboard themes: Classic, LCD (like a PDA screen), Midnight and Paper
+
+When the trial ends, all the free features above keep working and each letter is entered as you write it. You are never locked out of typing.
+The purchase is tied to your Google account, so “Restore purchase” brings it back after a reinstall or on a new phone.
+
+■ Also writes Japanese
+Switch the app language to Japanese in Settings for romaji-to-kana input with on-device kana-kanji conversion. Premium adds an extended Japanese dictionary (about 220,000 words).
+
+■ Please note
+・When you enable any keyboard, Android warns that it “may be able to collect all the text you type”. This is the standard notice shown for every keyboard. This app does not send what you type anywhere.
+・Voice input and history are disabled in password fields.
+・On-device voice input needs Android 13 or later on a supported device.
+・The app only goes online for Google Play billing and, if you use Japanese, to download the optional extended dictionary (nothing you type is sent).
+・Made by an independent developer.
+
+■ Privacy
+Nothing you type or say, and none of your history, is sent to the developer or any third party. See the privacy policy for details.
+https://makiiii-git.github.io/unistroke-ime/privacy-policy-en.html
+
+■ Open source
+The source code is public, so anyone can check the claims above.
+https://github.com/makiiii-git/unistroke-ime
+
+## In-app product (en-US)
+
+- Name: Premium
+- Description: Unlocks word suggestions, text shortcuts, voice input and voice commands, handwriting learning and keyboard themes (plus the extended Japanese dictionary). One-time purchase.
+
+---
+
 ## Play Console の設定メモ
 
 | 項目 | 値 |
@@ -78,9 +169,29 @@ https://github.com/makiiii-git/unistroke-ime
 | アプリケーション ID | `io.github.makiiii_git.unistroke` |
 | カテゴリ | ツール |
 | 広告 | なし |
-| 配信国 | 日本 |
+| 配信国 | 日本（製品版で英語圏を追加。下の「英語圏向けの設定」） |
 | プライバシーポリシー | https://makiiii-git.github.io/unistroke-ime/privacy-policy.html |
-| スクリーンショット | `store-assets/screenshot-1〜4`（1080×2160） |
+| スクリーンショット | 日本語 `store-assets/screenshot-1〜4`、英語 `store-assets/en/screenshot-1〜5`（どちらも 1080×2160） |
+| 特集画像 | 日本語 `store-assets/feature-graphic-1024x500.png`、英語 `store-assets/feature-graphic-en-1024x500.png`（`tools/make_store_graphics.py` で作る） |
+
+### 英語圏向けの設定（製品版の公開時。未決のものはユーザーの判断待ち）
+
+- 掲載情報の既定の言語: **en-US に替え、ja-JP を翻訳にする**（2026-10-24 ユーザー承認）。翻訳の無い国（ドイツなど）では既定の言語が出るので、英語圏中心の方針に合う。
+- 配信国: 日本に加え、アメリカ・イギリス・カナダ・オーストラリア・ニュージーランド・アイルランド（2026-10-24 ユーザー承認）。
+- 価格: 500 円の自動換算だと半端な額（約 3.3 ドル）になるので、英語圏は現地の価格を手で決める。**英語圏は 6.99 ドル相当に決定**（2026-10-24 ユーザー承認。英語圏のキーボードの価格を参考にした）。日本は 500 円のまま。
+  参考: 米国 Play の買い切りキーボード（2026-10-24 調べ）
+  | アプリ | 種類 | 価格 |
+  | --- | --- | --- |
+  | Typewise Offline Keyboard | 通信しないキーボード | $24.99 |
+  | mazec3 Handwriting Recognition | 手書き入力 | $12.99 |
+  | FUTO Keyboard（支払い） | 通信しないキーボード | $11.99 |
+  | ai.type AI Keyboard Plus+ | キーボード | $6.49 |
+  | Runic Keyboard / Aurebesh Keyboard | 特殊な文字のキーボード | $5.99 / $4.99 |
+  | Scrawl Keyboard for Onyx | 手書きキーボード | $4.99 |
+  | Dictate Keyboard: Voice Typing | 音声入力キーボード | $4.49 |
+  | Smart Keyboard Pro | キーボード | $3.49 |
+  | Graffiti Pro for Android（ACCESS） | 一筆書き入力の競合 | 無料（最終更新 2023-06、1 万+ インストール） |
+- プライバシーポリシーの URL: **英語版 https://makiiii-git.github.io/unistroke-ime/privacy-policy-en.html を登録する**（2026-10-24 ユーザー承認）。Console に登録できるのは 1 つだけだが、日本語版と相互にリンクしている。
 
 ### アプリ内アイテム
 
@@ -89,9 +200,9 @@ https://github.com/makiiii-git/unistroke-ime
 | アイテム ID | `premium_unlock`（コードと一致させること。後から変えられない） |
 | 種類 | 1 回限りのアイテム（消費しない） |
 | 名前 | プレミアム |
-| 説明 | 音声入力とボイスコマンド、拡張辞書（約 22 万語）、書き癖の学習を解錠します。買い切りです。 |
+| 説明 | 音声入力とボイスコマンド、拡張辞書（約 22 万語）、書き癖の学習、キーボードのテーマ、英語版の単語の予測と定型文を解錠します。買い切りです。 |
 | 購入オプション ID | `buy`（種類: 購入、下位互換性あり） |
-| 価格 | 500 円（JPY 基準。他の地域は自動換算） |
+| 価格 | 日本 500 円。英語圏（米・英・加・豪・NZ・アイルランド）は 6.99 ドル相当（2026-10-24 決定）。その他の地域は自動換算 |
 | 状態 | 2026-10-05 に登録・有効化済み |
 
 ### データセーフティ
