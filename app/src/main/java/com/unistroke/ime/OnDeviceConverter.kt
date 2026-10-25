@@ -50,15 +50,15 @@ class OnDeviceConverter private constructor(private val dic: OnDeviceDictionary)
         }
     }
 
-    /** 実行中リクエストの結果を無視する。 */
+    /**
+     * 実行中リクエストの結果を無視する。
+     *
+     * インスタンスはプロセスで共有するので、executor を止める手段は持たせない
+     * （止めると、あとから同じインスタンスを受け取った IME の変換が落ちる）。
+     * スレッドは daemon で、仕事が無いあいだは眠っているだけ。
+     */
     fun cancel() {
         generation++
-    }
-
-    fun shutdown() {
-        generation++
-        // 一度も変換していなければ executor はまだ作られていない。作らずに済ませる。
-        runCatching { executor.shutdownNow() }
     }
 
     /**

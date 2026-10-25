@@ -788,7 +788,11 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         handler.removeCallbacks(voiceRestartRunnable)
         voice.release()
         converter.shutdown()
-        onDevice?.shutdown()
+        // 端末内エンジンはプロセスで 1 つを共有している（OnDeviceConverter.get）。
+        // ここで止めると、同じプロセスで IME が作り直されたとき（キーボードを切り替えて
+        // 戻したときなど）に止まったエンジンを受け取り、最初の変換で
+        // RejectedExecutionException で落ちる。自分の依頼の結果を捨てるだけにする。
+        onDevice?.cancel()
         super.onDestroy()
     }
 

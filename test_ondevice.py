@@ -283,7 +283,9 @@ def main() -> int:
           "候補バーの「端末内」チップを結線している")
     check("端末内" in ime, "文節編集中の「端末内」表示がある")
     check("!onDeviceOnly" in ime, "「端末内のみ」設定が通信の可否に効く")
-    check("onDevice?.shutdown()" in ime, "IME 終了時にエンジンを片付ける")
+    check("onDevice?.cancel()" in ime, "IME 終了時に端末内エンジンへの依頼を取り消す")
+    check("onDevice?.shutdown()" not in ime and "fun shutdown" not in read(os.path.join(KT, "OnDeviceConverter.kt")),
+          "共有の端末内エンジンを止めない（作り直した IME の変換が RejectedExecutionException で落ちる）")
     check("prediction.record(reading, surface, now)" in ime,
           "recordHistory が PredictionEngine へ委譲している（自己再帰でない）")
 
