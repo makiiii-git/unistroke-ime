@@ -495,6 +495,13 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         // UniStrokeView 側は古いテンプレートで組んだ認識器を握ったままなので、
         // reloadIfChanged() の戻り値で条件分岐してはいけない。
         refreshLearnedTemplates()
+        // 大画面で畳んだパネルは、URL 欄・検索欄を新しく触ったときだけ自動で戻す。
+        // 同じ欄の入力し直し（restarting）では戻さない。1 画面のときは畳んだ状態に触らない。
+        if (!restarting && isExpandedScreen() && isUrlOrSearchField(info) &&
+            Prefs.isPanelMinimized(this)
+        ) {
+            Prefs.setPanelMinimized(this, false)
+        }
         applyLayoutPrefs()
         makeWindowTransparent()
         resetAll()
@@ -643,8 +650,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         val view = inputView ?: return
         val leftHanded = Prefs.isLeftHanded(this)
         view.leftHanded = leftHanded
-        view.expandedScreen =
-            resources.configuration.smallestScreenWidthDp >= EXPANDED_MIN_SW_DP
+        view.expandedScreen = isExpandedScreen()
         view.panelXRatio = Prefs.panelXRatio(this, leftHanded)
         view.panelYRatio = Prefs.panelYRatio(this)
         view.panelMinimized = Prefs.isPanelMinimized(this)
@@ -653,6 +659,30 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     /** 大画面でパネルをドラッグして置き直した。次に開くときも同じ場所へ出す。 */
     override fun onPanelMoved(xRatio: Float, yRatio: Float) {
         Prefs.setPanelPosition(this, xRatio, yRatio)
+    }
+
+    /** 展開レイアウト（Fold の内側画面など、sw600dp 以上）か。 */
+    private fun isExpandedScreen(): Boolean =
+        resources.configuration.smallestScreenWidthDp >= EXPANDED_MIN_SW_DP
+
+    /**
+     * URL 欄・検索欄か。大画面で畳んだパネルを、こうした欄を触ったときだけ自動で戻すのに使う。
+     * URL 欄は inputType が URI の欄、検索欄はリターンが「検索」「移動」になる欄
+     * （ブラウザのアドレスバーや、アプリ・ウェブページの検索ボックス）。
+     */
+    private fun isUrlOrSearchField(info: EditorInfo?): Boolean {
+        if (info == null) return false
+        val type = info.inputType
+        if ((type and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
+            (type and InputType.TYPE_MASK_VARIATION) == InputType.TYPE_TEXT_VARIATION_URI
+        ) {
+            return true
+        }
+        if ((info.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0) return false
+        return when (info.imeOptions and EditorInfo.IME_MASK_ACTION) {
+            EditorInfo.IME_ACTION_SEARCH, EditorInfo.IME_ACTION_GO -> true
+            else -> false
+        }
     }
 
     /** 大画面でパネルを畳んだ／戻した。次にタップするまで、閉じても画面が変わっても保つ。 */

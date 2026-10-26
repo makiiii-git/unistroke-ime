@@ -2300,7 +2300,7 @@ class UniStrokeView @JvmOverloads constructor(
         private const val PANEL_MAX_WIDTH_DP = 420f
 
         /** 浮動パネルのつまみ。パネルの外側に出るので書き込みエリアは削らない。 */
-        private const val GRIP_W_DP = 108f
+        private const val GRIP_W_DP = 216f
         private const val GRIP_H_DP = 22f
 
         /** つまみの当たり判定を見た目より広げる量（左右それぞれ・上）。 */
