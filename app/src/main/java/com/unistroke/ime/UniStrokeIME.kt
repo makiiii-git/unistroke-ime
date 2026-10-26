@@ -762,6 +762,9 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         // 入力ビューを畳むときにマイクを掴んだままにしない
         endVoice()
         flushComposing()
+        // つまみのタップで畳んだパネルは、キーボードを閉じたら元に戻す
+        // （次に入力欄を触ったときは書ける状態で出す）
+        inputView?.panelMinimized = false
         super.onFinishInputView(finishingInput)
     }
 

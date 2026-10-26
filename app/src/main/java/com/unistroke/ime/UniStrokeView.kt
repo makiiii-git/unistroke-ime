@@ -19,6 +19,7 @@ import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -165,6 +166,24 @@ class UniStrokeView @JvmOverloads constructor(
         set(value) {
             if (field != value) {
                 field = value
+                // 1 画面に戻ったら畳んだ状態も解く（つまみが無いので戻せなくなる）
+                if (!value) panelMinimized = false
+                requestLayout()
+                invalidate()
+            }
+        }
+
+    /**
+     * 展開時にパネルを畳み、つまみだけを画面の下に残しているか。
+     * つまみのシングルタップで切り替える（ドラッグはこれまでどおり移動）。
+     * 全画面の動画や資料を見るあいだ、入力欄を出したままパネルを退かせるため。
+     * 畳んでいるあいだはつまみ以外に触れても背後のアプリへ素通しする。
+     */
+    var panelMinimized: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                // requestLayout で touchableRegion の再計算も確実に走らせる
                 requestLayout()
                 invalidate()
             }
@@ -466,6 +485,17 @@ class UniStrokeView @JvmOverloads constructor(
         relayout()
         val dy = panelTop
         region.setEmpty()
+        if (floating && panelMinimized) {
+            // 畳んでいるあいだは、つまみだけがタッチを取る
+            if (!gripRect.isEmpty) {
+                addTouchRect(
+                    region,
+                    gripRect.left, gripRect.top + dy,
+                    gripRect.right, gripRect.bottom + dy,
+                )
+            }
+            return
+        }
         addTouchRect(
             region,
             layout.touchPanelLeft, layout.touchPanelTop + dy,
@@ -677,6 +707,9 @@ class UniStrokeView @JvmOverloads constructor(
     private enum class UiTarget {
         NONE, BTN_MODE, BTN_LEFT, BTN_RIGHT, BTN_SELECT, BTN_HELP,
         CANDIDATES, SEG_PREV, SEG_NEXT, OVERLAY, DRAG, VOICE,
+
+        /** 畳んだパネルのつまみ（タップで戻す。動かせない）。 */
+        GRIP,
     }
 
     private var uiTarget = UiTarget.NONE
@@ -874,7 +907,7 @@ class UniStrokeView @JvmOverloads constructor(
     private fun syncImeNavBar() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         if (dragging || !isAttachedToWindow) return
-        val hide = floating && bottomStrip > 0 &&
+        val hide = floating && !panelMinimized && bottomStrip > 0 &&
             panelTop + panelHeight > height - bottomStrip + 0.5f
         if (hide == imeNavBarHidden) return
         imeNavBarHidden = hide
@@ -898,6 +931,8 @@ class UniStrokeView @JvmOverloads constructor(
         get() = when {
             !floating -> 0f
             dragging -> dragTop
+            // つまみ（パネル上辺の外側）が、下端の帯のすぐ上に来る位置
+            panelMinimized -> height - bottomStrip.toFloat()
             else -> gripHeight + panelYRange * panelYRatio
         }
 
@@ -912,6 +947,13 @@ class UniStrokeView @JvmOverloads constructor(
     /** パネル左端が動ける範囲（0 のときは動かせない）。 */
     private val panelXRange: Float
         get() = max(0f, width - panelWidth)
+
+    /**
+     * つまみを掴んだ指が、まだ動いていない（このまま離せばタップ扱い）。
+     * タップならパネルを畳む／戻す。少しでも動かせば移動になる。
+     */
+    private var gripTap = false
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
     /** ドラッグ中（指で移動中、または離した後の吸い付きアニメ中）。 */
     private var dragging = false
@@ -1016,7 +1058,12 @@ class UniStrokeView @JvmOverloads constructor(
         // 以降はパネル座標（パネル上端 = 0）で描く。浮動していてもいなくても同じ絵。
         val save = canvas.save()
         canvas.translate(0f, panelTop)
-        drawPanel(canvas, width.toFloat(), panelHeight)
+        if (floating && panelMinimized) {
+            // 畳んでいるあいだは、つまみだけを画面の下に残す
+            drawGrip(canvas)
+        } else {
+            drawPanel(canvas, width.toFloat(), panelHeight)
+        }
         canvas.restoreToCount(save)
     }
 
@@ -1230,7 +1277,10 @@ class UniStrokeView @JvmOverloads constructor(
         val r = dp(9f)
         fillPaint.color = palette.color(R.color.pad_status)
         canvas.drawRoundRect(gripRect, r, r, fillPaint)
-        canvas.drawRect(gripRect.left, gripRect.bottom - r, gripRect.right, gripRect.bottom, fillPaint)
+        // 畳んでいるときはパネルから離れた 1 本のバーなので、四隅とも丸いまま
+        if (!panelMinimized) {
+            canvas.drawRect(gripRect.left, gripRect.bottom - r, gripRect.right, gripRect.bottom, fillPaint)
+        }
 
         gripPaint.color = palette.color(if (dragging) R.color.pad_ink else R.color.pad_divider)
         val half = gripRect.width() * 0.16f
@@ -1658,9 +1708,17 @@ class UniStrokeView @JvmOverloads constructor(
 
                 // つまみはパネルの外（上）にあるので、いちばん先に判定する
                 if (floating && gripRect.contains(x, y)) {
-                    beginDrag(event)
+                    if (panelMinimized) {
+                        uiTarget = UiTarget.GRIP
+                        gripTap = true
+                        parent?.requestDisallowInterceptTouchEvent(true)
+                    } else {
+                        beginDrag(event)
+                    }
                     return true
                 }
+                // 畳んでいるあいだは、つまみのほかに触れるものは無い
+                if (floating && panelMinimized) return false
 
                 // 候補バーは入力窓の外・上側なので最初に判定する
                 if (candidateBarVisible && y < candidateBottom &&
@@ -1759,6 +1817,10 @@ class UniStrokeView @JvmOverloads constructor(
                         dragTo(event)
                         return true
                     }
+                    UiTarget.GRIP -> {
+                        if (hypot(x - downX, y - downY) > touchSlop) gripTap = false
+                        return true
+                    }
                     UiTarget.OVERLAY -> {
                         val maxScroll = max(
                             0f,
@@ -1805,7 +1867,18 @@ class UniStrokeView @JvmOverloads constructor(
                 when (uiTarget) {
                     UiTarget.DRAG -> {
                         dragTo(event)
-                        settlePanel()
+                        if (gripTap && SystemClock.uptimeMillis() - downTime < GRIP_TAP_MS) {
+                            // 動かさずに離した = タップ。位置は変えずに（覚えもせずに）畳む
+                            dragging = false
+                            panelMinimized = true
+                        } else {
+                            settlePanel()
+                        }
+                        uiTarget = UiTarget.NONE
+                        return true
+                    }
+                    UiTarget.GRIP -> {
+                        if (gripTap && gripRect.contains(x, y)) panelMinimized = false
                         uiTarget = UiTarget.NONE
                         return true
                     }
@@ -1920,6 +1993,7 @@ class UniStrokeView @JvmOverloads constructor(
         dragBaseTop = startTop
         dragStartX = event.x
         dragStartY = event.y
+        gripTap = true
         cancelLongPresses()
         clearStroke()
         parent?.requestDisallowInterceptTouchEvent(true)
@@ -1928,6 +2002,7 @@ class UniStrokeView @JvmOverloads constructor(
 
     private fun dragTo(event: MotionEvent) {
         if (!dragging) return
+        if (hypot(event.x - dragStartX, event.y - dragStartY) > touchSlop) gripTap = false
         dragLeft = (dragBaseLeft + (event.x - dragStartX))
             .coerceIn(0f, max(0f, width - panelWidth))
         dragTop = (dragBaseTop + (event.y - dragStartY))
@@ -2208,6 +2283,12 @@ class UniStrokeView @JvmOverloads constructor(
          * これより内側で離せば、その場に留まる（＝自由配置）。
          */
         private const val SNAP_RATIO = 0.12f
+
+        /**
+         * つまみのタップとみなす押下時間の上限。これより長く押して離したときは
+         * 「掴んだが動かさなかった」として何もしない（不意に畳まないように）。
+         */
+        private const val GRIP_TAP_MS = 400L
 
         /** 離してから端へ吸い付くまでの時間。 */
         private const val MOVE_ANIM_MS = 140L
