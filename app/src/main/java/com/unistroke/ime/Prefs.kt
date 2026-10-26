@@ -69,6 +69,9 @@ object Prefs {
     /** 大画面でのパネル上下位置（0 = 最上 / 1 = 最下）。 */
     const val KEY_PANEL_Y = "panel_y"
 
+    /** 大画面でパネルを畳み、つまみだけを画面の下に残しているか（次にタップするまで保つ）。 */
+    const val KEY_PANEL_MINIMIZED = "panel_minimized"
+
     /** プレミアムを購入済みか。書くのは PremiumGate（Google Play の答え）だけ。 */
     const val KEY_PREMIUM_PURCHASED = "premium_purchased"
 
@@ -167,6 +170,14 @@ object Prefs {
     /** 大画面でのパネル上下位置。既定は最下（＝従来と同じ画面下）。 */
     fun panelYRatio(context: Context): Float =
         of(context).getFloat(KEY_PANEL_Y, 1f).coerceIn(0f, 1f)
+
+    /** 大画面でパネルを畳んでいるか。既定は畳まない。 */
+    fun isPanelMinimized(context: Context): Boolean =
+        of(context).getBoolean(KEY_PANEL_MINIMIZED, false)
+
+    fun setPanelMinimized(context: Context, minimized: Boolean) {
+        of(context).edit().putBoolean(KEY_PANEL_MINIMIZED, minimized).apply()
+    }
 
     fun setPanelPosition(context: Context, xRatio: Float, yRatio: Float) {
         of(context).edit()

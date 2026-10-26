@@ -647,11 +647,17 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
             resources.configuration.smallestScreenWidthDp >= EXPANDED_MIN_SW_DP
         view.panelXRatio = Prefs.panelXRatio(this, leftHanded)
         view.panelYRatio = Prefs.panelYRatio(this)
+        view.panelMinimized = Prefs.isPanelMinimized(this)
     }
 
     /** 大画面でパネルをドラッグして置き直した。次に開くときも同じ場所へ出す。 */
     override fun onPanelMoved(xRatio: Float, yRatio: Float) {
         Prefs.setPanelPosition(this, xRatio, yRatio)
+    }
+
+    /** 大画面でパネルを畳んだ／戻した。次にタップするまで、閉じても画面が変わっても保つ。 */
+    override fun onPanelMinimizedChanged(minimized: Boolean) {
+        Prefs.setPanelMinimized(this, minimized)
     }
 
     /**
@@ -762,9 +768,6 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         // 入力ビューを畳むときにマイクを掴んだままにしない
         endVoice()
         flushComposing()
-        // つまみのタップで畳んだパネルは、キーボードを閉じたら元に戻す
-        // （次に入力欄を触ったときは書ける状態で出す）
-        inputView?.panelMinimized = false
         super.onFinishInputView(finishingInput)
     }
 

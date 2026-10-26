@@ -108,6 +108,13 @@ class UniStrokeView @JvmOverloads constructor(
         fun onPanelMoved(xRatio: Float, yRatio: Float) = Unit
 
         /**
+         * 大画面でつまみをタップして、パネルを畳んだ／戻した。
+         * 次にタップするまで（キーボードを閉じても、画面が変わっても）同じ状態で出せるよう、
+         * 実装側で覚えておく。
+         */
+        fun onPanelMinimizedChanged(minimized: Boolean) = Unit
+
+        /**
          * これから書かれる 1 ストロークについて、文脈から期待される文字の集合。
          * かなモードのローマ字文脈（子音 pending -> 母音 など）で使う。
          * 空集合ならバイアスをかけない。認識の直前に毎回問い合わせる。
@@ -166,8 +173,6 @@ class UniStrokeView @JvmOverloads constructor(
         set(value) {
             if (field != value) {
                 field = value
-                // 1 画面に戻ったら畳んだ状態も解く（つまみが無いので戻せなくなる）
-                if (!value) panelMinimized = false
                 requestLayout()
                 invalidate()
             }
@@ -178,6 +183,7 @@ class UniStrokeView @JvmOverloads constructor(
      * つまみのシングルタップで切り替える（ドラッグはこれまでどおり移動）。
      * 全画面の動画や資料を見るあいだ、入力欄を出したままパネルを退かせるため。
      * 畳んでいるあいだはつまみ以外に触れても背後のアプリへ素通しする。
+     * 次にタップするまで保つ（IME が設定から与える）。1 画面のときは効かない。
      */
     var panelMinimized: Boolean = false
         set(value) {
@@ -490,8 +496,8 @@ class UniStrokeView @JvmOverloads constructor(
             if (!gripRect.isEmpty) {
                 addTouchRect(
                     region,
-                    gripRect.left, gripRect.top + dy,
-                    gripRect.right, gripRect.bottom + dy,
+                    gripHitRect.left, gripHitRect.top + dy,
+                    gripHitRect.right, gripHitRect.bottom + dy,
                 )
             }
             return
@@ -511,8 +517,8 @@ class UniStrokeView @JvmOverloads constructor(
         if (floating && !gripRect.isEmpty) {
             addTouchRect(
                 region,
-                gripRect.left, gripRect.top + dy,
-                gripRect.right, gripRect.bottom + dy,
+                gripHitRect.left, gripHitRect.top + dy,
+                gripHitRect.right, gripHitRect.bottom + dy,
             )
         }
     }
@@ -907,8 +913,9 @@ class UniStrokeView @JvmOverloads constructor(
     private fun syncImeNavBar() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         if (dragging || !isAttachedToWindow) return
-        val hide = floating && !panelMinimized && bottomStrip > 0 &&
-            panelTop + panelHeight > height - bottomStrip + 0.5f
+        // 畳んだつまみは画面の下端に張り付くので、帯とは必ず重なる
+        val bottom = if (panelMinimized) height.toFloat() else panelTop + panelHeight
+        val hide = floating && bottomStrip > 0 && bottom > height - bottomStrip + 0.5f
         if (hide == imeNavBarHidden) return
         imeNavBarHidden = hide
         // 描画の途中でウィンドウの状態を変えないよう、次のループで指示する
@@ -931,8 +938,8 @@ class UniStrokeView @JvmOverloads constructor(
         get() = when {
             !floating -> 0f
             dragging -> dragTop
-            // つまみ（パネル上辺の外側）が、下端の帯のすぐ上に来る位置
-            panelMinimized -> height - bottomStrip.toFloat()
+            // つまみ（パネル上辺の外側）が、画面の下端に張り付く位置
+            panelMinimized -> height.toFloat()
             else -> gripHeight + panelYRange * panelYRatio
         }
 
@@ -967,6 +974,13 @@ class UniStrokeView @JvmOverloads constructor(
     /** つまみの矩形（パネル座標。上端 0 の外側に出るので y は負）。 */
     private val gripRect = RectF()
 
+    /**
+     * つまみの当たり判定。見た目（[gripRect]）より左右と上へ広げて、
+     * 細いバーでもタップ・ドラッグしやすくする。下はパネル（候補バーやボタン列）
+     * なので広げない。畳んでいるときは下が画面の端なので、もともと広げる余地が無い。
+     */
+    private val gripHitRect = RectF()
+
     /** 指を離した後、端へ吸い付くまでのアニメ。 */
     private var moveAnim: ValueAnimator? = null
 
@@ -990,11 +1004,18 @@ class UniStrokeView @JvmOverloads constructor(
     private fun layoutGrip() {
         if (!floating) {
             gripRect.setEmpty()
+            gripHitRect.setEmpty()
             return
         }
         val w = min(dp(GRIP_W_DP), layout.panelRight - layout.panelLeft)
         val cx = (layout.panelLeft + layout.panelRight) / 2f
         gripRect.set(cx - w / 2f, -gripHeight, cx + w / 2f, 0f)
+        gripHitRect.set(
+            gripRect.left - dp(GRIP_HIT_SIDE_DP),
+            gripRect.top - dp(GRIP_HIT_TOP_DP),
+            gripRect.right + dp(GRIP_HIT_SIDE_DP),
+            gripRect.bottom,
+        )
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -1707,7 +1728,7 @@ class UniStrokeView @JvmOverloads constructor(
                 uiTarget = UiTarget.NONE
 
                 // つまみはパネルの外（上）にあるので、いちばん先に判定する
-                if (floating && gripRect.contains(x, y)) {
+                if (floating && !gripRect.isEmpty && gripHitRect.contains(x, y)) {
                     if (panelMinimized) {
                         uiTarget = UiTarget.GRIP
                         gripTap = true
@@ -1871,6 +1892,7 @@ class UniStrokeView @JvmOverloads constructor(
                             // 動かさずに離した = タップ。位置は変えずに（覚えもせずに）畳む
                             dragging = false
                             panelMinimized = true
+                            listener?.onPanelMinimizedChanged(true)
                         } else {
                             settlePanel()
                         }
@@ -1878,7 +1900,10 @@ class UniStrokeView @JvmOverloads constructor(
                         return true
                     }
                     UiTarget.GRIP -> {
-                        if (gripTap && gripRect.contains(x, y)) panelMinimized = false
+                        if (gripTap && gripHitRect.contains(x, y)) {
+                            panelMinimized = false
+                            listener?.onPanelMinimizedChanged(false)
+                        }
                         uiTarget = UiTarget.NONE
                         return true
                     }
@@ -2277,6 +2302,10 @@ class UniStrokeView @JvmOverloads constructor(
         /** 浮動パネルのつまみ。パネルの外側に出るので書き込みエリアは削らない。 */
         private const val GRIP_W_DP = 108f
         private const val GRIP_H_DP = 22f
+
+        /** つまみの当たり判定を見た目より広げる量（左右それぞれ・上）。 */
+        private const val GRIP_HIT_SIDE_DP = 20f
+        private const val GRIP_HIT_TOP_DP = 14f
 
         /**
          * 上下・左右それぞれで端へ吸い付く範囲（可動域に対する割合）。
