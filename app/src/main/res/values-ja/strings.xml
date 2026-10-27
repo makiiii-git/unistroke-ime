@@ -188,7 +188,7 @@
 
     <string name="theme_title">キーボードのテーマ</string>
     <string name="theme_body">手書きエリアの配色を替える。テーマはプレミアムで、試用期間が終わって未購入ならクラシックに戻る。</string>
-    <string name="theme_classic">クラシック（深緑）</string>
+    <string name="theme_classic">クラシック（深緑。ダークモードでは青）</string>
     <string name="theme_lcd">液晶（PDA の画面風）</string>
     <string name="theme_midnight">ミッドナイト（黒と青）</string>
     <string name="theme_paper">ペーパー（白）</string>

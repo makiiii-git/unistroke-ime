@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        ダークモードのときの既定（クラシック）の配色。冷色系のスチールブルー。
+        昼の深緑のままだと、ダークモードのアプリの黒っぽい背景に溶けてパネルの境目が見えにくい。
+        書き込み面を背景より一段明るい青にして、パネルの輪郭が浮いて見えるようにする。
+        役割（8 色）は values/colors.xml と同じ。寸法や配置には触らない。
+    -->
+    <color name="pad_bezel">#FF2B3D55</color>
+    <color name="pad_status">#FF1D2B3E</color>
+    <color name="pad_zone_alpha">#FF3D5A7E</color>
+    <color name="pad_zone_number">#FF33506F</color>
+    <color name="pad_divider">#FF93B9E2</color>
+    <color name="pad_hint">#FF5F81A8</color>
+    <color name="pad_text">#FFEAF2FC</color>
+    <color name="pad_ink">#FFA6F0FF</color>
+</resources>

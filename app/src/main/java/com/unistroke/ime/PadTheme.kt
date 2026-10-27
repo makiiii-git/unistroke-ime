@@ -5,7 +5,8 @@ import android.content.Context
 /**
  * キーボードの配色（テーマ）。プレミアム。
  *
- * 既定の「Classic」は res/values/colors.xml の pad_* そのもの。ほかのテーマは
+ * 既定の「Classic」は res/values/colors.xml の pad_* そのもの。ダークモードのときは
+ * res/values-night/colors.xml の冷色系（スチールブルー）に自動で切り替わる。ほかのテーマは
  * 同じ 8 色の役割を置き換えるだけで、寸法や配置には触らない
  * （レイアウトが変わるとストロークの座標がずれるため）。
  *

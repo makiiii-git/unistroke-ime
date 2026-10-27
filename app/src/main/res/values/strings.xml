@@ -192,7 +192,7 @@
 
     <string name="theme_title">Keyboard theme</string>
     <string name="theme_body">Changes the colours of the writing area. Themes are part of Premium; after the trial ends without a purchase the keyboard returns to Classic.</string>
-    <string name="theme_classic">Classic (dark green)</string>
+    <string name="theme_classic">Classic (dark green; blue in dark mode)</string>
     <string name="theme_lcd">LCD (like a PDA screen)</string>
     <string name="theme_midnight">Midnight (black and blue)</string>
     <string name="theme_paper">Paper (white)</string>
