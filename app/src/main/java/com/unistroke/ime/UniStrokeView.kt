@@ -923,8 +923,8 @@ class UniStrokeView @JvmOverloads constructor(
     private fun syncImeNavBar() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         if (dragging || !isAttachedToWindow) return
-        // 畳んだつまみは画面の下端に張り付くので、帯とは必ず重なる
-        val bottom = if (panelMinimized) height.toFloat() else panelTop + panelHeight
+        // 畳んだつまみは下端（またはホームバーのすぐ上）に置くので、帯とは必ず重なる
+        val bottom = if (panelMinimized) panelTop else panelTop + panelHeight
         val hide = floating && bottomStrip > 0 && bottom > height - bottomStrip + 0.5f
         if (hide == imeNavBarHidden) return
         imeNavBarHidden = hide
@@ -949,7 +949,7 @@ class UniStrokeView @JvmOverloads constructor(
             !floating -> 0f
             dragging -> dragTop
             // つまみ（パネル上辺の外側）が、画面の下端に張り付く位置
-            panelMinimized -> height.toFloat()
+            panelMinimized -> height - minimizedLift
             else -> gripHeight + panelYRange * panelYRatio
         }
 
@@ -959,6 +959,24 @@ class UniStrokeView @JvmOverloads constructor(
             !floating -> null
             dragging -> dragLeft
             else -> panelXRange * panelXRatio
+        }
+
+    /**
+     * 畳んだつまみを下端から持ち上げる量。
+     *
+     * 画面下端の中央にはシステムのホームバー（白い横線。大画面では約 220dp）があり、
+     * IME より手前のウィンドウに描かれるので、IME 側からは隠せない。つまみが中央付近に
+     * あると重なって見えにくいので、そのときだけナビゲーションバーの高さぶん持ち上げ、
+     * ホームバーのすぐ上に置く。左右に寄せているときは下端に張り付けたまま。
+     */
+    private val minimizedLift: Float
+        get() {
+            val left = panelLeftPx ?: return 0f
+            val w = min(dp(GRIP_W_DP), panelWidth)
+            val cx = left + panelWidth / 2f
+            val half = dp(HOME_BAR_HALF_DP)
+            val overlaps = cx + w / 2f > width / 2f - half && cx - w / 2f < width / 2f + half
+            return if (overlaps) navInset.toFloat() else 0f
         }
 
     /** パネル左端が動ける範囲（0 のときは動かせない）。 */
@@ -2338,8 +2356,14 @@ class UniStrokeView @JvmOverloads constructor(
         private const val PANEL_MAX_WIDTH_DP = 420f
 
         /** 浮動パネルのつまみ。パネルの外側に出るので書き込みエリアは削らない。 */
-        private const val GRIP_W_DP = 216f
+        private const val GRIP_W_DP = 144f
         private const val GRIP_H_DP = 22f
+
+        /**
+         * 画面下端の中央にあるホームバーの幅の半分に、少し余白を足したもの。
+         * 畳んだつまみがこの範囲にかかるときだけ持ち上げる（[minimizedLift]）。
+         */
+        private const val HOME_BAR_HALF_DP = 120f
 
         /** つまみの当たり判定を見た目より広げる量（左右それぞれ・上）。 */
         private const val GRIP_HIT_SIDE_DP = 20f
