@@ -10,6 +10,12 @@
     <color name="pad_text">#FFD3E9D6</color>
     <color name="pad_ink">#FF7DF7A0</color>
 
+    <!--
+        畳んだつまみの縁取り。テーマではなく昼／夜で決まる（values-night に夜の色）。
+        昼は白い背景の上で輪郭が出るよう黒に近い色、夜は暗い背景の上で浮くよう白。
+    -->
+    <color name="grip_edge">#FF1B1F23</color>
+
     <color name="app_background">#FFF2F4F1</color>
     <color name="app_text">#FF1B2A20</color>
 

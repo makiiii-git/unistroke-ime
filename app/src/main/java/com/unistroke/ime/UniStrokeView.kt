@@ -588,6 +588,16 @@ class UniStrokeView @JvmOverloads constructor(
         strokeCap = Paint.Cap.ROUND
     }
 
+    /**
+     * 畳んだつまみの縁取り。テーマではなく昼／夜で色が決まる（res の grip_edge）。
+     * ダークモードでは白、ライトモードでは黒に近い色。
+     */
+    private val gripBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = palette.color(R.color.grip_edge)
+        strokeWidth = dp(2f)
+    }
+
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         color = palette.color(R.color.pad_ink)
@@ -1296,14 +1306,42 @@ class UniStrokeView @JvmOverloads constructor(
     private fun drawGrip(canvas: Canvas) {
         if (!floating || gripRect.isEmpty) return
         val r = dp(9f)
+        if (panelMinimized) {
+            drawMinimizedGrip(canvas, r)
+            return
+        }
         fillPaint.color = palette.color(R.color.pad_status)
         canvas.drawRoundRect(gripRect, r, r, fillPaint)
-        // 畳んでいるときはパネルから離れた 1 本のバーなので、四隅とも丸いまま
-        if (!panelMinimized) {
-            canvas.drawRect(gripRect.left, gripRect.bottom - r, gripRect.right, gripRect.bottom, fillPaint)
-        }
+        canvas.drawRect(gripRect.left, gripRect.bottom - r, gripRect.right, gripRect.bottom, fillPaint)
 
         gripPaint.color = palette.color(if (dragging) R.color.pad_ink else R.color.pad_divider)
+        val half = gripRect.width() * 0.16f
+        val cx = gripRect.centerX()
+        val cy = gripRect.centerY()
+        for (i in -1..1) {
+            val y = cy + i * dp(4.5f)
+            canvas.drawLine(cx - half, y, cx + half, y, gripPaint)
+        }
+    }
+
+    /**
+     * 畳んだときのつまみ。パネルから離れて、背後のアプリの上に 1 本だけ浮く。
+     * パネル上辺のつまみと同じ暗い色だと、暗い背景（ダークモードや全画面の動画）に
+     * 溶けて見失う。地はパネルの書き込み面の色（ダークモードの既定なら青）にして、
+     * 縁取りで輪郭を出す（ダークモードは白、ライトモードは黒に近い色）。
+     * 白一色にしないのは、画面下端にあるシステムのホームバー（白い横線）と紛れないため。
+     * 四隅とも丸い 1 本のバーとして描く。
+     */
+    private fun drawMinimizedGrip(canvas: Canvas, r: Float) {
+        fillPaint.color = palette.color(R.color.pad_zone_alpha)
+        canvas.drawRoundRect(gripRect, r, r, fillPaint)
+        val inset = gripBorderPaint.strokeWidth / 2f
+        canvas.drawRoundRect(
+            gripRect.left + inset, gripRect.top + inset,
+            gripRect.right - inset, gripRect.bottom - inset,
+            r - inset, r - inset, gripBorderPaint,
+        )
+        gripPaint.color = palette.color(R.color.pad_text)
         val half = gripRect.width() * 0.16f
         val cx = gripRect.centerX()
         val cy = gripRect.centerY()

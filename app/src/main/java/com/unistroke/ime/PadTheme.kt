@@ -37,6 +37,11 @@ object PadTheme {
         val hint: Int,
         val text: Int,
         val ink: Int,
+        /**
+         * 畳んだつまみの縁取り。テーマではなく昼／夜で決まる（res の grip_edge）。
+         * ダークモードでは白、ライトモードでは黒に近い色。
+         */
+        val gripEdge: Int,
     ) {
         /** pad_* の色リソースを、このテーマの色に読み替える。 */
         fun color(id: Int): Int = when (id) {
@@ -48,6 +53,7 @@ object PadTheme {
             R.color.pad_hint -> hint
             R.color.pad_text -> text
             R.color.pad_ink -> ink
+            R.color.grip_edge -> gripEdge
             else -> throw IllegalArgumentException("pad_* 以外の色: $id")
         }
     }
@@ -78,6 +84,7 @@ object PadTheme {
             hint = 0xFF6F7D5E.toInt(),
             text = 0xFF1E2816.toInt(),
             ink = 0xFF18210F.toInt(),
+            gripEdge = context.getColor(R.color.grip_edge),
         )
         MIDNIGHT -> Palette(
             bezel = 0xFF111318.toInt(),
@@ -88,6 +95,7 @@ object PadTheme {
             hint = 0xFF3D4555.toInt(),
             text = 0xFFD7DDE9.toInt(),
             ink = 0xFF7FB6FF.toInt(),
+            gripEdge = context.getColor(R.color.grip_edge),
         )
         PAPER -> Palette(
             bezel = 0xFFE2DED6.toInt(),
@@ -98,6 +106,7 @@ object PadTheme {
             hint = 0xFFADA79B.toInt(),
             text = 0xFF2A2723.toInt(),
             ink = 0xFF2B5BC8.toInt(),
+            gripEdge = context.getColor(R.color.grip_edge),
         )
         else -> Palette(
             bezel = context.getColor(R.color.pad_bezel),
@@ -108,6 +117,7 @@ object PadTheme {
             hint = context.getColor(R.color.pad_hint),
             text = context.getColor(R.color.pad_text),
             ink = context.getColor(R.color.pad_ink),
+            gripEdge = context.getColor(R.color.grip_edge),
         )
     }
 }

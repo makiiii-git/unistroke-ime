@@ -14,4 +14,7 @@
     <color name="pad_hint">#FF5F81A8</color>
     <color name="pad_text">#FFEAF2FC</color>
     <color name="pad_ink">#FFA6F0FF</color>
+
+    <!-- 畳んだつまみの縁取り。暗い背景（ダークモード・全画面の動画）の上で浮くよう白にする -->
+    <color name="grip_edge">#FFFFFFFF</color>
 </resources>
