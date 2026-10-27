@@ -41,7 +41,8 @@ Uni-Stroke IME：一筆書きの日本語入力
 ・入力履歴からの予測変換
 ・書き方トレーニング
 ・左利き用レイアウト（ボタン列とゾーンを左右反転）
-・折りたたみ端末・タブレットでのフローティング表示（入力パネルを好きな位置へ動かせます）
+・折りたたみ端末・タブレットでのフローティング表示（入力パネルを好きな位置へ動かせ、つまみのタップで畳めます）
+・ダークモードに合わせた冷色系の配色（ライト／ダーク／自動から選べます）
 
 ■ プレミアム（買い切りのアプリ内課金）
 インストールから 5 日間は、すべての機能をお試しいただけます。その後も使い続ける場合は、一度の購入で解錠できます。
@@ -113,17 +114,18 @@ The English dictionary (about 77,000 words) is built in, so suggestions work jus
 2. Tap “Switch keyboard” to select it as your input method
 3. Tap any text box and the writing area opens
 
-The left two-thirds of the writing area is for letters and the right third is for numbers — just like the PDAs you may remember.
+Letters go on the left two-thirds of the writing area and numbers on the right third — just like a PDA.
 
 ■ New to single-stroke writing?
-A few letters have their own shapes (A, K, X, Y, B and others). The built-in “Stroke training” has you write just 9 letters while an animated guide shows each stroke, and it tunes recognition to the way you write. A stroke chart is always one tap away.
+A few letters have their own shapes (A, K, X, Y, B and others). The built-in “Stroke training” has you write just 9 letters while an animated guide shows each stroke, and it tunes recognition to the way you write.
 
 ■ Free features
 ・Letters, numbers and symbols, each in one stroke
 ・Automatic capitals at the start of a sentence
 ・Stroke training and a stroke chart
 ・Left-handed layout (mirrors the buttons and zones)
-・Floating panel on foldables and tablets (drag it wherever you like)
+・Floating panel on foldables and tablets (drag it anywhere, or tap its grip to fold it away)
+・Cool-blue colours in dark theme
 
 ■ Premium (one-time purchase, no subscription)
 Every feature is unlocked for the first 5 days after installing. To keep the premium features after that, unlock them once — no subscription, no ads.
