@@ -95,6 +95,19 @@ class SettingsActivity : LocalizedActivity() {
             }
         }
 
+        // クラシックの配色のライト／ダーク（プレミアムではない）。保存すると IME がビューを作り直す。
+        val colorMode = PadTheme.colorMode(this)
+        for ((id, value) in listOf(
+            R.id.color_mode_light to PadTheme.MODE_LIGHT,
+            R.id.color_mode_dark to PadTheme.MODE_DARK,
+            R.id.color_mode_auto to PadTheme.MODE_AUTO,
+        )) {
+            findViewById<RadioButton>(id).apply {
+                isChecked = colorMode == value
+                setOnClickListener { PadTheme.setColorMode(this@SettingsActivity, value) }
+            }
+        }
+
         // リターンの改行の入れ方。既定は文字として入れる（Discord などでも送信にならない）。
         // IME はリターンのたびに読みに来るので、保存だけでよい。
         val enterMode = Prefs.enterMode(this)

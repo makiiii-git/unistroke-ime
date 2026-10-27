@@ -192,10 +192,17 @@
 
     <string name="theme_title">Keyboard theme</string>
     <string name="theme_body">Changes the colours of the writing area. Themes are part of Premium; after the trial ends without a purchase the keyboard returns to Classic.</string>
-    <string name="theme_classic">Classic (dark green; blue in dark mode)</string>
+    <string name="theme_classic">Classic (dark green / blue; follows Light / dark below)</string>
     <string name="theme_lcd">LCD (like a PDA screen)</string>
     <string name="theme_midnight">Midnight (black and blue)</string>
     <string name="theme_paper">Paper (white)</string>
+
+    <!-- クラシックの配色のライト／ダーク／自動（プレミアムではない） -->
+    <string name="color_mode_title">Light / dark</string>
+    <string name="color_mode_body">Chooses the colours of the Classic theme. Light is dark green and Dark is a cool blue. Auto follows the phone\'s dark theme.\n\nOn a large screen, the outline of the folded grip always follows the phone\'s setting (white in dark theme, black in light theme), whatever you choose here.</string>
+    <string name="color_mode_light">Light (dark green)</string>
+    <string name="color_mode_dark">Dark (blue)</string>
+    <string name="color_mode_auto">Auto (follow the phone\'s dark theme)</string>
     <string name="enter_title">Return</string>
     <string name="enter_body">Choose how Return (the diagonal from upper right to lower left, or the voice command “new line”) starts a new line.\n\nIn fields that ask for Search, Send or Next, Return runs that action whichever you choose.</string>
     <string name="enter_newline">Insert a line break (recommended; apps such as Discord will not send the message)</string>

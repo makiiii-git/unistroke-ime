@@ -188,10 +188,17 @@
 
     <string name="theme_title">キーボードのテーマ</string>
     <string name="theme_body">手書きエリアの配色を替える。テーマはプレミアムで、試用期間が終わって未購入ならクラシックに戻る。</string>
-    <string name="theme_classic">クラシック（深緑。ダークモードでは青）</string>
+    <string name="theme_classic">クラシック（深緑／青。下の「ライト／ダーク」に従う）</string>
     <string name="theme_lcd">液晶（PDA の画面風）</string>
     <string name="theme_midnight">ミッドナイト（黒と青）</string>
     <string name="theme_paper">ペーパー（白）</string>
+
+    <!-- クラシックの配色のライト／ダーク／自動（プレミアムではない） -->
+    <string name="color_mode_title">ライト／ダーク</string>
+    <string name="color_mode_body">クラシックの配色を選ぶ。ライトは深緑、ダークは冷色系の青。自動は端末のダークモードに合わせて切り替える。\n\n大画面で畳んだつまみの縁取りは、ここの選択によらず端末の設定に合わせる（ダークモードでは白、ライトモードでは黒）。</string>
+    <string name="color_mode_light">ライト（深緑）</string>
+    <string name="color_mode_dark">ダーク（青）</string>
+    <string name="color_mode_auto">自動（端末のダークモードに合わせる）</string>
     <string name="enter_title">リターン（改行）</string>
     <string name="enter_body">リターン（右上から左下への斜線）や音声の「改行」で、改行をどう入れるかを選ぶ。\n\n検索欄など「検索」「送信」「次へ」を求める入力欄では、どちらを選んでも欄の指定どおりのアクションを実行する。合成中・変換中のリターンは、どちらでも「確定」だけになる。</string>
     <string name="enter_newline">改行を入れる（おすすめ。Discord などでも送信されない）</string>

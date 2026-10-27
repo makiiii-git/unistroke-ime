@@ -96,6 +96,9 @@ object Prefs {
     /** キーボードの配色（[PadTheme] の id）。 */
     const val KEY_PAD_THEME = "pad_theme"
 
+    /** クラシックの配色のライト／ダーク（[PadTheme.MODE_AUTO] など）。未設定なら自動。 */
+    const val KEY_PAD_COLOR_MODE = "pad_color_mode"
+
     /** リターンで改行をどう入れるか（[ENTER_NEWLINE] / [ENTER_KEY]）。 */
     const val KEY_ENTER_MODE = "enter_mode"
 

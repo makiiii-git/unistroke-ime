@@ -129,7 +129,7 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
                     applyEnglishPrefs(currentInputEditorInfo)
                 }
                 Prefs.KEY_LANGUAGE -> onLanguageChanged()
-                Prefs.KEY_PAD_THEME -> recreateInputView()
+                Prefs.KEY_PAD_THEME, Prefs.KEY_PAD_COLOR_MODE -> recreateInputView()
                 Prefs.KEY_TEXT_SHORTCUTS ->
                     enShortcuts = if (enPredictHere) TextShortcuts.load(this) else emptyList()
                 Prefs.KEY_EN_AUTO_CAP, Prefs.KEY_EN_PREDICT -> if (english) {

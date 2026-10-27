@@ -224,6 +224,60 @@
                 android:textSize="16sp" />
         </RadioGroup>
 
+        <!-- クラシックの配色のライト／ダーク／自動（プレミアムではない）。両言語で出す。 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/color_mode_title"
+            android:textColor="@color/app_text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/color_mode_body"
+            android:textColor="@color/app_text"
+            android:textSize="14sp" />
+
+        <RadioGroup
+            android:id="@+id/color_mode_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/color_mode_light"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/color_mode_light"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <RadioButton
+                android:id="@+id/color_mode_dark"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/color_mode_dark"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+
+            <RadioButton
+                android:id="@+id/color_mode_auto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/color_mode_auto"
+                android:textColor="@color/app_text"
+                android:textSize="16sp" />
+        </RadioGroup>
+
         <!-- リターンで改行をどう入れるか（文字として / Enter キーとして）。両言語で出す。 -->
         <TextView
             android:layout_width="wrap_content"

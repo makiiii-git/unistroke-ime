@@ -1,12 +1,15 @@
 package com.unistroke.ime
 
 import android.content.Context
+import android.content.res.Configuration
 
 /**
  * キーボードの配色（テーマ）。プレミアム。
  *
- * 既定の「Classic」は res/values/colors.xml の pad_* そのもの。ダークモードのときは
- * res/values-night/colors.xml の冷色系（スチールブルー）に自動で切り替わる。ほかのテーマは
+ * 既定の「Classic」は res/values/colors.xml の pad_*（ライト・深緑）と
+ * res/values-night/colors.xml の pad_*（ダーク・冷色系のスチールブルー）。
+ * どちらで描くかは設定の「ライト／ダーク／自動」で決まり、自動なら端末のダークモードに従う
+ * （[colorMode]。テーマと違ってプレミアムではない）。ほかのテーマは
  * 同じ 8 色の役割を置き換えるだけで、寸法や配置には触らない
  * （レイアウトが変わるとストロークの座標がずれるため）。
  *
@@ -56,6 +59,40 @@ object PadTheme {
             R.color.grip_edge -> gripEdge
             else -> throw IllegalArgumentException("pad_* 以外の色: $id")
         }
+    }
+
+    /** クラシックの配色: 端末のダークモードに合わせる（既定）。 */
+    const val MODE_AUTO = "auto"
+
+    /** クラシックの配色: いつもライト（深緑）。 */
+    const val MODE_LIGHT = "light"
+
+    /** クラシックの配色: いつもダーク（冷色系の青）。 */
+    const val MODE_DARK = "dark"
+
+    /** 設定に保存されたライト／ダーク（知らない値なら自動）。 */
+    fun colorMode(context: Context): String {
+        val mode = Prefs.of(context).getString(Prefs.KEY_PAD_COLOR_MODE, MODE_AUTO) ?: MODE_AUTO
+        return if (mode == MODE_LIGHT || mode == MODE_DARK) mode else MODE_AUTO
+    }
+
+    fun setColorMode(context: Context, mode: String) {
+        Prefs.of(context).edit().putString(Prefs.KEY_PAD_COLOR_MODE, mode).apply()
+    }
+
+    /**
+     * クラシックの色を読む Context。ライト／ダークを固定しているときは、
+     * 端末の昼／夜の設定だけを上書きした Context から読む（values / values-night の切り替え）。
+     */
+    private fun classicContext(context: Context): Context {
+        val night = when (colorMode(context)) {
+            MODE_LIGHT -> Configuration.UI_MODE_NIGHT_NO
+            MODE_DARK -> Configuration.UI_MODE_NIGHT_YES
+            else -> return context
+        }
+        val config = Configuration(context.resources.configuration)
+        config.uiMode = (config.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or night
+        return context.createConfigurationContext(config)
     }
 
     /** 設定に保存されたテーマ（知らない値なら Classic）。鍵は見ない。 */
@@ -108,16 +145,21 @@ object PadTheme {
             ink = 0xFF2B5BC8.toInt(),
             gripEdge = context.getColor(R.color.grip_edge),
         )
-        else -> Palette(
-            bezel = context.getColor(R.color.pad_bezel),
-            status = context.getColor(R.color.pad_status),
-            zoneAlpha = context.getColor(R.color.pad_zone_alpha),
-            zoneNumber = context.getColor(R.color.pad_zone_number),
-            divider = context.getColor(R.color.pad_divider),
-            hint = context.getColor(R.color.pad_hint),
-            text = context.getColor(R.color.pad_text),
-            ink = context.getColor(R.color.pad_ink),
-            gripEdge = context.getColor(R.color.grip_edge),
-        )
+        else -> {
+            // ライト／ダークを固定していればその色で。縁取りだけは端末の昼／夜に従う
+            // （背後のアプリの背景に対して輪郭を出すためのものなので）
+            val c = classicContext(context)
+            Palette(
+                bezel = c.getColor(R.color.pad_bezel),
+                status = c.getColor(R.color.pad_status),
+                zoneAlpha = c.getColor(R.color.pad_zone_alpha),
+                zoneNumber = c.getColor(R.color.pad_zone_number),
+                divider = c.getColor(R.color.pad_divider),
+                hint = c.getColor(R.color.pad_hint),
+                text = c.getColor(R.color.pad_text),
+                ink = c.getColor(R.color.pad_ink),
+                gripEdge = context.getColor(R.color.grip_edge),
+            )
+        }
     }
 }
