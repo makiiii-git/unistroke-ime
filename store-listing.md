@@ -169,7 +169,8 @@ https://github.com/makiiii-git/unistroke-ime
 | 項目 | 値 |
 | --- | --- |
 | アプリケーション ID | `io.github.makiiii_git.unistroke` |
-| カテゴリ | ツール |
+| カテゴリ | ツール（Gboard や「handwriting keyboard」で上位の手書きキーボードと同じ。SwiftKey はカスタマイズ、Graffiti Pro は仕事効率化） |
+| タグ | キーボード・ツール・プライバシー＆セキュリティ・仕事効率化・カスタマイズ（上限の 5 つ。2026-10-31 に設定。タグは審査なしで反映される） |
 | 広告 | なし |
 | 配信国 | 製品版は 119 か国（2026-10-27）。日本と、価格を手で決めた国（米ドル・ユーロ・英ポンド・加ドル・豪ドル・NZ ドル建て）に、EU のジオブロッキング規制に合わせて EU 27 か国すべて（チェコ・デンマーク・ハンガリー・ポーランド・ルーマニア・スウェーデンを追加）。500 円からの自動換算のままの国は配信しない |
 | プライバシーポリシー | https://makiiii-git.github.io/unistroke-ime/privacy-policy.html |
