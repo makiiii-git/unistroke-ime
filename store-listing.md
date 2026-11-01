@@ -1,12 +1,12 @@
 # Google Play ストア掲載情報（Uni-Stroke IME v1.3.0）
 
-## アプリ名（30文字以内 / 25文字）
+## アプリ名（30文字以内 / 23文字）
 
-Uni-Stroke IME：一筆書きの日本語入力
+UniStroke：一筆書きの日本語キーボード
 
-## 簡単な説明（80文字以内 / 65文字）
+## 簡単な説明（80文字以内 / 67文字）
 
-一筆書きのストロークで書く日本語入力。変換も予測も端末内で完結し、入力した内容を外へ送りません。音声入力と折りたたみ端末にも対応。
+一筆書きで書く日本語キーボード。変換も予測も端末内で完結し、入力した内容を外へ送りません。片手入力・音声入力・折りたたみ端末にも対応。
 
 ## 詳細な説明（4000文字以内）
 
@@ -85,29 +85,30 @@ https://github.com/makiiii-git/unistroke-ime
 
 ## App name (30 chars max / 30)
 
-Uni-Stroke: Handwrite Keyboard
+UniStroke Handwriting Keyboard
 
-（検索されやすい「handwrite」「keyboard」を入れた。英語圏では「IME」はほぼ通じない）
+（検索の多い「handwriting keyboard」をそのままの並びで入れた。ハイフン付きの「Uni-Stroke」では 31 字で収まらないので 1 語にした。英語圏では「IME」はほぼ通じない。
+2026-10-31 に「UNISTROKE」の商標を J-PlatPat と TMview で確認: 有効な登録は無し。米国の「UNISTROKES」（Xerox、09類）は 2020-04-10 に取り消し済み。日本の類似称呼「ＵｎｉＳｔｒｏｎｇ」（09・38類）は別語で低リスク）
 
-## Short description (80 chars max / 74)
+## Short description (80 chars max / 78)
 
-Write one stroke per letter, like a classic PDA. Offline, private, no ads.
+One-stroke handwriting keyboard, like a classic PDA. Offline, private, no ads.
 
 ## Full description (4000 chars max)
 
-Remember writing on a PDA with a stylus, one quick stroke per letter? Uni-Stroke brings that single-stroke alphabet back as a keyboard for your Android phone.
+Remember writing on a PDA with a stylus, one quick stroke per letter? UniStroke is a handwriting keyboard for Android that brings that single-stroke (unistroke) alphabet back to your phone.
 
-Instead of hunting for tiny keys, you keep writing in the same spot. Once your hand knows the strokes, you can type without looking at the screen — on the bus, while walking, with one hand.
+Instead of hunting for tiny keys, you keep writing in the same spot. Once your hand knows the strokes, you can type without looking at the screen — one-handed, on the bus, while walking. Write with a finger or a stylus.
 
-■ Nothing you type leaves your device
-A keyboard sees every character you enter, so this one is built to keep it to itself:
+■ An offline, private keyboard
+A keyboard sees every character you enter, so this one keeps it to itself:
 
-・Stroke recognition and word suggestions run entirely on the device
+・Handwriting recognition and word suggestions run entirely on the device
 ・No network access while you type
 ・No ads, no analytics, no account
-・Your typing history and learned handwriting stay on the device, and you can erase them from Settings at any time
+・Your typing history and learned handwriting stay on the device, and you can erase them in Settings at any time
 
-The English dictionary (about 77,000 words) is built in, so suggestions work just the same offline or in airplane mode.
+The English dictionary (about 77,000 words) is built in, so this offline keyboard works the same in airplane mode.
 
 ■ Getting started
 1. Open the app and tap “Enable keyboard” to turn on Uni-Stroke IME
@@ -116,15 +117,15 @@ The English dictionary (about 77,000 words) is built in, so suggestions work jus
 
 Letters go on the left two-thirds of the writing area and numbers on the right third — just like a PDA.
 
-■ New to single-stroke writing?
+■ New to single-stroke handwriting?
 A few letters have their own shapes (A, K, X, Y, B and others). The built-in “Stroke training” has you write just 9 letters while an animated guide shows each stroke, and it tunes recognition to the way you write.
 
 ■ Free features
 ・Letters, numbers and symbols, each in one stroke
 ・Automatic capitals at the start of a sentence
 ・Stroke training and a stroke chart
-・Left-handed layout (mirrors the buttons and zones)
-・Floating panel on foldables and tablets (drag it anywhere, or tap its grip to fold it away)
+・Left-handed keyboard layout (mirrors the buttons and zones)
+・Floating keyboard on foldables and tablets (drag it anywhere, or tap its grip to fold it away)
 ・Cool-blue colours in dark theme
 
 ■ Premium (one-time purchase, no subscription)
@@ -132,8 +133,8 @@ Every feature is unlocked for the first 5 days after installing. To keep the pre
 
 ・Word suggestions: finish words with one tap, from the built-in dictionary and the words you use (apostrophes optional: “dont” → don't)
 ・Text shortcuts: write a short code like “brb” and your saved phrase appears first in the suggestion bar
-・Voice input and voice commands: hold a finger in the writing zone to dictate. Only on-device speech recognition is used by default, so your voice never leaves the device. Say “enter”, “delete” or “undo” on its own and it is carried out as a command. Continuous mode keeps listening until you say “stop listening”
-・Handwriting learning: correct a misread letter and it remembers, so it gets your handwriting right next time
+・Voice typing and voice commands: hold a finger in the writing zone to dictate. On-device speech recognition is used by default, so your voice never leaves the device. Say “enter”, “delete” or “undo” on its own to run it as a command. Continuous mode listens until you say “stop listening”
+・Handwriting learning: correct a misread letter and it remembers, so it reads your handwriting right next time
 ・Keyboard themes: Classic, LCD (like a PDA screen), Midnight and Paper
 
 When the trial ends, all the free features above keep working and each letter is entered as you write it. You are never locked out of typing.
@@ -143,7 +144,7 @@ The purchase is tied to your Google account, so “Restore purchase” brings it
 Switch the app language to Japanese in Settings for romaji-to-kana input with on-device kana-kanji conversion. Premium adds an extended Japanese dictionary (about 220,000 words).
 
 ■ Please note
-・When you enable any keyboard, Android warns that it “may be able to collect all the text you type”. This is the standard notice shown for every keyboard. This app does not send what you type anywhere.
+・Android warns that any keyboard “may be able to collect all the text you type”. This is the standard notice for every keyboard. This app does not send what you type anywhere.
 ・Voice input and history are disabled in password fields.
 ・On-device voice input needs Android 13 or later on a supported device.
 ・The app only goes online for Google Play billing and, if you use Japanese, to download the optional extended dictionary (nothing you type is sent).
