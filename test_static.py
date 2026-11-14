@@ -380,6 +380,35 @@ def main():
     check(not leaked, "英語の文言に日本語が混じっていない%s"
           % ("" if not leaked else " -> " + ", ".join(leaked[:6])))
 
+    print("\n=== 10. 候補の一覧（候補バーの ▼） ===")
+    check("CAND_TOGGLE" in v and "CAND_LIST" in v, "▼ と一覧がタッチの行き先として分かれている")
+    sc = v[v.find("fun setCandidates("):]
+    sc = sc[:sc.find("private class PendingCandidates")]
+    check("candidateListOpen = false" in sc, "候補が無くなったら一覧を閉じる")
+    oc = v[v.find("private fun openCandidateList()"):]
+    oc = oc[:oc.find("fun closeCandidateList()")]
+    check("clearStroke()" in oc, "一覧を開くときに書きかけのストロークを捨てる")
+    check("requestLayout()" not in oc,
+          "一覧の開閉でビューの高さを変えない（連続記入の劣化を再発させない）")
+    down = v[v.find("MotionEvent.ACTION_DOWN ->"):]
+    down = down[:down.find("MotionEvent.ACTION_MOVE ->")]
+    check(0 < down.find("if (candidateListOpen)") < down.find("tracking = true"),
+          "一覧を開いているあいだは手書きを始めない")
+    check(down.find("layout.isInColumn(x)") < down.find("if (candidateListOpen)"),
+          "一覧を開いていても縦ボタン列は押せる")
+    lst = up[up.find("UiTarget.CAND_LIST ->"):]
+    lst = lst[:lst.find("UiTarget.VOICE ->")]
+    check(0 <= lst.find("closeCandidateList()") < lst.find("listener?.onCandidateSelected("),
+          "一覧で選んだら、閉じてから候補を確定する")
+    bar = up[up.find("UiTarget.CANDIDATES ->"):]
+    bar = bar[:bar.find("UiTarget.CAND_TOGGLE ->")]
+    check("if (!candidateDragged)" in bar and "candidateDragged" in lst,
+          "スクロールして離しただけでは候補を選ばない（バーも一覧も）")
+    check("closeCandidateList()" in v[v.find("fun showVoice("):v.find("fun setVoiceLevel(")],
+          "音声入力のバナーを出すときは一覧を閉じる")
+    check("closeCandidateList()" in v[v.find("fun toggleOverlay()"):v.find("fun hideOverlay()")],
+          "見本を開くときは一覧を閉じる")
+
     print()
     if FAILURES:
         print("FAILED (%d)" % len(FAILURES))

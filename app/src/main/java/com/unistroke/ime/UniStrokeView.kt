@@ -311,6 +311,8 @@ class UniStrokeView @JvmOverloads constructor(
             // 指を離したときにストロークとして流れてしまう
             cancelLongPresses()
             clearStroke()
+            // バナーは手書きゾーンを覆う。一覧と重ねない
+            closeCandidateList()
         }
         invalidate()
     }
@@ -348,6 +350,31 @@ class UniStrokeView @JvmOverloads constructor(
     /** 文節送り 《 》 を出すか（明示変換モードのみ true）。 */
     private var segmentNav = false
 
+    /**
+     * 候補の一覧（▼ で開く）。候補バーに収まりきらない候補を、手書きゾーンの上に
+     * 折り返して全部並べる。ビューの高さは変えない（変えると [onSizeChanged] が走り、
+     * 浮動時はパネルの位置までずれる）ので、開いているあいだは手書きを受け付けない。
+     */
+    private var candidateListOpen = false
+    private var candidateListScroll = 0f
+    private var candidateListHeight = 0f
+
+    /** 一覧の各候補の矩形。x はパネル座標、y は一覧の先頭を 0 とした座標（スクロール前）。 */
+    private val candidateListRects = ArrayList<RectF>()
+
+    /** 一覧で押している候補（押下の見た目用）。-1 で無し。 */
+    private var candidateListPressed = -1
+
+    /** 候補がバーの幅に収まっていないか（収まっているなら ▼ は出さない）。 */
+    private var candidateOverflow = false
+
+    /** 候補バー・一覧を触り始めた位置と、そこからスクロール扱いになるほど動いたか。 */
+    private var candidateTouchX = 0f
+    private var candidateTouchY = 0f
+    private var candidateDragged = false
+
+    val isCandidateListOpen: Boolean get() = candidateListOpen
+
     /** 速書きデバッグログを logcat へ出すか（設定の隠しフラグ）。 */
     var debugStrokes: Boolean = false
 
@@ -381,6 +408,14 @@ class UniStrokeView @JvmOverloads constructor(
         }
         pendingCandidates = null
         val wasVisible = candidates.isNotEmpty()
+        // 一覧を開いたまま中身が替わったら、押そうとしていた候補が別物になる。
+        // 候補が無くなったときは閉じ、替わっただけなら先頭へ戻して見せ直す。
+        if (items.isEmpty()) {
+            candidateListOpen = false
+        } else if (items != candidates) {
+            candidateListScroll = 0f
+        }
+        candidateListPressed = -1
         candidates = items
         // 詰めるのは英語版だけ（日本語の変換候補は長い文でも全部見えないと選べない）
         candidateLabels = if (english) items.map { candidateLabel(it) } else items
@@ -426,6 +461,9 @@ class UniStrokeView @JvmOverloads constructor(
         candidateIndex = 0
         candidateScroll = 0f
         segmentNav = false
+        candidateListOpen = false
+        candidateListScroll = 0f
+        candidateListPressed = -1
         requestLayout()
         invalidate()
     }
@@ -438,6 +476,12 @@ class UniStrokeView @JvmOverloads constructor(
     private val columnWidth = dp(64f)
     private val candidateHeight = dp(42f)
     private val segArrowWidth = dp(30f)
+
+    /** 候補バー右端の ▼（一覧を開く）の幅。親指で押せる幅を取る。 */
+    private val candidateToggleWidth = dp(40f)
+
+    /** 一覧の 1 行の高さ。候補バーより少しだけ高くして、行を押し分けやすくする。 */
+    private val candidateListRowHeight = dp(44f)
     /**
      * 記号シフト中の最小ストロークサイズ。
      * 「細く下ろして戻す」ような小さい記号があるので低いままにする。
@@ -723,6 +767,12 @@ class UniStrokeView @JvmOverloads constructor(
     private enum class UiTarget {
         NONE, BTN_MODE, BTN_LEFT, BTN_RIGHT, BTN_SELECT, BTN_HELP,
         CANDIDATES, SEG_PREV, SEG_NEXT, OVERLAY, DRAG, VOICE,
+
+        /** 候補バー右端の ▼ / ▲（候補の一覧を開閉する）。 */
+        CAND_TOGGLE,
+
+        /** 開いている候補の一覧（縦スクロールと、タップでの選択）。 */
+        CAND_LIST,
 
         /** 畳んだパネルのつまみ（タップで戻す。動かせない）。 */
         GRIP,
@@ -1140,6 +1190,12 @@ class UniStrokeView @JvmOverloads constructor(
 
         if (candidateBarVisible) drawCandidateBar(canvas, w)
 
+        // 候補の一覧は手書きゾーンをまるごと覆う（開いているあいだは書けない）
+        if (candidateListOpen) {
+            drawCandidateList(canvas, h)
+            return
+        }
+
         val top = zoneTop
         val bottom = h - dp(4f)
         val zoneH = bottom - top
@@ -1499,7 +1555,7 @@ class UniStrokeView @JvmOverloads constructor(
             (candidateTextPaint.descent() + candidateTextPaint.ascent()) / 2f
 
         val left = layout.barLeft + barInset
-        val right = layout.barRight - barInset - chipWidth()
+        val right = candidatesRight()
         canvas.save()
         canvas.clipRect(left, top, right, bottom)
         for (i in candidateRects.indices) {
@@ -1530,8 +1586,50 @@ class UniStrokeView @JvmOverloads constructor(
         }
 
         drawOnDeviceChip(canvas, top, bottom)
+        drawCandidateToggle(canvas, top, bottom)
 
         canvas.drawLine(layout.barLeft, bottom, layout.barRight, bottom, solidLinePaint)
+    }
+
+    /**
+     * ▼ を出すか。候補がバーに収まっているなら一覧は要らないので出さない。
+     * 開いているあいだは、閉じる手段（▲）として必ず出す。
+     */
+    private val candidateToggleShown: Boolean
+        get() = candidateBarVisible && !overlayVisible && (candidateOverflow || candidateListOpen)
+
+    /** ▼ の左端。文節送りの 》 があるときは、その左隣に置く。 */
+    private val candidateToggleLeft: Float
+        get() = layout.barRight - (if (segmentNav) segArrowWidth else 0f) - candidateToggleWidth
+
+    /** 候補を並べられる範囲の右端（▼ とチップのぶんを除く）。 */
+    private fun candidatesRight(): Float =
+        (if (candidateToggleShown) candidateToggleLeft else layout.barRight - barInset) - chipWidth()
+
+    /** ▼（開いているあいだは ▲）。字形はフォントに頼らず三角形を直接描く。 */
+    private fun drawCandidateToggle(canvas: Canvas, top: Float, bottom: Float) {
+        if (!candidateToggleShown) return
+        val left = candidateToggleLeft
+        val right = left + candidateToggleWidth
+        fillPaint.color = palette.color(
+            if (pressed == UiTarget.CAND_TOGGLE || candidateListOpen) R.color.pad_divider
+            else R.color.pad_status,
+        )
+        canvas.drawRect(left, top, right, bottom, fillPaint)
+
+        val cx = (left + right) / 2f
+        val cy = (top + bottom) / 2f
+        val halfW = dp(7f)
+        val halfH = dp(4f)
+        // 開いているときは上向き（押すと閉じる）
+        val dir = if (candidateListOpen) -1f else 1f
+        iconPath.reset()
+        iconPath.moveTo(cx - halfW, cy - halfH * dir)
+        iconPath.lineTo(cx + halfW, cy - halfH * dir)
+        iconPath.lineTo(cx, cy + halfH * dir)
+        iconPath.close()
+        fillPaint.color = candidateTextPaint.color
+        canvas.drawPath(iconPath, fillPaint)
     }
 
     /** チップが占める幅（出していないときは 0）。 */
@@ -1543,7 +1641,7 @@ class UniStrokeView @JvmOverloads constructor(
     private fun drawOnDeviceChip(canvas: Canvas, top: Float, bottom: Float) {
         val cw = chipWidth()
         if (cw <= 0f) return
-        val right = layout.barRight - barInset - dp(2f)
+        val right = candidatesRight() + cw - dp(2f)
         val rect = RectF(right - cw + dp(4f), top + dp(7f), right, bottom - dp(7f))
         fillPaint.color = palette.color(R.color.pad_status)
         canvas.drawRoundRect(rect, dp(4f), dp(4f), fillPaint)
@@ -1566,8 +1664,10 @@ class UniStrokeView @JvmOverloads constructor(
             x += cw
         }
         val contentEnd = x + candidateScroll
-        val maxScroll =
-            max(0f, contentEnd - (layout.barRight - barInset - chipWidth()) + dp(4f))
+        // ▼ を出す前の幅に収まるかで決める（▼ の有無で判定が行き来しないように）
+        candidateOverflow =
+            contentEnd + dp(4f) > layout.barRight - barInset - chipWidth()
+        val maxScroll = max(0f, contentEnd - candidatesRight() + dp(4f))
         if (candidateScroll > maxScroll) {
             val delta = candidateScroll - maxScroll
             candidateScroll = maxScroll
@@ -1581,9 +1681,139 @@ class UniStrokeView @JvmOverloads constructor(
         if (candidateIndex !in candidateRects.indices) return
         val r = candidateRects[candidateIndex]
         val leftEdge = layout.barLeft + barInset + dp(4f)
-        val rightEdge = layout.barRight - barInset - chipWidth() - dp(4f)
+        val rightEdge = candidatesRight() - dp(4f)
         if (r.left < leftEdge) candidateScroll = max(0f, candidateScroll - (leftEdge - r.left))
         else if (r.right > rightEdge) candidateScroll += (r.right - rightEdge)
+    }
+
+    // ---------------------------------------------------------- 候補の一覧
+
+    private fun openCandidateList() {
+        if (candidates.isEmpty() || candidateListOpen) return
+        // 書きかけは捨てる（一覧の下に残ると、閉じたときに認識へ流れる）
+        clearStroke()
+        candidateListOpen = true
+        candidateListScroll = 0f
+        candidateListPressed = -1
+        // 変換中は、いま選んでいる候補が見える位置から始める
+        layoutCandidateList()
+        candidateListRects.getOrNull(candidateIndex)?.let { r ->
+            val viewH = panelHeight - contentTop
+            if (r.bottom > viewH) candidateListScroll = r.bottom - viewH
+        }
+        invalidate()
+    }
+
+    /** 候補の一覧を閉じる（開いていなければ何もしない）。 */
+    fun closeCandidateList() {
+        if (!candidateListOpen) return
+        candidateListOpen = false
+        candidateListScroll = 0f
+        candidateListPressed = -1
+        invalidate()
+    }
+
+    /**
+     * 一覧の候補を折り返して並べる。行に余った幅はその行の候補へ均等に配り、
+     * 右端を揃える（最後の行だけは配らない。1〜2 個が横いっぱいに伸びると読みにくい）。
+     */
+    private fun layoutCandidateList() {
+        candidateListRects.clear()
+        val left = layout.zoneLeft + dp(4f)
+        val right = layout.zoneRight - dp(4f)
+        val rowH = candidateListRowHeight
+        var x = left
+        var y = 0f
+        var rowStart = 0
+        for (c in candidateLabels) {
+            val cw = min(right - left, max(dp(56f), candidateTextPaint.measureText(c) + dp(24f)))
+            if (x > left && x + cw > right) {
+                justifyCandidateRow(rowStart, candidateListRects.size, right - x)
+                rowStart = candidateListRects.size
+                x = left
+                y += rowH
+            }
+            candidateListRects.add(RectF(x, y, x + cw, y + rowH))
+            x += cw
+        }
+        candidateListHeight = if (candidateListRects.isEmpty()) 0f else y + rowH
+        candidateListScroll = candidateListScroll.coerceIn(0f, candidateListMaxScroll())
+    }
+
+    private fun justifyCandidateRow(from: Int, to: Int, spare: Float) {
+        val n = to - from
+        if (n <= 0 || spare <= 0f) return
+        val add = spare / n
+        for (i in from until to) {
+            val r = candidateListRects[i]
+            r.left += add * (i - from)
+            r.right += add * (i - from + 1)
+        }
+    }
+
+    private fun candidateListMaxScroll(): Float =
+        max(0f, candidateListHeight - (panelHeight - contentTop))
+
+    private fun drawCandidateList(canvas: Canvas, h: Float) {
+        val left = layout.zoneLeft
+        val right = layout.zoneRight
+        val top = contentTop
+        // 地は候補バーと同じ色。バーがそのまま下へ広がったように見せる
+        fillPaint.color = palette.color(R.color.pad_zone_number)
+        canvas.drawRect(left, top, right, h, fillPaint)
+
+        layoutCandidateList()
+
+        val viewH = h - top
+        val baseSize = candidateTextPaint.textSize
+        canvas.save()
+        canvas.clipRect(left, top, right, h)
+        canvas.translate(0f, top - candidateListScroll)
+        for (i in candidateListRects.indices) {
+            val r = candidateListRects[i]
+            if (r.bottom < candidateListScroll || r.top > candidateListScroll + viewH) continue
+            if (i == candidateIndex || i == candidateListPressed) {
+                fillPaint.color = palette.color(
+                    if (i == candidateListPressed) R.color.pad_divider else R.color.pad_zone_alpha,
+                )
+                canvas.drawRoundRect(
+                    RectF(r.left + dp(2f), r.top + dp(4f), r.right - dp(2f), r.bottom - dp(4f)),
+                    dp(5f), dp(5f), fillPaint,
+                )
+            }
+            // 1 行に収まらない長い候補は、まず字を縮め、それでも余るぶんは末尾を詰める
+            var label = candidateLabels[i]
+            val maxW = r.width() - dp(12f)
+            val textW = candidateTextPaint.measureText(label)
+            if (textW > maxW) {
+                candidateTextPaint.textSize = max(dp(12f), baseSize * maxW / textW)
+                if (candidateTextPaint.measureText(label) > maxW) {
+                    var keep = candidateTextPaint.breakText(
+                        label, true, maxW - candidateTextPaint.measureText(ELLIPSIS), null,
+                    )
+                    // 絵文字などのサロゲートペアを途中で割らない
+                    if (keep > 0 && label[keep - 1].isHighSurrogate()) keep--
+                    label = label.substring(0, keep) + ELLIPSIS
+                }
+            }
+            val baseline = r.centerY() -
+                (candidateTextPaint.descent() + candidateTextPaint.ascent()) / 2f
+            canvas.drawText(label, r.centerX(), baseline, candidateTextPaint)
+            candidateTextPaint.textSize = baseSize
+        }
+        // 行の区切り線
+        var lineY = candidateListRowHeight
+        while (lineY <= candidateListHeight + 0.5f) {
+            canvas.drawLine(left, lineY, right, lineY, solidLinePaint)
+            lineY += candidateListRowHeight
+        }
+        canvas.restore()
+    }
+
+    /** 一覧の中の位置（パネル座標）にある候補の添字。無ければ -1。 */
+    private fun candidateListIndexAt(x: Float, y: Float): Int {
+        val ly = y - contentTop + candidateListScroll
+        return candidateListRects.indexOfFirst { it.contains(x, ly) }
     }
 
     // ------------------------------------------------------ 見本オーバーレイ
@@ -1601,6 +1831,8 @@ class UniStrokeView @JvmOverloads constructor(
         overlayScroll = 0f
         if (overlayVisible) {
             clearStroke()
+            // 見本も手書きゾーンを覆うので、候補の一覧は閉じておく
+            closeCandidateList()
             if (sampleSections == null) sampleSections = buildSamples()
         }
         invalidate()
@@ -1804,8 +2036,12 @@ class UniStrokeView @JvmOverloads constructor(
                     uiTarget = when {
                         segmentNav && x < layout.barLeft + segArrowWidth -> UiTarget.SEG_PREV
                         segmentNav && x > layout.barRight - segArrowWidth -> UiTarget.SEG_NEXT
+                        candidateToggleShown && x >= candidateToggleLeft -> UiTarget.CAND_TOGGLE
                         else -> UiTarget.CANDIDATES
                     }
+                    candidateTouchX = x
+                    candidateTouchY = y
+                    candidateDragged = false
                     setPressedTarget(uiTarget)
                     parent?.requestDisallowInterceptTouchEvent(true)
                     return true
@@ -1840,6 +2076,19 @@ class UniStrokeView @JvmOverloads constructor(
                         selectLongPressFired = false
                         postDelayed(selectLongPressRunnable, LONG_PRESS_MS)
                     }
+                    return true
+                }
+
+                // 候補の一覧を開いているあいだは、ゾーンは一覧のもの（手書きは受け付けない）
+                if (candidateListOpen) {
+                    if (!layout.isInPanel(x, y)) return false
+                    uiTarget = UiTarget.CAND_LIST
+                    candidateTouchX = x
+                    candidateTouchY = y
+                    candidateDragged = false
+                    candidateListPressed = candidateListIndexAt(x, y)
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    invalidate()
                     return true
                 }
 
@@ -1909,8 +2158,29 @@ class UniStrokeView @JvmOverloads constructor(
                         return true
                     }
                     UiTarget.CANDIDATES -> {
+                        // downX は下で毎回進めるので、「動かしたか」は触り始めの位置から測る
+                        if (hypot(x - candidateTouchX, y - candidateTouchY) > scrollSlop) {
+                            candidateDragged = true
+                        }
                         candidateScroll = max(0f, candidateScroll - (x - downX))
                         downX = x
+                        invalidate()
+                        return true
+                    }
+                    UiTarget.CAND_LIST -> {
+                        if (!candidateDragged &&
+                            hypot(x - candidateTouchX, y - candidateTouchY) > scrollSlop
+                        ) {
+                            // ここからスクロール。選択は取り下げ、いまの位置を基準に動かす
+                            candidateDragged = true
+                            candidateListPressed = -1
+                            downY = y
+                        }
+                        if (candidateDragged) {
+                            candidateListScroll = (candidateListScroll - (y - downY))
+                                .coerceIn(0f, candidateListMaxScroll())
+                            downY = y
+                        }
                         invalidate()
                         return true
                     }
@@ -1998,12 +2268,32 @@ class UniStrokeView @JvmOverloads constructor(
                         listener?.onSegmentStep(true); performClick()
                     }
                     UiTarget.CANDIDATES -> {
-                        if (abs(x - downX) < scrollSlop && abs(y - downY) < scrollSlop) {
+                        // スクロールした指を離しただけなら選ばない
+                        if (!candidateDragged) {
                             val idx = candidateRects.indexOfFirst { it.contains(x, y) }
                             if (idx >= 0) {
                                 listener?.onCandidateSelected(idx)
                                 performClick()
                             }
+                        }
+                    }
+                    UiTarget.CAND_TOGGLE -> if (
+                        candidateToggleShown && y < candidateBottom &&
+                        x >= candidateToggleLeft && x <= candidateToggleLeft + candidateToggleWidth
+                    ) {
+                        if (candidateListOpen) closeCandidateList() else openCandidateList()
+                        performClick()
+                    }
+                    UiTarget.CAND_LIST -> {
+                        val idx = if (candidateDragged) -1 else candidateListIndexAt(x, y)
+                        candidateListPressed = -1
+                        if (idx >= 0) {
+                            // 先に閉じる（選んだ結果で候補が差し替わっても、一覧を引きずらない）
+                            closeCandidateList()
+                            listener?.onCandidateSelected(idx)
+                            performClick()
+                        } else {
+                            invalidate()
                         }
                     }
                     UiTarget.VOICE -> {
@@ -2047,6 +2337,7 @@ class UniStrokeView @JvmOverloads constructor(
                 if (uiTarget == UiTarget.DRAG) settlePanel()
                 uiTarget = UiTarget.NONE
                 setPressedTarget(UiTarget.NONE)
+                candidateListPressed = -1
                 clearStroke()
                 return true
             }
@@ -2303,6 +2594,9 @@ class UniStrokeView @JvmOverloads constructor(
         private const val LABEL_HELP = "?"
         private const val LABEL_SEG_PREV = "《"
         private const val LABEL_SEG_NEXT = "》"
+
+        /** 一覧で、行に収まらない候補の末尾に付ける。 */
+        private const val ELLIPSIS = "…"
 
         /** 候補が端末内辞書だけで作られたことを示すチップの文字。 */
         private const val LABEL_ON_DEVICE = "端末内"
