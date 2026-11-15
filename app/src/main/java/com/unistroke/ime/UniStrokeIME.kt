@@ -1953,7 +1953,8 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
      *
      * 並び順は
      *   [履歴予測] -> [フレーズ辞書予測] -> [句なら変換の最良経路] -> [端末内辞書予測]
-     *   -> [変換候補] -> [Suggest 予測] -> [ひらがな/カタカナ]
+     *   -> [変換候補] -> [Suggest 予測] -> [端末内辞書予測の続き]
+     *   -> [ひらがな/カタカナ] -> [打った綴りの英字]
      * すべて「読み全体を置き換える文字列」なので、どれをタップしても全文確定できる。
      * 履歴・フレーズ辞書・端末内辞書は同期で即答するので、1 文字書いた時点で
      * 候補バーが埋まる。変換候補と Suggest は非同期で、届いたぶんだけ足す。
@@ -2031,7 +2032,11 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         //      読みと同じ長さの語（完全一致）も含むので、変換の往復を待たずに
         //      「かいしゃ」->「会社」が並ぶ。ネット変換を使うときも、通信を待つあいだ
         //      こちらが先に出て、変換結果と Suggest はあとから足される。
-        onDevice?.predict(reading, ON_DEVICE_PREDICTIONS)?.forEach { add(it) }
+        //      辞書は 1 回だけ引く（走査が処理の大半で、取る件数を増やしても重さはほぼ同じ）。
+        //      ここへ並べるのは上位 ON_DEVICE_PREDICTIONS 件までで、残りは変換候補と
+        //      Suggest のあとへ回す。候補バーの先頭側の並びは件数を増やす前と変わらない。
+        val predicted = onDevice?.predict(reading, ON_DEVICE_PREDICTIONS_ALL).orEmpty()
+        for (i in 0 until minOf(ON_DEVICE_PREDICTIONS, predicted.size)) add(predicted[i])
 
         // 3) 変換候補（transliterate / 端末内変換の結果）
         if (segs.isNotEmpty()) {
@@ -2053,13 +2058,22 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
             }
         }
 
-        // 5) 素のひらがな / カタカナ
-        add(PredictionEngine.Candidate(reading, reading, PredictionEngine.Source.RAW))
-        add(
-            PredictionEngine.Candidate(
-                reading, RomajiConverter.toKatakana(reading), PredictionEngine.Source.RAW,
-            ),
-        )
+        // 4') 端末内辞書予測の続き。候補の一覧（▼）を開いたときに下のほうへ並ぶぶん。
+        for (i in ON_DEVICE_PREDICTIONS until predicted.size) add(predicted[i])
+
+        // 5) 素のひらがな / カタカナ、6) 打った綴りの英字（kaisha / Kaisha / KAISHA）。
+        //    予測が上限まで埋まっていても必ず選べるように、この 2 つは上限の外に置く。
+        fun addRaw(surface: String) {
+            if (surface.isNotEmpty() && seen.add(surface)) {
+                out.add(PredictionEngine.Candidate(reading, surface, PredictionEngine.Source.RAW))
+            }
+        }
+        addRaw(reading)
+        addRaw(RomajiConverter.toKatakana(reading))
+        // 生の綴りが今の合成と対応しているときだけ（確定アンドゥのあとなどは崩れている）
+        if (rawMatchesComposing()) {
+            for (latin in LatinCandidates.forRaw(wordRaw.toString())) addRaw(latin)
+        }
 
         liveCandidates = out
         syncCandidateBar()
@@ -2098,8 +2112,14 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
         }
         val text = candidate.surface
         handler.removeCallbacks(liveSuggestRunnable)
-        // 予測を採用したら、その読み全体を履歴に積む（次からもっと早く出る）
-        recordHistory(candidate.reading, text, System.currentTimeMillis())
+        // 予測を採用したら、その読み全体を履歴に積む（次からもっと早く出る）。
+        // 打った綴りの英字は、綴りがすべてかなになっているときだけ覚える
+        // （"kaik" を選んだとき、読み「かい」の候補として覚えてしまわないように）。
+        val spelling = candidate.source == PredictionEngine.Source.RAW &&
+            LatinCandidates.isSpelling(text)
+        if (!spelling || romaji.isEmpty()) {
+            recordHistory(candidate.reading, text, System.currentTimeMillis())
+        }
         liveReading = ""
         liveSegments = emptyList()
         liveCandidates = emptyList()
@@ -2194,6 +2214,9 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
     private fun startConversion(result: List<GoogleConvertClient.Segment>) {
         // 「きょう」の文節には日付候補（2026/10/06 など）を先頭候補の直後へ差す
         segments = DateCandidates.insertInto(result)
+        // 1 文節のままなら、打った綴りの英字も末尾で選べるようにする
+        val raw = wordRaw.toString()
+        segments = LatinCandidates.insertInto(segments, raw, RomajiConverter.flush(raw))
         choices = IntArray(result.size)
         activeSegment = 0
         updateConversionComposing()
@@ -2924,8 +2947,12 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
          */
         const val LIVE_SUGGEST_DELAY_MS = 120L
 
-        /** 候補バーに並べる自動候補の最大数（横スクロールで全部見られる）。 */
-        const val MAX_LIVE_CANDIDATES = 20
+        /**
+         * 自動候補の最大数。候補バーは横スクロール、▼ の一覧は縦スクロールで全部見られる。
+         * 20 件だったのは横スクロールだけで見る前提の数で、処理の重さによる上限ではない。
+         * 素のひらがな・カタカナと打った綴りの英字は、この数の外に必ず足す。
+         */
+        const val MAX_LIVE_CANDIDATES = 60
 
         /**
          * 端末内辞書から取る前方一致予測の件数。
@@ -2933,6 +2960,13 @@ class UniStrokeIME : InputMethodService(), UniStrokeView.Listener {
          * ここが変換候補の代わりにもなる。
          */
         const val ON_DEVICE_PREDICTIONS = 10
+
+        /**
+         * 端末内辞書から 1 回に取る前方一致予測の総数。上位 [ON_DEVICE_PREDICTIONS] 件は
+         * 従来の位置に、残りは変換候補と Suggest のあと（一覧の下のほう）に並ぶ。
+         * 辞書の走査量は件数によらないので、増やしても 1 文字ごとの応答は変わらない。
+         */
+        const val ON_DEVICE_PREDICTIONS_ALL = 40
 
         /** 自動アルファベット化中の状態チップ。 */
         const val AUTO_LATIN_CHIP = "abc自動"

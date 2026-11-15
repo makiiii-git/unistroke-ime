@@ -343,6 +343,13 @@ class UniStrokeView @JvmOverloads constructor(
 
     /** 候補バーに描く文字（[candidates] と同じ並び）。英語版では定型文の長い文章や改行を詰める。 */
     private var candidateLabels: List<String> = emptyList()
+
+    /**
+     * [candidateLabels] の文字幅。候補を差し替えたときに 1 回だけ測る。
+     * バーの配置は描画のたび（＝手書き中は毎フレーム）に計算するので、
+     * 候補が数十件あってもそこで文字幅を測り直さない。
+     */
+    private var candidateTextWidths = FloatArray(0)
     private var candidateIndex: Int = 0
     private var candidateScroll = 0f
     private val candidateRects = ArrayList<RectF>()
@@ -419,6 +426,8 @@ class UniStrokeView @JvmOverloads constructor(
         candidates = items
         // 詰めるのは英語版だけ（日本語の変換候補は長い文でも全部見えないと選べない）
         candidateLabels = if (english) items.map { candidateLabel(it) } else items
+        candidateTextWidths =
+            FloatArray(candidateLabels.size) { candidateTextPaint.measureText(candidateLabels[it]) }
         candidateIndex = selected
         segmentNav = withSegmentNav
         candidateScroll = 0f
@@ -1658,8 +1667,8 @@ class UniStrokeView @JvmOverloads constructor(
         var x = left + dp(4f) - candidateScroll
         val top = candidateTop
         val bottom = candidateBottom
-        for (c in candidateLabels) {
-            val cw = max(dp(48f), candidateTextPaint.measureText(c) + dp(24f))
+        for (i in candidateLabels.indices) {
+            val cw = max(dp(48f), candidateTextWidths[i] + dp(24f))
             candidateRects.add(RectF(x, top, x + cw, bottom))
             x += cw
         }
@@ -1725,8 +1734,8 @@ class UniStrokeView @JvmOverloads constructor(
         var x = left
         var y = 0f
         var rowStart = 0
-        for (c in candidateLabels) {
-            val cw = min(right - left, max(dp(56f), candidateTextPaint.measureText(c) + dp(24f)))
+        for (i in candidateLabels.indices) {
+            val cw = min(right - left, max(dp(56f), candidateTextWidths[i] + dp(24f)))
             if (x > left && x + cw > right) {
                 justifyCandidateRow(rowStart, candidateListRects.size, right - x)
                 rowStart = candidateListRects.size
@@ -1784,7 +1793,7 @@ class UniStrokeView @JvmOverloads constructor(
             // 1 行に収まらない長い候補は、まず字を縮め、それでも余るぶんは末尾を詰める
             var label = candidateLabels[i]
             val maxW = r.width() - dp(12f)
-            val textW = candidateTextPaint.measureText(label)
+            val textW = candidateTextWidths[i]
             if (textW > maxW) {
                 candidateTextPaint.textSize = max(dp(12f), baseSize * maxW / textW)
                 if (candidateTextPaint.measureText(label) > maxW) {

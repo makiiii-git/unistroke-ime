@@ -408,6 +408,9 @@ def main():
           "音声入力のバナーを出すときは一覧を閉じる")
     check("closeCandidateList()" in v[v.find("fun toggleOverlay()"):v.find("fun hideOverlay()")],
           "見本を開くときは一覧を閉じる")
+    lay = v[v.find("private fun layoutCandidates("):v.find("private fun ensureCandidateVisible()")]
+    check("measureText" not in lay and "candidateTextWidths[i]" in lay,
+          "候補バーの配置で文字幅を測り直さない（手書き中の毎フレームを軽く保つ）")
 
     print()
     if FAILURES:

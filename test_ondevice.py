@@ -263,18 +263,41 @@ def main() -> int:
 
     print("== 7. IME 側の結線 ==")
     ime = read(os.path.join(KT, "UniStrokeIME.kt"))
-    check("onDevice?.predict(reading, ON_DEVICE_PREDICTIONS)" in ime,
-          "候補バーの組み立てで端末内辞書の予測を引いている")
+    check(ime.count("onDevice?.predict(reading, ON_DEVICE_PREDICTIONS_ALL)") == 1,
+          "候補バーの組み立てで端末内辞書の予測を 1 回だけ引いている")
     check("if (!networkConvertOk) {\n            onDevice?.predict" not in ime,
           "端末内辞書の予測をネット変換の有無で止めていない")
     check("if (segs.size > 1) {" in ime and
-          ime.index("if (segs.size > 1) {") < ime.index("onDevice?.predict(reading, ON_DEVICE_PREDICTIONS)"),
+          ime.index("if (segs.size > 1) {") < ime.index("onDevice?.predict(reading, ON_DEVICE_PREDICTIONS_ALL)"),
           "2 文節以上に切れた読み（句）では変換の最良経路を予測より先に出す")
     ime_consts = kotlin_int_consts(ime)
     check(ime_consts.get("ON_DEVICE_PREDICTIONS", 0) >= 8,
           "端末内辞書の予測を 8 件以上取る（実際 %s）" % ime_consts.get("ON_DEVICE_PREDICTIONS"))
     check(ime_consts.get("MAX_LIVE_CANDIDATES", 0) >= ime_consts.get("ON_DEVICE_PREDICTIONS", 0) + 5,
           "候補バーの上限に予測と変換候補の両方が収まる")
+    p_head = ime.find("for (i in 0 until minOf(ON_DEVICE_PREDICTIONS, predicted.size)) add(predicted[i])")
+    p_conv = ime.find("// 3) 変換候補")
+    p_sugg = ime.find("// 4) Google Suggest")
+    p_tail = ime.find("for (i in ON_DEVICE_PREDICTIONS until predicted.size) add(predicted[i])")
+    p_raw = ime.find("addRaw(reading)")
+    check(0 <= p_head < p_conv < p_sugg < p_tail < p_raw,
+          "予測の上位は従来の位置、続きは変換候補と Suggest のあと・かなの前に並ぶ")
+    check(ime_consts.get("ON_DEVICE_PREDICTIONS_ALL", 0) > ime_consts.get("ON_DEVICE_PREDICTIONS", 0),
+          "一覧のぶんまで予測を取っている（%s 件）" % ime_consts.get("ON_DEVICE_PREDICTIONS_ALL"))
+    check(ime_consts.get("MAX_LIVE_CANDIDATES", 0) >= ime_consts.get("ON_DEVICE_PREDICTIONS_ALL", 0) + 16,
+          "上限 %s 件に、予測の全部と履歴・変換候補が収まる" % ime_consts.get("MAX_LIVE_CANDIDATES"))
+
+    # 取る件数を増やしても並びの先頭は変わらず、重さも増えない
+    for p in ("か", "こう", "きょう"):
+        few = conv.predict(p, ime_consts["ON_DEVICE_PREDICTIONS"])
+        many = conv.predict(p, ime_consts["ON_DEVICE_PREDICTIONS_ALL"])
+        check(many[:len(few)] == few, "「%s」: 件数を増やしても上位 %d 件は同じ並び" % (p, len(few)))
+    t0 = time.time()
+    for _ in range(5):
+        conv.predict("お", ime_consts["ON_DEVICE_PREDICTIONS_ALL"])
+    ms_all = (time.time() - t0) * 1000 / 5
+    check(ms_all < 300, "「お」を %d 件取っても Python で %.1f ms（300 ms 未満。10 件のときは %.1f ms）"
+          % (ime_consts["ON_DEVICE_PREDICTIONS_ALL"], ms_all, ms))
     check("OnDeviceConverter.get(this)" in ime, "IME が端末内エンジンを取得する")
     check("requestOnDeviceSuggest" in ime, "通信できないとき端末内で予測変換する")
     check(ime.count("requestOnDeviceSuggest") >= 3,

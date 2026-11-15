@@ -28,6 +28,7 @@ SUITES = [
     ("test_entitlement.py", "プレミアムの鍵（試用・購入・配布フレーバー）"),
     ("test_english.py", "英語版（言語の切り替え・英単語の予測・IME の英語分岐）"),
     ("test_date_candidates.py", "日付候補（「きょう」-> 今日の日付）"),
+    ("test_latin_candidates.py", "英字候補（「かいしゃ」-> kaisha / Kaisha / KAISHA）"),
 ]
 
 
